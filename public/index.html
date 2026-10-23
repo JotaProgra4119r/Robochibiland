@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RoboChibi 3D - CyberPup Virtual World con IA</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Floating 3D World Speech Bubble -->
+  <div id="world-speech-bubble" class="hidden"></div>
+
+  <!-- Floating Exit Zen Mode Button -->
+  <button id="btn-exit-zen" class="zen-exit-pill hidden" title="Salir de Modo Zen (Tecla H)">👁️ Salir de Modo Zen</button>
+
+  <!-- Main Cyber HUD -->
+  <div id="hud-overlay">
+    <!-- Top Header Bar (Roblox-Style Minimal Header) -->
+    <header class="hud-topbar glass-panel">
+      <div class="topbar-left">
+        <!-- Roblox Pet Chip: Click to Switch Robot -->
+        <button id="btn-open-pet-switcher" class="roblox-pet-chip" title="Cambiar de perrito robot (TAB)">
+          <div class="robot-avatar" id="header-robot-avatar">🐾</div>
+          <div class="robot-info-chip">
+            <span id="robot-name">Sparky</span>
+            <span class="chip-caret">▼</span>
+          </div>
+          <span class="status-badge" id="think-status">Listo</span>
+        </button>
+
+        <div class="robot-stats-compact" id="robot-stats-compact">
+          <span class="stat-item"><span id="stat-emotion">😊 Feliz</span></span>
+          <div class="stat-meter-group">
+            <span class="meter-label">⚡</span>
+            <div class="meter-bar"><div id="bar-energy" class="bar-fill energy-fill"></div></div>
+            <span id="stat-energy" class="meter-num">100%</span>
+          </div>
+          <div class="stat-meter-group">
+            <span class="meter-label">🔍</span>
+            <div class="meter-bar"><div id="bar-curiosity" class="bar-fill curiosity-fill"></div></div>
+            <span id="stat-curiosity" class="meter-num">85%</span>
+          </div>
+          <div class="stat-meter-group">
+            <span class="meter-label">💖</span>
+            <div class="meter-bar"><div id="bar-affection" class="bar-fill affection-fill"></div></div>
+            <span id="stat-affection" class="meter-num">88%</span>
+          </div>
+          <div class="stat-meter-group">
+            <span class="meter-label">💧</span>
+            <div class="meter-bar"><div id="bar-hydration" class="bar-fill hydration-fill"></div></div>
+            <span id="stat-hydration" class="meter-num">90%</span>
+          </div>
+          <span class="title-tag" id="robot-title-tag">El Explorador Curioso</span>
+          <span class="loc-badge" id="stat-location">Prado Esmeralda</span>
+        </div>
+      </div>
+
+      <!-- Center: Time & Scores -->
+      <div class="topbar-center">
+        <div class="time-controls">
+          <button id="btn-time-day" class="time-btn active" title="Mediodía Soleado">☀️</button>
+          <button id="btn-time-sunset" class="time-btn" title="Atardecer Dorado">🌅</button>
+          <button id="btn-time-night" class="time-btn" title="Noche Cibernética">🌙</button>
+        </div>
+
+        <div class="score-badge" title="Puntuación en Portería y Diana">
+          ⚽ <span id="soccer-score-num">0</span> | 🎯 <span id="target-score-num">0</span>
+        </div>
+      </div>
+
+      <!-- Right: Roblox Action Cluster -->
+      <div class="topbar-right">
+        <!-- Mobile/Compact Camera Pill -->
+        <button id="btn-cam-cycle" class="hud-btn roblox-cam-pill" title="Cambiar modo de cámara (Clic para rotar)">
+          🎥 <span id="cam-current-name">Seguir</span>
+        </button>
+
+        <!-- Desktop Camera Buttons -->
+        <div class="cam-controls cam-controls-desktop" id="cam-controls-desktop">
+          <button id="btn-cam-diagonal" class="icon-btn active" title="Isométrica 45°">📐 Diag</button>
+          <button id="btn-cam-follow" class="icon-btn" title="Seguir 3ra persona">🎥 Seguir</button>
+          <button id="btn-cam-orbit" class="icon-btn" title="Órbita 360°">🌐 Órbita</button>
+          <button id="btn-cam-free" class="icon-btn" title="Modo Libre (L)">🛸 Vuelo</button>
+          <button id="btn-cam-eye" class="icon-btn" title="Ojos de Robot">👁️ Ojos</button>
+          <button id="btn-cam-drone" class="icon-btn" title="Drone Cinemático">🚁 Drone</button>
+        </div>
+
+        <!-- Fullscreen Button (Requested by User) -->
+        <button id="btn-toggle-fullscreen" class="hud-btn fs-toggle-btn glow-gold" title="Pantalla Completa (F11 / Móvil)">
+          ⛶ <span class="btn-text-label">Completa</span>
+        </button>
+
+        <!-- Hand Tool Button -->
+        <button id="pill-toggle-hand" class="hud-btn hand-pill" title="Mano 3D para agarrar perritos">
+          ✋ <span class="btn-text-label">Agarrar</span>
+        </button>
+
+        <!-- Radar Toggle Button -->
+        <button id="pill-toggle-minimap" class="hud-btn radar-pill" title="Mostrar/Ocultar Radar Táctico">
+          📡 <span class="btn-text-label">Radar</span>
+        </button>
+
+        <!-- Quick Chat Toggle -->
+        <button id="btn-toggle-chat" class="hud-btn chat-pill" title="Abrir Chat y Diálogo">
+          💬
+        </button>
+
+        <!-- Desktop Quick Modals -->
+        <div class="desktop-extra-btns" id="desktop-extra-btns">
+          <button id="btn-toggle-zen" class="hud-btn glow-cyan" title="Modo Zen: Ocultar interfaz para inmersión 3D completa (Tecla H)">👁️ Zen</button>
+
+          <div id="user-profile-badge" class="user-profile-badge" title="Cambiar nombre de usuario">
+            <span id="header-user-avatar">🐾</span>
+            <span id="header-user-name">Humano</span>
+            <small class="edit-icon">✏️</small>
+          </div>
+
+          <button id="btn-open-share" class="hud-btn glow-green" title="Compartir enlace para abrir en móvil u otro router">🔗</button>
+          <button id="btn-open-memory" class="hud-btn" title="Ver Memoria JSON">📖</button>
+          <button id="btn-open-settings" class="hud-btn" title="Configurar FreeLLMsAPI">⚙️</button>
+        </div>
+
+        <!-- Mobile Roblox Menu Hamburger/Gear Button -->
+        <button id="btn-open-game-menu" class="hud-btn menu-pill" title="Menú de Opciones y Ajustes">
+          ☰
+        </button>
+      </div>
+    </header>
+
+    <!-- Multi-Robot Possession Switcher Popover / Modal -->
+    <div class="robot-switcher-strip glass-panel hidden" id="robot-switcher-strip">
+      <div class="switcher-header">
+        <span class="switcher-label">🎮 POSEER PERRITO (TAB):</span>
+        <button id="btn-close-switcher" class="mini-icon-btn min-btn" title="Cerrar selector">✖</button>
+      </div>
+      <div class="switcher-cards">
+        <div class="robo-switch-card active" data-robot="Sparky" title="Controlar a Sparky (Gafas de Explorador)">
+          <span class="card-icon">🐾</span>
+          <div class="card-text">
+            <strong>Sparky</strong>
+            <small>Explorador</small>
+          </div>
+        </div>
+        <div class="robo-switch-card" data-robot="Bolt" title="Controlar a Bolt (Alerón Jet Turbo)">
+          <span class="card-icon">⚡</span>
+          <div class="card-text">
+            <strong>Bolt</strong>
+            <small>Velocista</small>
+          </div>
+        </div>
+        <div class="robo-switch-card" data-robot="Pixel" title="Controlar a Pixel (Cyber Visor Hacker)">
+          <span class="card-icon">🔍</span>
+          <div class="card-text">
+            <strong>Pixel</strong>
+            <small>Hacker</small>
+          </div>
+        </div>
+        <div class="robo-switch-card" data-robot="Luna" title="Controlar a Luna (Alas Celestiales)">
+          <span class="card-icon">💖</span>
+          <div class="card-text">
+            <strong>Luna</strong>
+            <small>Soñadora</small>
+          </div>
+        </div>
+        <div class="robo-switch-card" data-robot="Rusty" title="Controlar a Rusty (Cinta Deportiva y Cola Hélice)">
+          <span class="card-icon">🤸</span>
+          <div class="card-text">
+            <strong>Rusty</strong>
+            <small>Acróbata</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Floating Widget Toggles (Upper-Right) -->
+    <div class="floating-pills-bar desktop-only-pills" id="floating-pills-bar">
+      <button id="pill-toggle-pip" class="floating-pill" title="Mostrar/Ocultar Cámara en Vivo Ojos de Robot">👁️ Cámara</button>
+      <button id="pill-toggle-users" class="floating-pill" title="Mostrar/Ocultar Usuarios Conectados">👥 En Línea (<span id="online-users-count">1</span>)</button>
+    </div>
+
+    <!-- Upper-Right Visual Deck: Minimap, PIP & Users -->
+    <div class="upper-right-deck">
+      <!-- Detailed Tactical Radar Minimap -->
+      <div class="minimap-container glass-panel hidden" id="minimap-panel">
+        <div class="deck-header">
+          <span>📡 RADAR TÁCTICO & MAPA</span>
+          <div class="minimap-controls">
+            <button id="btn-minimap-zoom-in" class="mini-icon-btn" title="Acercar mapa">+</button>
+            <button id="btn-minimap-zoom-out" class="mini-icon-btn" title="Alejar mapa">-</button>
+            <button id="btn-minimap-recenter" class="mini-icon-btn" title="Centrar en mi robot">🎯</button>
+            <button id="btn-min-minimap" class="mini-icon-btn min-btn" title="Ocultar Radar">—</button>
+          </div>
+        </div>
+        <div id="minimap-body">
+          <canvas id="minimap-canvas" width="230" height="150" title="Clic en mapa = Navegar a posición"></canvas>
+          <div class="minimap-footer">
+            <small>🎯 Clic en mapa = Navegar allá</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Picture-in-Picture: Robot's Eye Vision -->
+      <div class="pip-camera-container glass-panel hidden" id="pip-panel">
+        <div class="deck-header">
+          <span>👁️ CÁMARA OJOS (EN VIVO)</span>
+          <div class="pip-header-right">
+            <span class="live-dot"></span>
+            <button id="btn-min-pip" class="mini-icon-btn min-btn" title="Cerrar Cámara">—</button>
+          </div>
+        </div>
+        <div class="pip-viewport" id="pip-body">
+          <canvas id="pip-canvas" width="230" height="130"></canvas>
+          <div class="pip-crosshair"></div>
+          <div class="pip-scanlines"></div>
+        </div>
+      </div>
+
+      <!-- Online Connected Users List -->
+      <div id="online-users-panel" class="glass-panel hidden">
+        <div class="deck-header">
+          <div class="header-left-group">
+            <span class="live-dot online-green-dot"></span>
+            <span>👥 PERSONAS CONECTADAS</span>
+          </div>
+          <button id="btn-share-server" class="mini-icon-btn glow-cyan" title="Invitar amigos / Enlaces">🔗</button>
+        </div>
+        <div id="online-users-list" class="online-users-pill-list">
+          <div class="user-pill-item current-user">
+            <span class="user-pill-avatar">🐾</span>
+            <span class="user-pill-name">Tú</span>
+            <span class="user-pill-tag">Anfitrión</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upper-Left Floating Thought Bubble Pill -->
+    <div class="upper-left-deck" id="upper-left-deck">
+      <div class="thought-bar glass-panel" id="thought-panel">
+        <div class="thought-bar-header">
+          <div class="thought-icon">💡</div>
+          <div class="thought-label">PENSAMIENTO:</div>
+          <button id="btn-manual-think" class="mini-btn" title="Hacer que la IA tome una decisión">🧠 Pensar</button>
+          <button id="btn-min-upperleft" class="mini-icon-btn min-btn" title="Minimizar pensamiento">—</button>
+        </div>
+        <div id="thought-body">
+          <div id="thought-bubble-text">Iniciando mis sensores en el prado verde... ¡Qué emoción explorar con mis amigos!</div>
+        </div>
+      </div>
+
+      <!-- Activity Ticker Feed (Auto-collapsible) -->
+      <div class="activity-ticker glass-panel" id="ticker-panel">
+        <div class="ticker-header">
+          <span>⚡ ACTIVIDAD EN VIVO</span>
+          <button id="btn-min-ticker" class="mini-icon-btn min-btn" title="Minimizar feed">—</button>
+        </div>
+        <div id="activity-ticker-content" class="ticker-content">
+          <div class="activity-item">🐾 La manada de perritos robots está activa en el prado.</div>
+          <div class="activity-item">⚡ Bolt corre tras las pelotas en el parque.</div>
+          <div class="activity-item">🔍 Pixel se acerca a la orilla del lago.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roblox-Style Floating Mobile Quick Bar -->
+    <div id="roblox-quick-bar" class="roblox-quick-bar glass-panel">
+      <button id="quick-bar-hand" class="quick-pill hand-pill" title="Mano 3D para agarrar perritos">✋ <span class="qb-text">Agarrar</span></button>
+      <button id="quick-bar-fetch" class="quick-pill fetch-pill" title="Lanzar Pelota (G)">🎾 <span class="qb-text">Pelota</span></button>
+      <button id="quick-bar-snack" class="quick-pill snack-pill" title="Soltar Galleta">🍪 <span class="qb-text">Galleta</span></button>
+      <button id="quick-bar-pet" class="quick-pill pet-pill" title="Dar mimos (P)">❤️ <span class="qb-text">Mimos</span></button>
+      <button id="quick-bar-chat" class="quick-pill chat-pill" title="Abrir Chat y Diálogo">💬 <span class="qb-text">Diálogo</span></button>
+      <button id="quick-bar-more" class="quick-pill primary-pill glow-cyan" title="Abrir menú de trucos y acciones">🎮 <span class="qb-text">Acciones ▲</span></button>
+    </div>
+
+    <!-- Bottom Action & Movement Dock with Retractable Categories -->
+    <div class="bottom-dock collapsed" id="bottom-dock">
+      <!-- Category Tabs Header -->
+      <div class="dock-tabs-bar">
+        <div class="dock-tabs-group">
+          <button class="dock-tab active" data-tab="quick" title="Acciones y juegos rápidos">🎮 Rápidas</button>
+          <button class="dock-tab" data-tab="tricks" title="Piruetas y trucos aprendidos">🤸 Acrobacias</button>
+          <button class="dock-tab" data-tab="emotions" title="Expresiones faciales y luces LED">🎨 Emociones</button>
+          <button class="dock-tab" data-tab="chat" title="Diálogo y órdenes por chat">💬 Diálogo</button>
+        </div>
+        <div class="dock-toggle-action">
+          <button id="btn-close-bottom-dock" class="dock-close-btn" title="Cerrar panel de acciones">✖</button>
+          <button id="btn-toggle-bottom-dock" class="dock-toggle-btn" title="Minimizar o expandir controles inferiores">
+            <span id="dock-toggle-icon">▲</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dock Tab Content Panes -->
+      <div class="controls-panel glass-panel" id="controls-panel">
+        <!-- Tab 1: Quick Actions & Mini-Games -->
+        <div id="tab-pane-quick" class="tab-pane active">
+          <div class="quick-actions-strip">
+            <button id="btn-hand-tool" class="action-trigger-btn hand-glow" title="Mano para agarrar y mover perritos en 3D">✋ Agarrar</button>
+            <button id="btn-throw-fetch" class="action-trigger-btn fetch-glow" title="Lanzar pelota (G)">🎾 Lanzar Pelota (G)</button>
+            <button id="btn-praise-dog" class="action-trigger-btn praise-glow" title="Elogiar: '¡Buen chico!'">❤️ ¡Buen Chico!</button>
+            <button id="btn-slalom-rings" class="action-trigger-btn rings-glow" title="Circuito de aros de agilidad">⭕ Aros</button>
+            <button id="btn-lake-swim" class="action-trigger-btn lake-glow" title="Ir a nadar al lago y chapotear">🏊 Nadar Lago</button>
+            <button id="btn-dig-treasure" class="action-trigger-btn dig-glow" title="Cavar para desenterrar un tesoro oculto">💎 Cavar Tesoro</button>
+            <button id="btn-speed-race" class="action-trigger-btn race-glow" title="Desafío de carrera de velocidad entre la manada">🏁 Carrera</button>
+            <button id="btn-spawn-snack" class="action-trigger-btn" title="Soltar una galleta energética en el suelo">🍪 Galleta</button>
+            <button id="btn-call-pack" class="action-trigger-btn pack-glow" title="Llamar a toda la manada en formación">📣 Llamar Manada</button>
+            <button id="btn-drink-water" class="action-trigger-btn" title="Ir a tomar agua a la fuente">💧 Fuente Agua</button>
+            <button id="btn-trigger-disco" class="action-trigger-btn disco-glow" title="Activar fiesta disco">🪩 Fiesta Disco</button>
+            <button id="btn-pet-robot" class="action-trigger-btn pet-glow" title="Dar mimos (P)">💖 Mimos (P)</button>
+            <button id="btn-toggle-freewill" class="action-trigger-btn freewill-glow" title="Libre albedrío">🐾 Modo Libre: OFF</button>
+            <button id="btn-toggle-touch" class="action-trigger-btn" title="Mostrar/ocultar joystick táctil en pantalla">📱 Joystick Táctil</button>
+          </div>
+
+          <div class="base-moves-strip">
+            <span class="substrip-label">MOVIMIENTOS:</span>
+            <button id="btn-anim-walk" class="ctrl-btn">Caminar</button>
+            <button id="btn-anim-run" class="ctrl-btn">Correr</button>
+            <button id="btn-anim-jump" class="ctrl-btn">Saltar (Space)</button>
+            <button id="btn-anim-bark" class="ctrl-btn">Ladrar (B)</button>
+            <button id="btn-anim-sit" class="ctrl-btn">Sentarse</button>
+            <button id="btn-anim-lieDown" class="ctrl-btn">Acostarse</button>
+            <button id="btn-anim-wagTail" class="ctrl-btn">Menear Cola</button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Acrobatic Tricks & Learned Moves -->
+        <div id="tab-pane-tricks" class="tab-pane">
+          <div class="button-grid">
+            <button id="btn-anim-backflip" class="ctrl-btn">Voltereta (F)</button>
+            <button id="btn-anim-roll" class="ctrl-btn">🔄 Rodar</button>
+            <button id="btn-anim-spin" class="ctrl-btn">Girar</button>
+            <button id="btn-anim-playBow" class="ctrl-btn" title="Reverencia de juego">🙇 Reverencia</button>
+            <button id="btn-anim-headTilt" class="ctrl-btn" title="Ladear cabeza">👂 Ladear</button>
+            <button id="btn-anim-bellyRub" class="ctrl-btn" title="Panza arriba">🐾 Panza Arriba</button>
+            <button id="btn-anim-beg" class="ctrl-btn" title="Pedir de dos patas">🤲 Pedir</button>
+            <button id="btn-anim-dance" class="ctrl-btn">🪩 Bailar</button>
+            <button id="btn-anim-howl" class="ctrl-btn">🐺 Aullar</button>
+            <button id="btn-anim-sneak" class="ctrl-btn">🕵️ Sigilo</button>
+            <button id="btn-anim-wave" class="ctrl-btn">👋 Saludar</button>
+            <button id="btn-anim-shakeOff" class="ctrl-btn">🌊 Sacudirse</button>
+            <button id="btn-anim-nuzzle" class="ctrl-btn">🐽 Boop</button>
+            <button id="btn-anim-sniff" class="ctrl-btn">Olfatear</button>
+            <button id="btn-anim-dig" class="ctrl-btn">🐾 Cavar</button>
+            <button id="btn-anim-recharge" class="ctrl-btn">🔋 Recargar</button>
+          </div>
+          <div class="tricks-header-label">✨ TRUCOS APRENDIDOS POR LA IA:</div>
+          <div id="learned-tricks-list" class="tricks-container"></div>
+        </div>
+
+        <!-- Tab 3: Emotions & LED Visor -->
+        <div id="tab-pane-emotions" class="tab-pane">
+          <div class="button-grid-emotions">
+            <button id="btn-emo-happy" class="emo-btn emo-happy">😊 Feliz</button>
+            <button id="btn-emo-curious" class="emo-btn emo-curious">🧐 Curioso</button>
+            <button id="btn-emo-loving" class="emo-btn emo-loving">💖 Cariñoso</button>
+            <button id="btn-emo-excited" class="emo-btn emo-excited">⚡ Juguetón</button>
+            <button id="btn-emo-sleepy" class="emo-btn emo-sleepy">😴 Dormir</button>
+            <button id="btn-emo-alert" class="emo-btn emo-alert">⚠️ Alerta</button>
+            <button id="btn-emo-mischievous" class="emo-btn emo-mischievous">😈 Pícaro</button>
+            <button id="btn-emo-proud" class="emo-btn emo-proud">😎 Orgulloso</button>
+            <button id="btn-emo-scared" class="emo-btn emo-scared">😱 Asustadizo</button>
+            <button id="btn-emo-hungry" class="emo-btn emo-hungry">😋 Glotón</button>
+            <button id="btn-emo-party" class="emo-btn emo-party">🪩 Fiestero</button>
+            <button id="btn-emo-confused" class="emo-btn emo-confused">🤔 Despistado</button>
+          </div>
+        </div>
+
+        <!-- Tab 4: Interactive Chat & Voice -->
+        <div id="tab-pane-chat" class="tab-pane">
+          <div class="chat-dialog-panel">
+            <div class="chat-log-header">
+              <span>💬 DIÁLOGO CON EL ROBOT</span>
+              <div class="chat-log-controls">
+                <button id="btn-toggle-voice" class="voice-btn active" title="Alternar voz sintetizada (Web Speech API)">🔊 Voz: ON</button>
+                <button id="btn-clear-chat-log" class="mini-icon-btn" title="Limpiar historial">🗑️</button>
+              </div>
+            </div>
+            <!-- Independent Dialogue Filter Pills per Robot -->
+            <div class="chat-dog-filter-bar" id="chat-dog-filter-bar">
+              <button class="chat-dog-pill active" data-dog="ALL">🐾 Todos</button>
+              <button class="chat-dog-pill" data-dog="Sparky">🐶 Sparky</button>
+              <button class="chat-dog-pill" data-dog="Bolt">⚡ Bolt</button>
+              <button class="chat-dog-pill" data-dog="Pixel">🔍 Pixel</button>
+              <button class="chat-dog-pill" data-dog="Luna">💖 Luna</button>
+              <button class="chat-dog-pill" data-dog="Rusty">🤸 Rusty</button>
+            </div>
+            <div id="chat-history-feed" class="chat-feed">
+              <div class="chat-bubble chat-system">
+                <span class="chat-author">🤖 Sistema:</span> ¡Escribe órdenes en el chat para controlar al robot en tiempo real con IA y FreeLLMAPI!
+              </div>
+            </div>
+            <div class="chat-bar">
+              <input type="text" id="chat-input" placeholder="Escribe al robot (ej: 'Ve a la piscina de pelotas', 'Patea a la diana', 'Salta en el tobogán', '¿Cómo estás?')">
+              <button id="chat-btn" class="send-btn">Enviar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Virtual Dynamic Touch Controls Overlay for Mobile (≥ 5") -->
+    <div id="virtual-touch-controls" class="touch-controls-overlay hidden">
+      <!-- Left Dynamic Virtual Joystick Zone -->
+      <div id="joystick-zone" class="joystick-zone" title="Desliza tu pulgar aquí para moverte en 360°">
+        <div id="joystick-base" class="joystick-base hidden">
+          <div id="joystick-stick" class="joystick-stick"></div>
+        </div>
+      </div>
+
+      <!-- Right Radial Action Cluster -->
+      <div class="touch-actions-container">
+        <button id="touch-btn-run" class="touch-act-btn act-run" data-key="shift">⚡ Correr</button>
+        <button id="touch-btn-jump" class="touch-act-btn act-jump" data-key=" ">🦘 Saltar</button>
+        <button id="touch-btn-bark" class="touch-act-btn act-bark" data-key="b">🗣️ Ladrar</button>
+        <button id="touch-btn-fetch" class="touch-act-btn act-fetch" data-key="g">🎾 Pelota</button>
+        <button id="touch-btn-pet" class="touch-act-btn act-pet" data-key="p">💖 Mimos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: FreeLLMsAPI Settings -->
+  <div id="modal-settings" class="modal-overlay hidden">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h2>⚙️ Configuración FreeLLMAPI</h2>
+        <button id="btn-close-settings" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Conexión directa con tu router local o remoto de <strong>FreeLLMAPI</strong>.
+          <br>
+          <span class="badge-saving">🛡️ Token-Saver:</span> Contexto semántico ultra-comprimido (&lt; 140 tokens).
+        </p>
+
+        <div class="form-group">
+          <label>URL del Endpoint (FreeLLMAPI Router):</label>
+          <input type="text" id="cfg-endpoint" value="http://127.0.0.1:31415/v1/chat/completions" placeholder="http://127.0.0.1:31415/v1/chat/completions">
+          <small class="field-hint">💡 Acepta URLs directas o comandos de consola (ej: <code>npx freellmapi setup-codex --url http://127.0.0.1:31415</code>).</small>
+        </div>
+
+        <div class="form-group">
+          <label>API Key (de tu FreeLLMAPI):</label>
+          <input type="password" id="cfg-apikey" placeholder="Pega tu API Key de FreeLLMAPI">
+        </div>
+
+        <div class="form-group">
+          <label>Modelo:</label>
+          <select id="cfg-model-select" class="styled-select">
+            <option value="auto" selected>Auto (cadena de reserva)</option>
+            <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+            <option value="gemini-flash">Gemini Flash (latest alias)</option>
+            <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+            <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite</option>
+            <option value="gemini-robotics-er-2-preview">Gemini Robotics-ER 2 Preview</option>
+            <option value="qwen3.8-27b">Qwen3.8 27B (Groq)</option>
+            <option value="gemma-4-31b-it">Gemma 4 31B IT</option>
+            <option value="gemma-4-26b-it">Gemma 4 26B IT</option>
+            <option value="glm-4.7-flash">GLM-4.7 Flash (CF)</option>
+            <option value="nemotron-3-ultra">Nemotron 3 Ultra (Ollama)</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+            <option value="custom">✏️ Escribir otro modelo manualmente...</option>
+          </select>
+          <input type="text" id="cfg-model-custom" class="hidden" placeholder="Escribe el nombre exacto de tu modelo (ej: llama-3, mistral, etc.)" style="margin-top: 6px;">
+        </div>
+
+        <div class="form-group">
+          <label>Prompt del sistema:</label>
+          <textarea id="cfg-system-prompt" rows="3" placeholder="Opcional. Se envía como mensaje del sistema antes de tu chat."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Intervalo de Pensamiento Autónomo: <span id="cfg-interval-val">10s</span></label>
+          <input type="range" id="cfg-interval" min="5" max="60" step="5" value="10">
+        </div>
+
+        <div class="form-check">
+          <input type="checkbox" id="cfg-autothink">
+          <label for="cfg-autothink">Activar pensamiento cognitivo continuo</label>
+        </div>
+
+        <div class="modal-actions">
+          <button id="btn-test-connection" class="secondary-btn">🧪 Probar Conexión</button>
+          <span id="api-test-status"></span>
+          <button id="btn-save-settings" class="primary-btn">Guardar y Activar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Memory Viewer (memory.json) -->
+  <div id="modal-memory" class="modal-overlay hidden">
+    <div class="modal-card glass-panel memory-card">
+      <div class="modal-header">
+        <h2>📖 Memoria Persistente de la Manada (memory.json)</h2>
+        <button id="btn-close-memory" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Archivo sincronizado en disco local en: <code>E:\RoboChibiLand\data\memory.json</code>.
+          Aquí se registran lugares descubiertos, amigos conocidos, trucos inventados y el diario de vivencias de cada robot.
+        </p>
+        <pre id="memory-display" class="json-viewer"></pre>
+        <div class="modal-actions">
+          <button id="btn-download-memory" class="secondary-btn">💾 Descargar Archivo JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Inicio de Sesión -->
+  <div id="modal-login" class="modal-overlay hidden">
+    <div class="modal-card glass-panel login-card">
+      <div class="modal-header">
+        <h2>🐾 ¡Bienvenido a RoboChibiLand!</h2>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Entra a este mundo virtual 3D multi-usuario colaborativo.
+          <br>
+          <strong>Ingresa tu nombre o apodo</strong> para que la manada y las demás personas conectadas te reconozcan y puedas dar órdenes en tiempo real:
+        </p>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label for="login-username-input">Tu Nombre o Apodo:</label>
+          <input type="text" id="login-username-input" placeholder="Escribe tu nombre aquí (ej: Carlos, Sofía...)" maxlength="18" autocomplete="off" autofocus>
+        </div>
+
+        <div class="form-group">
+          <label>Elige tu Avatar Canino:</label>
+          <div class="avatar-selection-grid" id="avatar-selection-grid">
+            <button class="avatar-opt active" data-avatar="🐾">🐾</button>
+            <button class="avatar-opt" data-avatar="⚡">⚡</button>
+            <button class="avatar-opt" data-avatar="🔍">🔍</button>
+            <button class="avatar-opt" data-avatar="💖">💖</button>
+            <button class="avatar-opt" data-avatar="🤸">🤸</button>
+            <button class="avatar-opt" data-avatar="🐕">🐕</button>
+            <button class="avatar-opt" data-avatar="🐺">🐺</button>
+            <button class="avatar-opt" data-avatar="🐶">🐶</button>
+            <button class="avatar-opt" data-avatar="🚀">🚀</button>
+            <button class="avatar-opt" data-avatar="🎮">🎮</button>
+            <button class="avatar-opt" data-avatar="🤖">🤖</button>
+            <button class="avatar-opt" data-avatar="✨">✨</button>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="justify-content: center; margin-top: 24px;">
+          <button id="btn-login-submit" class="primary-btn glow-cyan" style="font-size: 1.05rem; padding: 12px 28px;">🚀 Entrar a la Sesión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Conectar Dispositivos & Otros Routers -->
+  <div id="modal-share" class="modal-overlay hidden">
+    <div class="modal-card glass-panel share-card">
+      <div class="modal-header">
+        <h2>🌐 Conectar Dispositivos & Otros Routers</h2>
+        <button id="btn-close-share" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Tu PC está funcionando como servidor. Puedes conectar a tus amigos desde otro router o abrirlo en tu celular:
+        </p>
+
+        <div class="share-box">
+          <div class="share-label">🌍 1. Para abrir en OTRO ROUTER o INTERNET (Móvil con Datos / Amigos fuera):</div>
+          <div class="share-input-row">
+            <input type="text" id="share-tunnel-url" readonly value="Conectando túnel Cloudflare...">
+            <button class="copy-btn secondary-btn" data-target="share-tunnel-url">📋 Copiar</button>
+          </div>
+          <small class="share-hint">🚀 Enlace directo público seguro HTTPS (sin contraseña ni registros).</small>
+        </div>
+
+        <div class="share-box" style="margin-top: 14px;">
+          <div class="share-label">📶 2. Para abrir en tu MISMA RED WIFI (Tu celular o tablet en casa):</div>
+          <div class="share-input-row">
+            <input type="text" id="share-lan-url" readonly value="http://192.168.1.224:3000">
+            <button class="copy-btn secondary-btn" data-target="share-lan-url">📋 Copiar</button>
+          </div>
+          <small class="share-hint">💡 Abre este enlace en el navegador de tu celular conectado al mismo WiFi.</small>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 22px;">
+          <button id="btn-close-share-bottom" class="secondary-btn">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Roblox-Style Game Menu & Mobile Options -->
+  <div id="modal-game-menu" class="modal-overlay hidden">
+    <div class="modal-card glass-panel mobile-menu-card">
+      <div class="modal-header">
+        <h2>⚙️ Menú de Juego</h2>
+        <button id="btn-close-game-menu" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="mobile-menu-grid">
+          <button id="menu-btn-fullscreen" class="menu-action-item">
+            <span class="menu-item-icon">⛶</span>
+            <div class="menu-item-text">
+              <strong>Pantalla Completa</strong>
+              <small>Ocultar barras del navegador</small>
+            </div>
+          </button>
+          <button id="menu-btn-profile" class="menu-action-item">
+            <span class="menu-item-icon">👤</span>
+            <div class="menu-item-text">
+              <strong>Perfil de Jugador</strong>
+              <small id="mobile-menu-user-name">Cambiar nombre y avatar</small>
+            </div>
+          </button>
+          <button id="menu-btn-share" class="menu-action-item">
+            <span class="menu-item-icon">🔗</span>
+            <div class="menu-item-text">
+              <strong>Compartir Servidor</strong>
+              <small>Enlace Celular y WiFi</small>
+            </div>
+          </button>
+          <button id="menu-btn-zen" class="menu-action-item">
+            <span class="menu-item-icon">👁️</span>
+            <div class="menu-item-text">
+              <strong>Modo Zen</strong>
+              <small>Ocultar toda la interfaz (Tecla H)</small>
+            </div>
+          </button>
+          <button id="menu-btn-touch" class="menu-action-item">
+            <span class="menu-item-icon">📱</span>
+            <div class="menu-item-text">
+              <strong>Joystick Táctil</strong>
+              <small>Activar o desactivar en pantalla</small>
+            </div>
+          </button>
+          <button id="menu-btn-memory" class="menu-action-item">
+            <span class="menu-item-icon">📖</span>
+            <div class="menu-item-text">
+              <strong>Memoria JSON</strong>
+              <small>Ver diario y trucos aprendidos</small>
+            </div>
+          </button>
+          <button id="menu-btn-settings" class="menu-action-item">
+            <span class="menu-item-icon">🤖</span>
+            <div class="menu-item-text">
+              <strong>Ajustes de IA</strong>
+              <small>Configurar FreeLLMsAPI</small>
+            </div>
+          </button>
+          <button id="menu-btn-users" class="menu-action-item">
+            <span class="menu-item-icon">👥</span>
+            <div class="menu-item-text">
+              <strong>Personas Conectadas</strong>
+              <small><span id="mobile-menu-users-count">1</span> en línea</small>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Standalone Robust Bundle -->
+  <script src="bundle.js"></script>
+</body>
+</html>

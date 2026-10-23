@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Large local executables
+cloudflared.exe
+data/tunnel.txt
+
+# OS & Logs
+.DS_Store
+Thumbs.db
+*.log

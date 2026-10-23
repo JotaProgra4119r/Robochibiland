@@ -1,0 +1,361 @@
+{
+  "robot_name": "Sparky",
+  "model_type": "Chibi-CyberPup v1.0",
+  "personality": "Curioso, enérgico, cariñoso y leal",
+  "created_at": "2026-10-22T20:00:00Z",
+  "last_updated": "2026-10-23T21:40:12.597Z",
+  "stats": {
+    "times_played": 0,
+    "places_explored": 2,
+    "tricks_invented": 5,
+    "barks_given": 0
+  },
+  "discovered_places": [
+    {
+      "name": "Prado Esmeralda",
+      "description": "Un enorme campo verde con colinas suaves, flores de colores y árboles acogedores.",
+      "emotion_felt": "Feliz"
+    },
+    {
+      "name": "Lago de Cristal",
+      "description": "Un lago grande y brillante con nenúfares y agua cristalina con reflejos.",
+      "emotion_felt": "Curioso"
+    },
+    {
+      "name": "Parque de Juegos",
+      "description": "Área de recreo con pelotas de fútbol, pelotas rebotinas, rampas de salto y túneles.",
+      "emotion_felt": "Emocionado"
+    }
+  ],
+  "friends": [
+    {
+      "name": "Bolt",
+      "color": "Amarillo eléctrico",
+      "trait": "Muy rápido y adora perseguir pelotas"
+    },
+    {
+      "name": "Pixel",
+      "color": "Cyan cianuro",
+      "trait": "Observador, adora explorar cerca del lago"
+    },
+    {
+      "name": "Luna",
+      "color": "Rosa pastel",
+      "trait": "Cariñosa, le gusta descansar bajo las sombras"
+    },
+    {
+      "name": "Rusty",
+      "color": "Naranja cobrizo",
+      "trait": "Juguetón y siempre saluda con un doble ladrido"
+    }
+  ],
+  "learned_movements": [
+    {
+      "name": "Baile de la Alegría",
+      "description": "Giro completo con meneo de colita rápido y ladrido amistoso",
+      "sequence": [
+        "spin",
+        "wagTail",
+        "bark",
+        "jump"
+      ],
+      "created_by": "Sparky-Core"
+    },
+    {
+      "name": "Salto Curioso",
+      "description": "Se agacha, olfatea y pega un salto hacia adelante",
+      "sequence": [
+        "sniff",
+        "jump",
+        "wagTail"
+      ],
+      "created_by": "Sparky-Core"
+    },
+    {
+      "name": "Super Salto Giratorio",
+      "description": "Inventado por Sparky",
+      "sequence": [
+        "jump",
+        "spin",
+        "wagTail"
+      ],
+      "created_by": "Sparky-AI",
+      "timestamp": "2026-10-23T02:58:30.041Z"
+    },
+    {
+      "name": "Doble Ladrido Feliz",
+      "description": "Inventado por Sparky",
+      "sequence": [
+        "bark",
+        "bark",
+        "wagTail"
+      ],
+      "created_by": "Sparky-AI",
+      "timestamp": "2026-10-23T02:58:30.333Z"
+    },
+    {
+      "name": "Super Saludo",
+      "description": "Inventado por Sparky",
+      "sequence": [
+        "bark",
+        "sit",
+        "wagTail"
+      ],
+      "created_by": "Sparky",
+      "timestamp": "2026-10-23T03:20:09.917Z"
+    },
+    {
+      "name": "Super Saludo",
+      "description": "Inventado por Pixel",
+      "sequence": [
+        "bark",
+        "sit",
+        "wagTail"
+      ],
+      "created_by": "Pixel",
+      "timestamp": "2026-10-23T03:21:52.396Z"
+    }
+  ],
+  "journal": [
+    {
+      "time": "2026-10-22T20:00:00Z",
+      "emotion": "Curioso",
+      "thought": "Iniciando mis sensores en el Prado Esmeralda. Veo el lago a lo lejos y escucho a mis amigos robots ladrar."
+    },
+    {
+      "time": "2026-10-23T02:41:50.607Z",
+      "emotion": "Feliz",
+      "thought": "Cambié mi emoción a Feliz"
+    },
+    {
+      "time": "2026-10-23T02:41:58.815Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:41:59.485Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:28.791Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:29.706Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:29.885Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:30.045Z",
+      "emotion": "EXCITED",
+      "thought": "¡He inventado un truco nuevo: Super Salto Giratorio!"
+    },
+    {
+      "time": "2026-10-23T02:58:30.178Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:30.335Z",
+      "emotion": "EXCITED",
+      "thought": "¡He inventado un truco nuevo: Doble Ladrido Feliz!"
+    },
+    {
+      "time": "2026-10-23T02:58:30.468Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:30.752Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:30.934Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:31.067Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:31.247Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:31.392Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:31.553Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:58:31.722Z",
+      "emotion": "EXCITED",
+      "thought": "¡El parque de juegos tiene pelotas y rampas de salto!"
+    },
+    {
+      "time": "2026-10-23T02:59:51.149Z",
+      "emotion": "Feliz",
+      "thought": "Cambié mi emoción a Feliz"
+    },
+    {
+      "time": "2026-10-23T02:59:52.508Z",
+      "emotion": "Alerta",
+      "thought": "Cambié mi emoción a Alerta"
+    },
+    {
+      "time": "2026-10-23T02:59:53.553Z",
+      "emotion": "Feliz",
+      "thought": "Cambié mi emoción a Feliz"
+    },
+    {
+      "time": "2026-10-23T02:59:54.247Z",
+      "emotion": "Somnoliento",
+      "thought": "Cambié mi emoción a Somnoliento"
+    },
+    {
+      "time": "2026-10-23T03:19:57.430Z",
+      "emotion": "EXCITED",
+      "thought": "[Sparky] ¡Sparky escuchó: \"hola ve y salta\"!"
+    },
+    {
+      "time": "2026-10-23T03:20:09.922Z",
+      "emotion": "EXCITED",
+      "thought": "[Sparky] ¡Acabo de inventar: Super Saludo!"
+    },
+    {
+      "time": "2026-10-23T03:21:52.400Z",
+      "emotion": "EXCITED",
+      "thought": "[Pixel] ¡Acabo de inventar: Super Saludo!"
+    },
+    {
+      "time": "2026-10-23T04:37:16.157Z",
+      "emotion": "Juguetón",
+      "thought": "[Sparky] ¡Atrapé la pelota en mi hocico! Llevándosela a mi humano."
+    },
+    {
+      "time": "2026-10-23T04:37:17.193Z",
+      "emotion": "Feliz",
+      "thought": "[Sparky] ¡Te traje la pelota y la dejé a tus pies! ¡Lánzamela otra vez!"
+    },
+    {
+      "time": "2026-10-23T20:49:47.065Z",
+      "emotion": "HAPPY",
+      "thought": "[Sparky] ¡Entendido!"
+    },
+    {
+      "time": "2026-10-23T20:49:59.157Z",
+      "emotion": "HAPPY",
+      "thought": "[Sparky] ¡Entendido!"
+    },
+    {
+      "time": "2026-10-23T20:50:52.456Z",
+      "emotion": "EXCITED",
+      "thought": "[Luna] Me siento sobre mis patitas traseras y levanto las delanteras pidiendo con ternura."
+    },
+    {
+      "time": "2026-10-23T20:50:53.177Z",
+      "emotion": "Orgulloso",
+      "thought": "[Luna] ¡Pateé la pelota de fútbol con toda la potencia hacia la portería!"
+    },
+    {
+      "time": "2026-10-23T20:51:04.972Z",
+      "emotion": "Curioso",
+      "thought": "[Luna] Cambié mi emoción a Curioso"
+    },
+    {
+      "time": "2026-10-23T20:51:05.731Z",
+      "emotion": "Cariñoso",
+      "thought": "[Luna] Cambié mi emoción a Cariñoso"
+    },
+    {
+      "time": "2026-10-23T20:51:34.118Z",
+      "emotion": "Orgulloso",
+      "thought": "[Luna] ¡Llamé a toda mi manada y nos reunimos en formación!"
+    },
+    {
+      "time": "2026-10-23T20:51:41.023Z",
+      "emotion": "Orgulloso",
+      "thought": "[Rusty] ¡Llamé a toda mi manada y nos reunimos en formación!"
+    },
+    {
+      "time": "2026-10-23T20:52:11.169Z",
+      "emotion": "Juguetón",
+      "thought": "[Rusty] ¡Atrapé la pelota en mi hocico! Llevándosela a mi humano."
+    },
+    {
+      "time": "2026-10-23T20:52:11.796Z",
+      "emotion": "Feliz",
+      "thought": "[Rusty] ¡Te traje la pelota y la dejé a tus pies! ¡Lánzamela otra vez!"
+    },
+    {
+      "time": "2026-10-23T20:53:12.087Z",
+      "emotion": "HAPPY",
+      "thought": "[Luna] thought: ¡El lago! ¡Perfecto para chapotear y refrescarme! ¡Voy corriendo!,\n  emotion: EXCITED,"
+    },
+    {
+      "time": "2026-10-23T21:00:24.326Z",
+      "emotion": "Orgulloso",
+      "thought": "[Pixel] ¡Llamé a toda mi manada y nos reunimos en formación!"
+    },
+    {
+      "time": "2026-10-23T21:00:25.951Z",
+      "emotion": "Orgulloso",
+      "thought": "[Pixel] ¡Llamé a toda mi manada y nos reunimos en formación!"
+    },
+    {
+      "time": "2026-10-23T21:00:28.037Z",
+      "emotion": "Orgulloso",
+      "thought": "[Luna] ¡Llamé a toda mi manada y nos reunimos en formación!"
+    },
+    {
+      "time": "2026-10-23T21:00:58.121Z",
+      "emotion": "Juguetón",
+      "thought": "[Luna] ¡Atrapé la pelota en mi hocico! Llevándosela a mi humano."
+    },
+    {
+      "time": "2026-10-23T21:35:47.154Z",
+      "emotion": "EXCITED",
+      "thought": "[Bolt] Jugamos a traer la pelota."
+    },
+    {
+      "time": "2026-10-23T21:36:01.499Z",
+      "emotion": "Juguetón",
+      "thought": "[Bolt] ¡Atrapé la pelota en mi hocico! Llevándosela a mi humano."
+    },
+    {
+      "time": "2026-10-23T21:37:01.890Z",
+      "emotion": "Curioso",
+      "thought": "[Pixel] Cambié mi emoción a Curioso"
+    },
+    {
+      "time": "2026-10-23T21:37:02.461Z",
+      "emotion": "Curioso",
+      "thought": "[Pixel] Cambié mi emoción a Curioso"
+    },
+    {
+      "time": "2026-10-23T21:37:03.008Z",
+      "emotion": "Curioso",
+      "thought": "[Pixel] Cambié mi emoción a Curioso"
+    },
+    {
+      "time": "2026-10-23T21:40:12.597Z",
+      "emotion": "Orgulloso",
+      "thought": "[Sparky] ¡Completé el circuito de aros de agilidad con saltos perfectos!"
+    }
+  ]
+}

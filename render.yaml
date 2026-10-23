@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: robochibiland
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
