@@ -36907,9 +36907,10 @@ void main() {
       this.robot = robot;
       this.scene = scene;
       this.world = world;
-      this.eyeCamera = new PerspectiveCamera(70, 1.6, 0.2, 200);
-      if (this.robot.nodes.head) {
-        this.eyeCamera.position.set(0, 0.5, 0.75);
+      this.eyeCamera = new PerspectiveCamera(75, 230 / 130, 0.05, 300);
+      this.eyeCamera.rotation.y = Math.PI;
+      this.eyeCamera.position.set(0, 0.58, 0.96);
+      if (this.robot && this.robot.nodes && this.robot.nodes.head) {
         this.robot.nodes.head.add(this.eyeCamera);
       }
       this.pipCanvas = null;
@@ -36923,19 +36924,31 @@ void main() {
       try {
         this.pipRenderer = new WebGLRenderer({
           canvas: canvasElement,
-          antialias: false,
-          alpha: false
+          antialias: true,
+          alpha: false,
+          powerPreference: "default"
         });
-        const w = Math.max(canvasElement.clientWidth || 240, 100);
-        const h = Math.max(canvasElement.clientHeight || 150, 60);
+        this.pipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        const w = canvasElement.clientWidth || 230;
+        const h = canvasElement.clientHeight || 130;
         this.pipRenderer.setSize(w, h, false);
-        this.pipRenderer.setPixelRatio(1);
+        this.pipRenderer.setClearColor(659485, 1);
       } catch (e) {
         console.warn("PIP canvas WebGL fallback:", e);
       }
     }
     renderPIP() {
       if (!this.pipRenderer || !this.pipCanvas) return;
+      const w = this.pipCanvas.clientWidth || this.pipCanvas.width || 230;
+      const h = this.pipCanvas.clientHeight || this.pipCanvas.height || 130;
+      if (w > 10 && h > 10) {
+        const curSize = this.pipRenderer.getSize(new Vector2());
+        if (Math.abs(curSize.x - w) > 2 || Math.abs(curSize.y - h) > 2) {
+          this.pipRenderer.setSize(w, h, false);
+          this.eyeCamera.aspect = w / h;
+          this.eyeCamera.updateProjectionMatrix();
+        }
+      }
       try {
         this.pipRenderer.render(this.scene, this.eyeCamera);
       } catch (e) {
@@ -38687,6 +38700,8 @@ ${systemPrompt}`;
       this.vision.robot = newPlayer;
       if (this.vision.eyeCamera && newPlayer.nodes.head) {
         newPlayer.nodes.head.add(this.vision.eyeCamera);
+        this.vision.eyeCamera.position.set(0, 0.58, 0.96);
+        this.vision.eyeCamera.rotation.set(0, Math.PI, 0);
       }
       this.brain.setRobot(newPlayer);
       const nameEl = document.getElementById("robot-name");
@@ -38954,6 +38969,14 @@ ${systemPrompt}`;
         gameMenuModal?.classList.add("hidden");
         document.getElementById("modal-login")?.classList.remove("hidden");
       });
+      document.getElementById("menu-btn-pip")?.addEventListener("click", () => {
+        gameMenuModal?.classList.add("hidden");
+        const pipPanel = document.getElementById("pip-panel");
+        if (!pipPanel) return;
+        pipPanel.classList.toggle("hidden");
+        const isShown = !pipPanel.classList.contains("hidden");
+        document.getElementById("pill-toggle-pip")?.classList.toggle("active", isShown);
+      });
       document.getElementById("menu-btn-share")?.addEventListener("click", () => {
         gameMenuModal?.classList.add("hidden");
         document.getElementById("btn-open-share")?.click();
@@ -38993,22 +39016,6 @@ ${systemPrompt}`;
       wirePill("pill-toggle-minimap", "minimap-panel");
       wirePill("pill-toggle-pip", "pip-panel");
       wirePill("pill-toggle-users", "online-users-panel");
-      document.getElementById("btn-min-minimap")?.addEventListener("click", () => {
-        document.getElementById("minimap-panel")?.classList.add("hidden");
-        document.getElementById("pill-toggle-minimap")?.classList.remove("active");
-      });
-      document.getElementById("btn-min-pip")?.addEventListener("click", () => {
-        document.getElementById("pip-panel")?.classList.add("hidden");
-        document.getElementById("pill-toggle-pip")?.classList.remove("active");
-      });
-      const voiceBtn = document.getElementById("btn-toggle-voice");
-      voiceBtn?.addEventListener("click", () => {
-        if (!this.brain) return;
-        this.brain.isVoiceEnabled = !this.brain.isVoiceEnabled;
-        voiceBtn.classList.toggle("active", this.brain.isVoiceEnabled);
-        voiceBtn.textContent = this.brain.isVoiceEnabled ? "\u{1F50A} Voz: ON" : "\u{1F507} Voz: OFF";
-        this.pushActivity(this.brain.isVoiceEnabled ? "\u{1F50A} Voz de los robots activada." : "\u{1F507} Voz desactivada.");
-      });
       const setupMinimize = (btnId, panelId) => {
         const btn = document.getElementById(btnId);
         const panel = document.getElementById(panelId);
@@ -39016,11 +39023,25 @@ ${systemPrompt}`;
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           panel.classList.toggle("minimized");
-          btn.textContent = panel.classList.contains("minimized") ? "\u25A2" : "\u2014";
+          const isMin = panel.classList.contains("minimized");
+          btn.textContent = isMin ? "\u25A2" : "\u2014";
+          btn.title = isMin ? "Expandir" : "Minimizar";
         });
       };
       setupMinimize("btn-min-upperleft", "thought-panel");
       setupMinimize("btn-min-ticker", "ticker-panel");
+      setupMinimize("btn-min-minimap", "minimap-panel");
+      setupMinimize("btn-min-pip", "pip-panel");
+      document.getElementById("btn-close-minimap")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.getElementById("minimap-panel")?.classList.add("hidden");
+        document.getElementById("pill-toggle-minimap")?.classList.remove("active");
+      });
+      document.getElementById("btn-close-pip")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.getElementById("pip-panel")?.classList.add("hidden");
+        document.getElementById("pill-toggle-pip")?.classList.remove("active");
+      });
       if (window.innerWidth <= 900) {
         const thoughtPanel = document.getElementById("thought-panel");
         const minBtn = document.getElementById("btn-min-upperleft");
@@ -40210,11 +40231,13 @@ Endpoint: ${cleanEp}`);
         if (this.brain) this.brain.update(delta);
         this.updateCamera(delta);
         this.renderer.render(this.scene, this.camera);
-        if (this.vision && !document.getElementById("pip-panel")?.classList.contains("hidden")) {
+        const pipPanel = document.getElementById("pip-panel");
+        if (this.vision && pipPanel && !pipPanel.classList.contains("hidden") && !pipPanel.classList.contains("minimized")) {
           this.vision.renderPIP();
         }
         this.updateHUDStats();
-        if (!document.getElementById("minimap-panel")?.classList.contains("hidden")) {
+        const minimapPanel = document.getElementById("minimap-panel");
+        if (minimapPanel && !minimapPanel.classList.contains("hidden") && !minimapPanel.classList.contains("minimized")) {
           this.renderMinimap(delta);
         }
         this.updateSpeechBubblePos();

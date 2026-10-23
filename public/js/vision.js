@@ -8,10 +8,12 @@ export class RobotVisionSystem {
     this.world = world;
 
     // 1. Physical 3D Eye Camera
-    this.eyeCamera = new THREE.PerspectiveCamera(70, 1.6, 0.2, 200);
-    // Attach eye camera to robot's head
-    if (this.robot.nodes.head) {
-      this.eyeCamera.position.set(0, 0.5, 0.75); // positioned right at visor eyes
+    this.eyeCamera = new THREE.PerspectiveCamera(75, 230 / 130, 0.05, 300);
+    // Orient forward (+Z) so it looks ahead in direction of dog's sight!
+    this.eyeCamera.rotation.y = Math.PI;
+    // Position ahead of head box and above snout for a completely unobstructed view
+    this.eyeCamera.position.set(0, 0.58, 0.96);
+    if (this.robot && this.robot.nodes && this.robot.nodes.head) {
       this.robot.nodes.head.add(this.eyeCamera);
     }
 
@@ -31,13 +33,15 @@ export class RobotVisionSystem {
     try {
       this.pipRenderer = new THREE.WebGLRenderer({
         canvas: canvasElement,
-        antialias: false,
-        alpha: false
+        antialias: true,
+        alpha: false,
+        powerPreference: 'default'
       });
-      const w = Math.max(canvasElement.clientWidth || 240, 100);
-      const h = Math.max(canvasElement.clientHeight || 150, 60);
+      this.pipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      const w = canvasElement.clientWidth || 230;
+      const h = canvasElement.clientHeight || 130;
       this.pipRenderer.setSize(w, h, false);
-      this.pipRenderer.setPixelRatio(1);
+      this.pipRenderer.setClearColor(0x0a101d, 1);
     } catch (e) {
       console.warn("PIP canvas WebGL fallback:", e);
     }
@@ -45,9 +49,25 @@ export class RobotVisionSystem {
 
   renderPIP() {
     if (!this.pipRenderer || !this.pipCanvas) return;
+
+    // Dynamically adjust to canvas bounding dimensions when visible
+    const w = this.pipCanvas.clientWidth || this.pipCanvas.width || 230;
+    const h = this.pipCanvas.clientHeight || this.pipCanvas.height || 130;
+
+    if (w > 10 && h > 10) {
+      const curSize = this.pipRenderer.getSize(new THREE.Vector2());
+      if (Math.abs(curSize.x - w) > 2 || Math.abs(curSize.y - h) > 2) {
+        this.pipRenderer.setSize(w, h, false);
+        this.eyeCamera.aspect = w / h;
+        this.eyeCamera.updateProjectionMatrix();
+      }
+    }
+
     try {
       this.pipRenderer.render(this.scene, this.eyeCamera);
-    } catch (e) {}
+    } catch (e) {
+      // transient render catch
+    }
   }
 
   // Noción del Cuerpo (Proprioception)

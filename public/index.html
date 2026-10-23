@@ -194,7 +194,8 @@
             <button id="btn-minimap-zoom-in" class="mini-icon-btn" title="Acercar mapa">+</button>
             <button id="btn-minimap-zoom-out" class="mini-icon-btn" title="Alejar mapa">-</button>
             <button id="btn-minimap-recenter" class="mini-icon-btn" title="Centrar en mi robot">🎯</button>
-            <button id="btn-min-minimap" class="mini-icon-btn min-btn" title="Ocultar Radar">—</button>
+            <button id="btn-min-minimap" class="mini-icon-btn min-btn" title="Minimizar o expandir radar">—</button>
+            <button id="btn-close-minimap" class="mini-icon-btn min-btn close-panel-btn" title="Cerrar radar">✖</button>
           </div>
         </div>
         <div id="minimap-body">
@@ -211,7 +212,8 @@
           <span>👁️ CÁMARA OJOS (EN VIVO)</span>
           <div class="pip-header-right">
             <span class="live-dot"></span>
-            <button id="btn-min-pip" class="mini-icon-btn min-btn" title="Cerrar Cámara">—</button>
+            <button id="btn-min-pip" class="mini-icon-btn min-btn" title="Minimizar o expandir cámara">—</button>
+            <button id="btn-close-pip" class="mini-icon-btn min-btn close-panel-btn" title="Cerrar cámara en vivo">✖</button>
           </div>
         </div>
         <div class="pip-viewport" id="pip-body">
@@ -608,6 +610,13 @@
             <div class="menu-item-text">
               <strong>Pantalla Completa</strong>
               <small>Ocultar barras del navegador</small>
+            </div>
+          </button>
+          <button id="menu-btn-pip" class="menu-action-item">
+            <span class="menu-item-icon">👁️</span>
+            <div class="menu-item-text">
+              <strong>Cámara en Vivo (Ojos)</strong>
+              <small>Ver mundo desde el robot</small>
             </div>
           </button>
           <button id="menu-btn-profile" class="menu-action-item">

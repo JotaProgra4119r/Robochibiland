@@ -243,6 +243,8 @@ class App {
     this.vision.robot = newPlayer;
     if (this.vision.eyeCamera && newPlayer.nodes.head) {
       newPlayer.nodes.head.add(this.vision.eyeCamera);
+      this.vision.eyeCamera.position.set(0, 0.58, 0.96);
+      this.vision.eyeCamera.rotation.set(0, Math.PI, 0);
     }
     this.brain.setRobot(newPlayer);
 
@@ -572,6 +574,15 @@ class App {
       document.getElementById('modal-login')?.classList.remove('hidden');
     });
 
+    document.getElementById('menu-btn-pip')?.addEventListener('click', () => {
+      gameMenuModal?.classList.add('hidden');
+      const pipPanel = document.getElementById('pip-panel');
+      if (!pipPanel) return;
+      pipPanel.classList.toggle('hidden');
+      const isShown = !pipPanel.classList.contains('hidden');
+      document.getElementById('pill-toggle-pip')?.classList.toggle('active', isShown);
+    });
+
     document.getElementById('menu-btn-share')?.addEventListener('click', () => {
       gameMenuModal?.classList.add('hidden');
       document.getElementById('btn-open-share')?.click();
@@ -622,26 +633,7 @@ class App {
     wirePill('pill-toggle-pip', 'pip-panel');
     wirePill('pill-toggle-users', 'online-users-panel');
 
-    document.getElementById('btn-min-minimap')?.addEventListener('click', () => {
-      document.getElementById('minimap-panel')?.classList.add('hidden');
-      document.getElementById('pill-toggle-minimap')?.classList.remove('active');
-    });
-    document.getElementById('btn-min-pip')?.addEventListener('click', () => {
-      document.getElementById('pip-panel')?.classList.add('hidden');
-      document.getElementById('pill-toggle-pip')?.classList.remove('active');
-    });
-
-    // Voice Synthesis Toggle Button
-    const voiceBtn = document.getElementById('btn-toggle-voice');
-    voiceBtn?.addEventListener('click', () => {
-      if (!this.brain) return;
-      this.brain.isVoiceEnabled = !this.brain.isVoiceEnabled;
-      voiceBtn.classList.toggle('active', this.brain.isVoiceEnabled);
-      voiceBtn.textContent = this.brain.isVoiceEnabled ? '🔊 Voz: ON' : '🔇 Voz: OFF';
-      this.pushActivity(this.brain.isVoiceEnabled ? '🔊 Voz de los robots activada.' : '🔇 Voz desactivada.');
-    });
-
-    // Panel Minimize Toggles
+    // Panel Minimize Toggles (Collapses canvas/body, leaves header bar visible)
     const setupMinimize = (btnId, panelId) => {
       const btn = document.getElementById(btnId);
       const panel = document.getElementById(panelId);
@@ -649,12 +641,29 @@ class App {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         panel.classList.toggle('minimized');
-        btn.textContent = panel.classList.contains('minimized') ? '▢' : '—';
+        const isMin = panel.classList.contains('minimized');
+        btn.textContent = isMin ? '▢' : '—';
+        btn.title = isMin ? 'Expandir' : 'Minimizar';
       });
     };
 
     setupMinimize('btn-min-upperleft', 'thought-panel');
     setupMinimize('btn-min-ticker', 'ticker-panel');
+    setupMinimize('btn-min-minimap', 'minimap-panel');
+    setupMinimize('btn-min-pip', 'pip-panel');
+
+    // Panel Close Buttons (Hides panel completely)
+    document.getElementById('btn-close-minimap')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('minimap-panel')?.classList.add('hidden');
+      document.getElementById('pill-toggle-minimap')?.classList.remove('active');
+    });
+
+    document.getElementById('btn-close-pip')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('pip-panel')?.classList.add('hidden');
+      document.getElementById('pill-toggle-pip')?.classList.remove('active');
+    });
 
     // Auto-minimize thought panel on mobile/compact screens to free 3D view
     if (window.innerWidth <= 900) {
@@ -2041,15 +2050,17 @@ class App {
       this.updateCamera(delta);
       this.renderer.render(this.scene, this.camera);
 
-      // Performance Optimization: Only render PIP camera when panel is open!
-      if (this.vision && !document.getElementById('pip-panel')?.classList.contains('hidden')) {
+      // Performance Optimization: Only render PIP camera when panel is open and not minimized!
+      const pipPanel = document.getElementById('pip-panel');
+      if (this.vision && pipPanel && !pipPanel.classList.contains('hidden') && !pipPanel.classList.contains('minimized')) {
         this.vision.renderPIP();
       }
 
       this.updateHUDStats();
 
-      // Performance Optimization: Only render Minimap when radar panel is open!
-      if (!document.getElementById('minimap-panel')?.classList.contains('hidden')) {
+      // Performance Optimization: Only render Minimap when radar panel is open and not minimized!
+      const minimapPanel = document.getElementById('minimap-panel');
+      if (minimapPanel && !minimapPanel.classList.contains('hidden') && !minimapPanel.classList.contains('minimized')) {
         this.renderMinimap(delta);
       }
       this.updateSpeechBubblePos();
