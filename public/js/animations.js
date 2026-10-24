@@ -1,4 +1,5 @@
 // Procedural & Keyframe Animation System for Chibi Robot Dogs
+// Features Smooth Exponential Pose Damping, 3-Joint Leg Kinematics (Hip/Knee/Paw) & Squash-and-Stretch
 import * as THREE from 'three';
 import { roboAudio } from './audio.js';
 
@@ -21,8 +22,61 @@ export class AnimationController {
     this.stepTimer = 0;
   }
 
+  // Frame-rate independent smooth damping helper
+  damp(current, target, lambda, delta) {
+    return THREE.MathUtils.damp(current, target, lambda, delta);
+  }
+
+  // Ensures unused axes smoothly return to neutral between different animations
+  dampPoseToNeutral(delta, speed = 8, options = {}) {
+    const { body, neck, tail, earL, earR, legs } = this.nodes;
+    if (!options.keepBodyPos) {
+      body.position.y = this.damp(body.position.y, this.baseBodyY, speed, delta);
+    }
+    if (!options.keepBodyRot) {
+      body.rotation.x = this.damp(body.rotation.x, 0, speed, delta);
+      body.rotation.y = this.damp(body.rotation.y, 0, speed, delta);
+      body.rotation.z = this.damp(body.rotation.z, this.robot.bankAngle || 0, speed, delta);
+    }
+    if (!options.keepBodyScale) {
+      body.scale.x = this.damp(body.scale.x, 1.0, speed, delta);
+      body.scale.y = this.damp(body.scale.y, 1.0, speed, delta);
+      body.scale.z = this.damp(body.scale.z, 1.0, speed, delta);
+    }
+    if (!options.keepNeck && neck && !this.robot.hasTarget) {
+      neck.rotation.x = this.damp(neck.rotation.x, 0, speed, delta);
+      neck.rotation.y = this.damp(neck.rotation.y, 0, speed, delta);
+      neck.rotation.z = this.damp(neck.rotation.z, 0, speed, delta);
+    }
+    if (!options.keepTail && tail) {
+      tail.rotation.x = this.damp(tail.rotation.x, 0.55, speed, delta);
+      tail.rotation.y = this.damp(tail.rotation.y, 0, speed, delta);
+      tail.rotation.z = this.damp(tail.rotation.z, 0, speed, delta);
+    }
+    if (!options.keepEars && earL && earR) {
+      earL.rotation.x = this.damp(earL.rotation.x, 0, speed, delta);
+      earR.rotation.x = this.damp(earR.rotation.x, 0, speed, delta);
+    }
+    if (!options.keepLegs && legs) {
+      Object.values(legs).forEach(leg => {
+        leg.hip.rotation.x = this.damp(leg.hip.rotation.x, 0, speed, delta);
+        leg.hip.rotation.y = this.damp(leg.hip.rotation.y, 0, speed, delta);
+        leg.hip.rotation.z = this.damp(leg.hip.rotation.z, 0, speed, delta);
+        leg.knee.rotation.x = this.damp(leg.knee.rotation.x, 0, speed, delta);
+        if (leg.paw) leg.paw.rotation.x = this.damp(leg.paw.rotation.x, 0, speed, delta);
+      });
+    }
+  }
+
   play(animName, duration = 0) {
     if (this.currentAnim === animName && !duration) return;
+
+    // Normalize full-turn rotations (e.g. after backflip or roll) so lerp doesn't unwind violently
+    if (this.nodes.body) {
+      this.nodes.body.rotation.x = this.nodes.body.rotation.x % (Math.PI * 2);
+      this.nodes.body.rotation.z = this.nodes.body.rotation.z % (Math.PI * 2);
+    }
+
     this.currentAnim = animName;
     this.animTime = 0;
 
@@ -34,7 +88,6 @@ export class AnimationController {
     }
   }
 
-  // Execute a sequence of pre-recorded or learned movements
   playSequence(actionNames, onComplete = null) {
     this.actionQueue = [...actionNames];
     this.onSequenceComplete = onComplete;
@@ -87,7 +140,6 @@ export class AnimationController {
   update(delta) {
     this.animTime += delta * this.animSpeed;
 
-    // Check action duration timeout
     if (this.actionDuration > 0) {
       this.actionTimer += delta;
       if (this.actionTimer >= this.actionDuration) {
@@ -104,7 +156,7 @@ export class AnimationController {
         this.animateWalk(delta, 1.0);
         break;
       case 'run':
-        this.animateWalk(delta, 2.2);
+        this.animateWalk(delta, 2.1);
         break;
       case 'sit':
         this.animateSit(delta);
@@ -197,388 +249,408 @@ export class AnimationController {
   }
 
   animateIdle(delta) {
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepTail: true, keepEars: true });
     const t = this.animTime;
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const earL = this.nodes.earL;
-    const earR = this.nodes.earR;
-    const legs = this.nodes.legs;
+    const { body, neck, tail, earL, earR } = this.nodes;
 
-    // Subtle gentle breathing
-    body.position.y = THREE.MathUtils.lerp(body.position.y, this.baseBodyY + Math.sin(t * 2.2) * 0.03, delta * 6);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, 0, delta * 6);
-    body.rotation.z = THREE.MathUtils.lerp(body.rotation.z, 0, delta * 6);
+    // Natural organic breathing (chest expansion & vertical bob)
+    const breath = Math.sin(t * 2.4);
+    body.position.y = this.damp(body.position.y, this.baseBodyY + breath * 0.028, 8, delta);
+    body.rotation.x = this.damp(body.rotation.x, breath * 0.018, 6, delta);
 
-    // Ears twitching
-    earL.rotation.x = Math.sin(t * 1.5) * 0.08;
-    earR.rotation.x = Math.sin(t * 1.5 + 0.5) * 0.08;
+    if (!this.robot.hasTarget && neck) {
+      neck.rotation.x = this.damp(neck.rotation.x, -breath * 0.03 + Math.sin(t * 1.1) * 0.04, 6, delta);
+      neck.rotation.y = this.damp(neck.rotation.y, Math.sin(t * 0.7) * 0.06, 5, delta);
+    }
 
-    // Tail gentle wag
-    tail.rotation.y = Math.sin(t * 3.5) * 0.35;
-    tail.rotation.z = Math.sin(t * 2.0) * 0.15;
+    // Playful ear micro-twitches
+    const earTwitch = Math.pow(Math.max(0, Math.sin(t * 1.7)), 6) * 0.22;
+    earL.rotation.x = this.damp(earL.rotation.x, Math.sin(t * 1.5) * 0.06 + earTwitch, 10, delta);
+    earR.rotation.x = this.damp(earR.rotation.x, Math.sin(t * 1.5 + 0.8) * 0.06, 10, delta);
 
-    // Reset legs to upright stance
-    Object.values(legs).forEach(leg => {
-      leg.hip.rotation.x = THREE.MathUtils.lerp(leg.hip.rotation.x, 0, delta * 6);
-      leg.hip.rotation.z = THREE.MathUtils.lerp(leg.hip.rotation.z, 0, delta * 6);
-      leg.knee.rotation.x = THREE.MathUtils.lerp(leg.knee.rotation.x, 0, delta * 6);
-    });
+    // Figure-8 happy tail sway
+    tail.rotation.x = this.damp(tail.rotation.x, 0.55 + Math.cos(t * 2.2) * 0.08, 8, delta);
+    tail.rotation.y = this.damp(tail.rotation.y, Math.sin(t * 3.6) * 0.38, 10, delta);
+    tail.rotation.z = this.damp(tail.rotation.z, Math.cos(t * 1.8) * 0.12, 8, delta);
   }
 
   animateWalk(delta, speedMultiplier = 1.0) {
-    const t = this.animTime * 6.5 * speedMultiplier;
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 10, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepTail: true });
+    const isRun = speedMultiplier > 1.5;
+    const freq = isRun ? 10.5 : 6.8;
+    const t = this.animTime * freq;
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Body bob and sway
-    const bob = Math.abs(Math.sin(t)) * 0.08;
-    body.position.y = this.baseBodyY + bob;
-    body.rotation.z = Math.sin(t) * 0.04;
-    body.rotation.y = Math.cos(t) * 0.03;
+    // Quadruped gait: Trot for walk, bounding canter for run
+    const phaseFL = 0;
+    const phaseBR = isRun ? 0.35 : 0.15;
+    const phaseFR = Math.PI;
+    const phaseBL = isRun ? Math.PI + 0.35 : Math.PI + 0.15;
 
-    // Quadruped diagonal gait cycle:
-    // Pair 1: Front-Left & Back-Right
-    // Pair 2: Front-Right & Back-Left
-    const swingFL = Math.sin(t) * 0.55 * speedMultiplier;
-    const swingBR = Math.sin(t) * 0.55 * speedMultiplier;
-    const swingFR = Math.sin(t + Math.PI) * 0.55 * speedMultiplier;
-    const swingBL = Math.sin(t + Math.PI) * 0.55 * speedMultiplier;
+    const strideAmp = isRun ? 0.78 : 0.48;
+    const kneeLiftAmp = isRun ? 0.85 : 0.55;
 
-    legs.FL.hip.rotation.x = swingFL;
-    legs.FL.knee.rotation.x = Math.max(0, -swingFL * 0.7);
+    const applyLegKinematics = (leg, phase, isFront) => {
+      const cycle = t + phase;
+      const hipTarget = Math.sin(cycle) * strideAmp;
+      // Lift knee only during forward swing (when cos(cycle) > 0)
+      const swingLift = Math.max(0, Math.cos(cycle));
+      const kneeTarget = isFront ? swingLift * kneeLiftAmp : -swingLift * kneeLiftAmp * 0.85;
+      const pawTarget = -swingLift * 0.35 + Math.sin(cycle) * 0.15;
 
-    legs.BR.hip.rotation.x = swingBR;
-    legs.BR.knee.rotation.x = Math.max(0, swingBR * 0.7);
+      leg.hip.rotation.x = this.damp(leg.hip.rotation.x, hipTarget, 18, delta);
+      leg.hip.rotation.z = this.damp(leg.hip.rotation.z, 0, 12, delta);
+      leg.knee.rotation.x = this.damp(leg.knee.rotation.x, kneeTarget, 18, delta);
+      if (leg.paw) {
+        leg.paw.rotation.x = this.damp(leg.paw.rotation.x, pawTarget, 18, delta);
+      }
+    };
 
-    legs.FR.hip.rotation.x = swingFR;
-    legs.FR.knee.rotation.x = Math.max(0, -swingFR * 0.7);
+    applyLegKinematics(legs.FL, phaseFL, true);
+    applyLegKinematics(legs.BR, phaseBR, false);
+    applyLegKinematics(legs.FR, phaseFR, true);
+    applyLegKinematics(legs.BL, phaseBL, false);
 
-    legs.BL.hip.rotation.x = swingBL;
-    legs.BL.knee.rotation.x = Math.max(0, swingBL * 0.7);
+    // Double-frequency vertical bounce & natural spine pitch
+    const bob = Math.abs(Math.sin(t)) * (isRun ? 0.13 : 0.065);
+    body.position.y = this.damp(body.position.y, this.baseBodyY + bob, 16, delta);
+    body.rotation.x = this.damp(body.rotation.x, isRun ? Math.cos(t) * 0.09 : Math.cos(t * 2) * 0.025, 14, delta);
+    body.rotation.z = this.damp(body.rotation.z, (this.robot.bankAngle || 0) + Math.sin(t) * 0.035, 12, delta);
+    body.rotation.y = this.damp(body.rotation.y, Math.cos(t) * 0.025, 12, delta);
 
-    // Energetic tail wag
-    tail.rotation.y = Math.sin(t * 1.8) * 0.75;
+    // Counter-bobbing head for natural balance
+    if (!this.robot.hasTarget && neck) {
+      neck.rotation.x = this.damp(neck.rotation.x, -Math.sin(t * 2) * 0.06 + (isRun ? 0.12 : 0), 14, delta);
+    }
 
-    // Sound of tiny robotic footsteps
-    this.stepTimer += delta * 6.5 * speedMultiplier;
+    // Energetic tail counterbalance
+    tail.rotation.x = this.damp(tail.rotation.x, isRun ? 0.25 : 0.65, 10, delta);
+    tail.rotation.y = Math.sin(t * 1.5) * (isRun ? 0.55 : 0.75);
+
+    // Synchronized footstep audio
+    this.stepTimer += delta * freq;
     if (this.stepTimer >= Math.PI) {
-      this.stepTimer = 0;
+      this.stepTimer -= Math.PI;
       if (this.robot.isPlayer) roboAudio.playStep();
     }
   }
 
   animateSit(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    // Torso tilts back and lowers
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.58, delta * 6);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, -0.42, delta * 6);
+    body.position.y = this.damp(body.position.y, 0.58, 7, delta);
+    body.rotation.x = this.damp(body.rotation.x, -0.44, 7, delta);
+    body.rotation.z = this.damp(body.rotation.z, 0, 7, delta);
 
-    // Front paws straight down
-    legs.FL.hip.rotation.x = THREE.MathUtils.lerp(legs.FL.hip.rotation.x, 0.38, delta * 6);
-    legs.FR.hip.rotation.x = THREE.MathUtils.lerp(legs.FR.hip.rotation.x, 0.38, delta * 6);
-    legs.FL.knee.rotation.x = THREE.MathUtils.lerp(legs.FL.knee.rotation.x, 0, delta * 6);
-    legs.FR.knee.rotation.x = THREE.MathUtils.lerp(legs.FR.knee.rotation.x, 0, delta * 6);
+    // Front legs planted straight
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.42, 7, delta);
+    legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.42, 7, delta);
+    legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0, 7, delta);
+    legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0, 7, delta);
+    if (legs.FL.paw) legs.FL.paw.rotation.x = this.damp(legs.FL.paw.rotation.x, 0.05, 7, delta);
+    if (legs.FR.paw) legs.FR.paw.rotation.x = this.damp(legs.FR.paw.rotation.x, 0.05, 7, delta);
 
-    // Back legs folded
-    legs.BL.hip.rotation.x = THREE.MathUtils.lerp(legs.BL.hip.rotation.x, -1.2, delta * 6);
-    legs.BR.hip.rotation.x = THREE.MathUtils.lerp(legs.BR.hip.rotation.x, -1.2, delta * 6);
-    legs.BL.knee.rotation.x = THREE.MathUtils.lerp(legs.BL.knee.rotation.x, 1.4, delta * 6);
-    legs.BR.knee.rotation.x = THREE.MathUtils.lerp(legs.BR.knee.rotation.x, 1.4, delta * 6);
+    // Hind legs neatly tucked
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.22, 7, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.22, 7, delta);
+    legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.45, 7, delta);
+    legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.45, 7, delta);
+    if (legs.BL.paw) legs.BL.paw.rotation.x = this.damp(legs.BL.paw.rotation.x, 0.2, 7, delta);
+    if (legs.BR.paw) legs.BR.paw.rotation.x = this.damp(legs.BR.paw.rotation.x, 0.2, 7, delta);
 
-    // Head looks up proudly
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, 0.45, delta * 6);
-
-    // Tail wags along floor
-    tail.rotation.y = Math.sin(this.animTime * 5.0) * 0.5;
+    neck.rotation.x = this.damp(neck.rotation.x, 0.42 + Math.sin(this.animTime * 2.2) * 0.04, 7, delta);
+    neck.rotation.z = this.damp(neck.rotation.z, Math.sin(this.animTime * 1.5) * 0.05, 6, delta);
+    tail.rotation.y = Math.sin(this.animTime * 5.5) * 0.55;
   }
 
   animateLieDown(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.32, delta * 5);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, 0, delta * 5);
+    body.position.y = this.damp(body.position.y, 0.32 + Math.sin(this.animTime * 1.8) * 0.015, 6, delta);
 
-    // All paws splayed or folded
-    legs.FL.hip.rotation.x = THREE.MathUtils.lerp(legs.FL.hip.rotation.x, 1.1, delta * 5);
-    legs.FR.hip.rotation.x = THREE.MathUtils.lerp(legs.FR.hip.rotation.x, 1.1, delta * 5);
-    legs.BL.hip.rotation.x = THREE.MathUtils.lerp(legs.BL.hip.rotation.x, -1.1, delta * 5);
-    legs.BR.hip.rotation.x = THREE.MathUtils.lerp(legs.BR.hip.rotation.x, -1.1, delta * 5);
+    // Sphinx-style relaxed paws
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, -1.15, 6, delta);
+    legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, -1.15, 6, delta);
+    legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0.25, 6, delta);
+    legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0.25, 6, delta);
 
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, -0.2, delta * 5);
-    tail.rotation.y = Math.sin(this.animTime * 1.5) * 0.2;
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.25, 6, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.25, 6, delta);
+    legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.4, 6, delta);
+    legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.4, 6, delta);
+
+    neck.rotation.x = this.damp(neck.rotation.x, -0.15 + Math.sin(this.animTime * 1.8) * 0.03, 5, delta);
+    tail.rotation.y = Math.sin(this.animTime * 2.0) * 0.25;
   }
 
   animateJump(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const tail = this.nodes.tail;
-
+    const { body, legs, tail, neck } = this.nodes;
     const progress = Math.min(1.0, this.actionTimer / (this.actionDuration || 1.2));
 
-    // Parabolic jump arc: 4 * h * p * (1 - p)
-    const jumpHeight = Math.sin(progress * Math.PI) * 1.8;
-    body.position.y = this.baseBodyY + jumpHeight;
-
-    if (progress < 0.2) {
-      // Crouch prepare
-      body.rotation.x = 0.2;
-      legs.FL.hip.rotation.x = 0.6;
-      legs.FR.hip.rotation.x = 0.6;
-    } else if (progress < 0.7) {
-      // Mid-air leap
-      body.rotation.x = -0.3;
-      legs.FL.hip.rotation.x = -0.5;
-      legs.FR.hip.rotation.x = -0.5;
-      legs.BL.hip.rotation.x = 0.6;
-      legs.BR.hip.rotation.x = 0.6;
-    } else {
-      // Land
-      body.rotation.x = 0.1;
-      legs.FL.hip.rotation.x = 0;
-      legs.FR.hip.rotation.x = 0;
+    if (this.actionTimer < 0.05 && this.robot.isPlayer) {
+      roboAudio.playJump(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
     }
 
-    tail.rotation.y = Math.sin(this.animTime * 12.0) * 0.9;
+    if (progress < 0.18) {
+      // Anticipation crouch (Squash)
+      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.22, 18, delta);
+      body.scale.set(1.06, 0.92, 1.04);
+      body.rotation.x = this.damp(body.rotation.x, 0.22, 15, delta);
+      legs.FL.hip.rotation.x = 0.65;
+      legs.FR.hip.rotation.x = 0.65;
+      legs.BL.hip.rotation.x = -0.65;
+      legs.BR.hip.rotation.x = -0.65;
+    } else if (progress < 0.82) {
+      // Parabolic flight arc (Stretch)
+      const airP = (progress - 0.18) / 0.64;
+      const jumpHeight = Math.sin(airP * Math.PI) * 1.85;
+      body.position.y = this.baseBodyY + jumpHeight;
+      body.scale.set(0.96, 1.06, 1.02);
+      body.rotation.x = THREE.MathUtils.lerp(-0.38, 0.28, airP);
+      neck.rotation.x = -0.2;
+
+      legs.FL.hip.rotation.x = -0.55;
+      legs.FR.hip.rotation.x = -0.55;
+      legs.FL.knee.rotation.x = 0.45;
+      legs.FR.knee.rotation.x = 0.45;
+      legs.BL.hip.rotation.x = 0.7;
+      legs.BR.hip.rotation.x = 0.7;
+    } else {
+      // Soft landing absorption
+      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.08, 16, delta);
+      body.scale.set(1.04, 0.95, 1.02);
+      body.rotation.x = this.damp(body.rotation.x, 0, 12, delta);
+      this.dampPoseToNeutral(delta, 12, { keepBodyPos: true, keepBodyScale: true });
+    }
+
+    tail.rotation.y = Math.sin(this.animTime * 14.0) * 0.9;
   }
 
   animateWagTail(delta) {
-    const tail = this.nodes.tail;
-    const body = this.nodes.body;
-    const earL = this.nodes.earL;
-    const earR = this.nodes.earR;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepTail: true, keepEars: true });
+    const { tail, body, earL, earR } = this.nodes;
 
-    body.position.y = this.baseBodyY + Math.sin(this.animTime * 8) * 0.04;
-    // Super fast excited tail wag
-    tail.rotation.y = Math.sin(this.animTime * 16.0) * 1.1;
+    body.position.y = this.baseBodyY + Math.abs(Math.sin(this.animTime * 9)) * 0.045;
+    body.rotation.y = Math.sin(this.animTime * 16.0) * 0.06; // Happy hip wiggle!
+    tail.rotation.y = Math.sin(this.animTime * 18.0) * 1.15;
+    tail.rotation.x = 0.75;
 
-    // Ears twitch excited
-    earL.rotation.z = 0.35 + Math.sin(this.animTime * 8) * 0.1;
-    earR.rotation.z = -0.35 - Math.sin(this.animTime * 8) * 0.1;
+    earL.rotation.z = 0.35 + Math.sin(this.animTime * 9) * 0.12;
+    earR.rotation.z = -0.35 - Math.sin(this.animTime * 9) * 0.12;
   }
 
   animateBark(delta) {
-    const neck = this.nodes.neck;
-    const body = this.nodes.body;
-    const progress = (this.actionTimer % 0.5) / 0.5;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepNeck: true, keepBodyRot: true });
+    const { neck, body, earL, earR } = this.nodes;
+    const progress = (this.actionTimer % 0.45) / 0.45;
+    const pulse = Math.sin(progress * Math.PI);
 
-    // Head tosses up and barks
-    neck.rotation.x = Math.sin(progress * Math.PI) * 0.35;
-    body.position.y = this.baseBodyY + Math.sin(progress * Math.PI) * 0.08;
+    neck.rotation.x = pulse * 0.38;
+    body.position.y = this.baseBodyY + pulse * 0.09;
+    body.rotation.x = -pulse * 0.12;
+    earL.rotation.x = -pulse * 0.25;
+    earR.rotation.x = -pulse * 0.25;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
-      roboAudio.playBark(1.1);
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      roboAudio.playBark(this.robot.profile ? this.robot.profile.voicePitch : 1.1);
     }
   }
 
   animateSniff(delta) {
-    const neck = this.nodes.neck;
-    const body = this.nodes.body;
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true });
+    const { neck, body, tail } = this.nodes;
 
-    // Head lowers near ground and turns left-right curiously
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, -0.4, delta * 6);
-    neck.rotation.y = Math.sin(this.animTime * 4.0) * 0.45;
-    body.position.y = THREE.MathUtils.lerp(body.position.y, this.baseBodyY - 0.12, delta * 6);
+    body.position.y = this.damp(body.position.y, this.baseBodyY - 0.14, 7, delta);
+    body.rotation.x = this.damp(body.rotation.x, 0.18, 7, delta);
+    neck.rotation.x = this.damp(neck.rotation.x, -0.42 + Math.sin(this.animTime * 14) * 0.04, 8, delta);
+    neck.rotation.y = Math.sin(this.animTime * 4.2) * 0.45;
+    tail.rotation.y = Math.sin(this.animTime * 6.0) * 0.35;
   }
 
   animateScratch(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true });
+    const { body, legs, neck } = this.nodes;
 
-    // Lean to the right
-    body.rotation.z = THREE.MathUtils.lerp(body.rotation.z, -0.3, delta * 6);
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.65, delta * 6);
+    body.rotation.z = this.damp(body.rotation.z, -0.32, 7, delta);
+    body.position.y = this.damp(body.position.y, 0.66, 7, delta);
+    neck.rotation.z = this.damp(neck.rotation.z, 0.28, 7, delta);
+    neck.rotation.x = this.damp(neck.rotation.x, -0.2, 7, delta);
 
-    // Left hind leg scratches ear rapidly
-    const scratchFreq = Math.sin(this.animTime * 18.0) * 0.6;
-    legs.BL.hip.rotation.x = 1.0 + scratchFreq;
-    legs.BL.hip.rotation.z = 0.5;
-    legs.BL.knee.rotation.x = -0.8;
+    const scratchFreq = Math.sin(this.animTime * 20.0) * 0.55;
+    legs.BL.hip.rotation.x = 1.05 + scratchFreq;
+    legs.BL.hip.rotation.z = 0.45;
+    legs.BL.knee.rotation.x = -0.75 + scratchFreq * 0.4;
   }
 
   animateBackflip(delta) {
-    const body = this.nodes.body;
+    const { body, legs } = this.nodes;
     const progress = Math.min(1.0, this.actionTimer / (this.actionDuration || 1.6));
 
-    const jumpHeight = Math.sin(progress * Math.PI) * 2.2;
+    const jumpHeight = Math.sin(progress * Math.PI) * 2.35;
     body.position.y = this.baseBodyY + jumpHeight;
 
-    // Full 360 flip
-    body.rotation.x = progress * Math.PI * 2;
+    // Smooth 360° backflip with ease-in-out
+    const eased = progress < 0.5
+      ? 2 * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+    body.rotation.x = eased * Math.PI * 2;
 
-    if (progress > 0.95 && this.robot.isPlayer) {
+    // Tuck legs mid-flip
+    const tuck = Math.sin(progress * Math.PI);
+    Object.values(legs).forEach(leg => {
+      leg.hip.rotation.x = tuck * 0.6;
+      leg.knee.rotation.x = tuck * 0.8;
+    });
+
+    if (progress > 0.94 && this.robot.isPlayer && !this._flipSoundPlayed) {
+      this._flipSoundPlayed = true;
       roboAudio.playTrickSuccess();
+    } else if (progress < 0.1) {
+      this._flipSoundPlayed = false;
     }
   }
 
   animateSpin(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepLegs: true, keepTail: true });
+    const { body, legs, tail } = this.nodes;
 
-    this.robot.group.rotation.y += delta * 6.0;
-    body.position.y = this.baseBodyY + Math.sin(this.animTime * 8) * 0.05;
-    tail.rotation.y = Math.sin(this.animTime * 14) * 0.9;
+    this.robot.group.rotation.y += delta * 6.5;
+    body.position.y = this.baseBodyY + Math.abs(Math.sin(this.animTime * 10)) * 0.06;
+    tail.rotation.y = Math.sin(this.animTime * 15) * 0.95;
 
-    // Walking in spin
-    legs.FL.hip.rotation.x = Math.sin(this.animTime * 10) * 0.4;
-    legs.FR.hip.rotation.x = Math.sin(this.animTime * 10 + Math.PI) * 0.4;
+    legs.FL.hip.rotation.x = Math.sin(this.animTime * 12) * 0.45;
+    legs.FR.hip.rotation.x = Math.sin(this.animTime * 12 + Math.PI) * 0.45;
+    legs.BL.hip.rotation.x = Math.cos(this.animTime * 12) * 0.45;
+    legs.BR.hip.rotation.x = Math.cos(this.animTime * 12 + Math.PI) * 0.45;
   }
 
   animateRoll(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const tail = this.nodes.tail;
+    const { body, legs, tail } = this.nodes;
     const progress = Math.min(1.0, this.actionTimer / (this.actionDuration || 1.8));
 
-    // Full 360 barrel roll on Z axis
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.45 + Math.sin(progress * Math.PI) * 0.35, delta * 8);
+    body.position.y = this.damp(body.position.y, 0.45 + Math.sin(progress * Math.PI) * 0.32, 10, delta);
     body.rotation.z = progress * Math.PI * 2;
 
-    // Legs tucked playfully
-    legs.FL.hip.rotation.x = 0.5;
-    legs.FR.hip.rotation.x = 0.5;
-    legs.BL.hip.rotation.x = 0.8;
-    legs.BR.hip.rotation.x = 0.8;
+    legs.FL.hip.rotation.x = 0.55;
+    legs.FR.hip.rotation.x = 0.55;
+    legs.BL.hip.rotation.x = 0.75;
+    legs.BR.hip.rotation.x = 0.75;
     tail.rotation.y = Math.sin(this.animTime * 12) * 0.8;
   }
 
   animateWave(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    // Sit up on hind paws
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 1.15, delta * 6);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, -0.65, delta * 6);
+    body.position.y = this.damp(body.position.y, 1.15, 7, delta);
+    body.rotation.x = this.damp(body.rotation.x, -0.68, 7, delta);
 
-    // Left front paw rests down, Right front paw raises and waves high!
-    legs.FL.hip.rotation.x = THREE.MathUtils.lerp(legs.FL.hip.rotation.x, 0.5, delta * 6);
-    legs.FR.hip.rotation.x = -1.2 + Math.sin(this.animTime * 10) * 0.35;
-    legs.FR.knee.rotation.x = 0.8 + Math.sin(this.animTime * 10) * 0.3;
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.5, 7, delta);
+    legs.FR.hip.rotation.x = -1.25 + Math.sin(this.animTime * 10) * 0.35;
+    legs.FR.hip.rotation.z = -0.2 + Math.cos(this.animTime * 10) * 0.2;
+    legs.FR.knee.rotation.x = 0.75 + Math.sin(this.animTime * 10) * 0.3;
 
-    // Back legs supporting
-    legs.BL.hip.rotation.x = THREE.MathUtils.lerp(legs.BL.hip.rotation.x, -1.1, delta * 6);
-    legs.BR.hip.rotation.x = THREE.MathUtils.lerp(legs.BR.hip.rotation.x, -1.1, delta * 6);
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.1, 7, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.1, 7, delta);
+    legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.3, 7, delta);
+    legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.3, 7, delta);
 
-    neck.rotation.x = 0.4;
-    neck.rotation.y = Math.sin(this.animTime * 3) * 0.2;
-    tail.rotation.y = Math.sin(this.animTime * 10) * 0.8;
+    neck.rotation.x = this.damp(neck.rotation.x, 0.45, 7, delta);
+    neck.rotation.y = Math.sin(this.animTime * 3.5) * 0.2;
+    tail.rotation.y = Math.sin(this.animTime * 11) * 0.85;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
       roboAudio.playWaveSound(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
     }
   }
 
   animateRecharge(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 5, { keepBodyPos: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.28, delta * 4);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, 0, delta * 4);
-    body.rotation.z = THREE.MathUtils.lerp(body.rotation.z, 0, delta * 4);
+    body.position.y = this.damp(body.position.y, 0.28 + Math.sin(this.animTime * 1.4) * 0.012, 5, delta);
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 1.25, 5, delta);
+    legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 1.25, 5, delta);
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.25, 5, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.25, 5, delta);
 
-    // All paws flat
-    legs.FL.hip.rotation.x = THREE.MathUtils.lerp(legs.FL.hip.rotation.x, 1.25, delta * 4);
-    legs.FR.hip.rotation.x = THREE.MathUtils.lerp(legs.FR.hip.rotation.x, 1.25, delta * 4);
-    legs.BL.hip.rotation.x = THREE.MathUtils.lerp(legs.BL.hip.rotation.x, -1.25, delta * 4);
-    legs.BR.hip.rotation.x = THREE.MathUtils.lerp(legs.BR.hip.rotation.x, -1.25, delta * 4);
-
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, -0.4, delta * 4);
-    tail.rotation.y = 0;
+    neck.rotation.x = this.damp(neck.rotation.x, -0.38, 5, delta);
+    tail.rotation.y = this.damp(tail.rotation.y, 0, 5, delta);
   }
 
   animateDig(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.72, delta * 6);
-    body.rotation.x = 0.35;
-    neck.rotation.x = -0.45;
+    body.position.y = this.damp(body.position.y, 0.72, 8, delta);
+    body.rotation.x = this.damp(body.rotation.x, 0.36, 8, delta);
+    neck.rotation.x = this.damp(neck.rotation.x, -0.45, 8, delta);
 
-    // Fast alternate digging front paws
-    const digL = Math.sin(this.animTime * 18) * 0.7;
-    const digR = Math.sin(this.animTime * 18 + Math.PI) * 0.7;
-    legs.FL.hip.rotation.x = 0.5 + digL;
-    legs.FR.hip.rotation.x = 0.5 + digR;
+    const digL = Math.sin(this.animTime * 19);
+    const digR = Math.sin(this.animTime * 19 + Math.PI);
+    legs.FL.hip.rotation.x = 0.45 + digL * 0.65;
+    legs.FL.knee.rotation.x = Math.max(0, -digL * 0.8);
+    legs.FR.hip.rotation.x = 0.45 + digR * 0.65;
+    legs.FR.knee.rotation.x = Math.max(0, -digR * 0.8);
 
-    // Tail high and excited
-    tail.rotation.x = 0.8;
-    tail.rotation.y = Math.sin(this.animTime * 14) * 0.9;
+    tail.rotation.x = 0.85;
+    tail.rotation.y = Math.sin(this.animTime * 15) * 0.9;
   }
 
   animateHowl(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Sitting position with neck tilted back high
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.62, delta * 5);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, -0.38, delta * 5);
+    body.position.y = this.damp(body.position.y, 0.62, 6, delta);
+    body.rotation.x = this.damp(body.rotation.x, -0.38, 6, delta);
 
-    legs.BL.hip.rotation.x = -1.1;
-    legs.BR.hip.rotation.x = -1.1;
-    legs.FL.hip.rotation.x = 0.35;
-    legs.FR.hip.rotation.x = 0.35;
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.15, 6, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.15, 6, delta);
+    legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.35, 6, delta);
+    legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.35, 6, delta);
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.35, 6, delta);
+    legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.35, 6, delta);
 
-    // Chin up towards the sky
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, 0.82, delta * 6);
+    neck.rotation.x = this.damp(neck.rotation.x, 0.85, 7, delta);
     neck.rotation.y = Math.sin(this.animTime * 2.5) * 0.08;
     tail.rotation.y = Math.sin(this.animTime * 6) * 0.3;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
       roboAudio.playHowl(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
     }
   }
 
   animateDance(delta) {
-    const t = this.animTime * 9.0;
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const t = this.animTime * 9.2;
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Party rhythmic bounce & roll
     body.position.y = this.baseBodyY + Math.abs(Math.sin(t)) * 0.22;
-    body.rotation.z = Math.sin(t * 0.5) * 0.25;
-    neck.rotation.z = -Math.sin(t * 0.5) * 0.2;
-    neck.rotation.x = Math.sin(t) * 0.15;
+    body.rotation.z = Math.sin(t * 0.5) * 0.24;
+    body.rotation.y = Math.cos(t * 0.5) * 0.15;
+    neck.rotation.z = -Math.sin(t * 0.5) * 0.22;
+    neck.rotation.x = Math.sin(t) * 0.16;
 
-    // Stepping paws
     legs.FL.hip.rotation.x = Math.sin(t) * 0.6;
+    legs.FL.knee.rotation.x = Math.max(0, Math.cos(t) * 0.6);
     legs.BR.hip.rotation.x = -Math.sin(t) * 0.6;
     legs.FR.hip.rotation.x = -Math.sin(t) * 0.6;
+    legs.FR.knee.rotation.x = Math.max(0, -Math.cos(t) * 0.6);
     legs.BL.hip.rotation.x = Math.sin(t) * 0.6;
 
     tail.rotation.y = Math.sin(t * 2.0) * 1.2;
   }
 
   animateSneak(delta) {
-    const t = this.animTime * 3.5;
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true });
+    const t = this.animTime * 3.8;
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Stalking low to the ground
-    body.position.y = 0.55 + Math.sin(t * 2) * 0.03;
-    body.rotation.x = 0.15;
-    neck.rotation.x = -0.25;
+    body.position.y = this.damp(body.position.y, 0.55 + Math.sin(t * 2) * 0.025, 8, delta);
+    body.rotation.x = this.damp(body.rotation.x, 0.14, 8, delta);
+    neck.rotation.x = this.damp(neck.rotation.x, -0.24, 8, delta);
 
     legs.FL.hip.rotation.x = Math.sin(t) * 0.35;
     legs.BR.hip.rotation.x = Math.sin(t) * 0.35;
@@ -588,77 +660,59 @@ export class AnimationController {
     tail.rotation.y = Math.sin(t) * 0.3;
   }
 
-  // Authentic Canine Play-Bow (Universal invitation to play!)
   animatePlayBow(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Front low to floor, rear angled up high in the air
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.52, delta * 7);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, 0.45, delta * 7);
+    body.position.y = this.damp(body.position.y, 0.52, 8, delta);
+    body.rotation.x = this.damp(body.rotation.x, 0.46, 8, delta);
 
-    // Front elbows splayed forward touching ground
-    legs.FL.hip.rotation.x = THREE.MathUtils.lerp(legs.FL.hip.rotation.x, 0.95, delta * 7);
-    legs.FR.hip.rotation.x = THREE.MathUtils.lerp(legs.FR.hip.rotation.x, 0.95, delta * 7);
-    legs.FL.knee.rotation.x = THREE.MathUtils.lerp(legs.FL.knee.rotation.x, -0.6, delta * 7);
-    legs.FR.knee.rotation.x = THREE.MathUtils.lerp(legs.FR.knee.rotation.x, -0.6, delta * 7);
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.95, 8, delta);
+    legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.95, 8, delta);
+    legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, -0.6, 8, delta);
+    legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, -0.6, 8, delta);
 
-    // Back legs straight and rear held high
-    legs.BL.hip.rotation.x = THREE.MathUtils.lerp(legs.BL.hip.rotation.x, -0.2, delta * 7);
-    legs.BR.hip.rotation.x = THREE.MathUtils.lerp(legs.BR.hip.rotation.x, -0.2, delta * 7);
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -0.2, 8, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -0.2, 8, delta);
 
-    // Head tilted up looking expectantly at play partner
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, -0.4, delta * 7);
-
-    // Super enthusiastic high tail wag
-    tail.rotation.x = 0.8;
+    neck.rotation.x = this.damp(neck.rotation.x, -0.42, 8, delta);
+    tail.rotation.x = 0.85;
     tail.rotation.y = Math.sin(this.animTime * 18.0) * 1.1;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
       roboAudio.playYip(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
     }
   }
 
-  // Inquisitive Head Tilt (Cognitive attention & listening)
   animateHeadTilt(delta) {
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const earL = this.nodes.earL;
-    const earR = this.nodes.earR;
+    this.dampPoseToNeutral(delta, 7, { keepNeck: true, keepEars: true, keepTail: true });
+    const { neck, tail, earL, earR } = this.nodes;
 
-    // Head tilts 25 degrees left or right with gentle oscillation
     const tiltCycle = Math.sin(this.animTime * 3.5);
-    neck.rotation.z = THREE.MathUtils.lerp(neck.rotation.z, tiltCycle * 0.42, delta * 6);
-    neck.rotation.x = THREE.MathUtils.lerp(neck.rotation.x, 0.18, delta * 5);
+    neck.rotation.z = this.damp(neck.rotation.z, tiltCycle * 0.44, 7, delta);
+    neck.rotation.x = this.damp(neck.rotation.x, 0.18, 6, delta);
 
-    // One ear perks up while the other softens
     earL.rotation.z = 0.25 + (tiltCycle > 0 ? 0.35 : -0.15);
     earR.rotation.z = -0.25 + (tiltCycle < 0 ? -0.35 : 0.15);
-
     tail.rotation.y = Math.sin(this.animTime * 5.0) * 0.4;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
       roboAudio.playWhine(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
     }
   }
 
-  // Belly Rub Posture (Total trust, loyalty and affection)
   animateBellyRub(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    // Rolled over completely onto back
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.32, delta * 6);
-    body.rotation.z = THREE.MathUtils.lerp(body.rotation.z, Math.PI * 0.9, delta * 6);
+    body.position.y = this.damp(body.position.y, 0.34, 6, delta);
+    body.rotation.z = this.damp(body.rotation.z, Math.PI * 0.92, 6, delta);
 
-    // Paws paddling lazily in the air
-    const pawPaddle = Math.sin(this.animTime * 6.0) * 0.35;
-    legs.FL.hip.rotation.x = 0.8 + pawPaddle;
-    legs.FR.hip.rotation.x = 0.8 - pawPaddle;
+    const pawPaddle = Math.sin(this.animTime * 6.5) * 0.35;
+    legs.FL.hip.rotation.x = 0.75 + pawPaddle;
+    legs.FR.hip.rotation.x = 0.75 - pawPaddle;
+    legs.FL.knee.rotation.x = 0.45;
+    legs.FR.knee.rotation.x = 0.45;
     legs.BL.hip.rotation.x = -0.5 + pawPaddle;
     legs.BR.hip.rotation.x = -0.5 - pawPaddle;
 
@@ -666,84 +720,69 @@ export class AnimationController {
     tail.rotation.y = Math.sin(this.animTime * 14.0) * 0.7;
   }
 
-  // Begging Posture (Standing on hind legs with front paws up)
   animateBeg(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    const { body, legs, neck, tail } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 1.25, delta * 6);
-    body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, -0.75, delta * 6);
+    body.position.y = this.damp(body.position.y, 1.24, 7, delta);
+    body.rotation.x = this.damp(body.rotation.x, -0.76, 7, delta);
 
-    // Both front paws held up together, bobbing cutely
-    const begBob = Math.sin(this.animTime * 8.0) * 0.2;
-    legs.FL.hip.rotation.x = THREE.MathUtils.lerp(legs.FL.hip.rotation.x, -0.65 + begBob, delta * 7);
-    legs.FR.hip.rotation.x = THREE.MathUtils.lerp(legs.FR.hip.rotation.x, -0.65 + begBob, delta * 7);
-    legs.FL.knee.rotation.x = THREE.MathUtils.lerp(legs.FL.knee.rotation.x, 0.9, delta * 7);
-    legs.FR.knee.rotation.x = THREE.MathUtils.lerp(legs.FR.knee.rotation.x, 0.9, delta * 7);
+    const begBob = Math.sin(this.animTime * 8.5) * 0.22;
+    legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, -0.65 + begBob, 8, delta);
+    legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, -0.65 + begBob, 8, delta);
+    legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0.92, 8, delta);
+    legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0.92, 8, delta);
 
-    // Hind legs squatting firmly
-    legs.BL.hip.rotation.x = THREE.MathUtils.lerp(legs.BL.hip.rotation.x, -1.2, delta * 6);
-    legs.BR.hip.rotation.x = THREE.MathUtils.lerp(legs.BR.hip.rotation.x, -1.2, delta * 6);
+    legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.2, 7, delta);
+    legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.2, 7, delta);
+    legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.35, 7, delta);
+    legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.35, 7, delta);
 
-    neck.rotation.x = 0.5;
+    neck.rotation.x = this.damp(neck.rotation.x, 0.52, 7, delta);
     tail.rotation.y = Math.sin(this.animTime * 12.0) * 0.8;
   }
 
-  // Centrifugal Body Shake-Off (Arousal reset & drying)
   animateShakeOff(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const earL = this.nodes.earL;
-    const earR = this.nodes.earR;
+    this.dampPoseToNeutral(delta, 8, { keepBodyRot: true, keepNeck: true, keepTail: true, keepEars: true });
+    const { body, neck, tail, earL, earR } = this.nodes;
 
-    // Fast violent side-to-side torsional oscillation
-    const shakeFreq = Math.sin(this.animTime * 32.0);
-    body.rotation.z = shakeFreq * 0.35;
-    neck.rotation.z = -shakeFreq * 0.45;
-    tail.rotation.y = -shakeFreq * 0.8;
+    const envelope = Math.sin(Math.min(1, this.actionTimer / (this.actionDuration || 1.8)) * Math.PI);
+    const shakeFreq = Math.sin(this.animTime * 34.0) * envelope;
+    body.rotation.z = shakeFreq * 0.36;
+    neck.rotation.z = -shakeFreq * 0.48;
+    tail.rotation.y = -shakeFreq * 0.85;
 
-    earL.rotation.z = 0.25 + shakeFreq * 0.5;
-    earR.rotation.z = -0.25 + shakeFreq * 0.5;
+    earL.rotation.z = 0.25 + shakeFreq * 0.55;
+    earR.rotation.z = -0.25 + shakeFreq * 0.55;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
-      roboAudio.playPlayfulGrumble ? roboAudio.playPlayfulGrumble(1.2) : roboAudio.playBoop(0.8);
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      roboAudio.playPlayfulGrumble(1.2);
     }
   }
 
-  // Nuzzle / Affectionate Boop
   animateNuzzle(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true, keepTail: true });
+    const { body, neck, tail } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, this.baseBodyY - 0.08, delta * 6);
-    body.rotation.z = 0.12;
+    body.position.y = this.damp(body.position.y, this.baseBodyY - 0.08, 7, delta);
+    body.rotation.z = this.damp(body.rotation.z, Math.sin(this.animTime * 3.0) * 0.14, 7, delta);
 
-    // Head extends forward and leans in gently
-    neck.rotation.x = 0.25;
-    neck.rotation.y = Math.sin(this.animTime * 3.0) * 0.25;
-    tail.rotation.y = Math.sin(this.animTime * 8.0) * 0.7;
+    neck.rotation.x = this.damp(neck.rotation.x, 0.26, 7, delta);
+    neck.rotation.y = Math.sin(this.animTime * 3.2) * 0.26;
+    tail.rotation.y = Math.sin(this.animTime * 9.0) * 0.75;
 
-    if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+    if (this.actionTimer < 0.08 && this.robot.isPlayer) {
       roboAudio.playBoop(1.4);
     }
   }
 
-  // Picked up by the user's hand (Legs paddling adorably in the air)
   animatePickedUp(delta) {
-    const body = this.nodes.body;
-    const legs = this.nodes.legs;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
+    const { body, legs, neck, tail } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, this.baseBodyY + 0.15, delta * 6);
+    body.position.y = this.damp(body.position.y, this.baseBodyY + 0.15, 7, delta);
     body.rotation.z = Math.sin(this.animTime * 4.0) * 0.08;
-    body.rotation.x = Math.sin(this.animTime * 3.0) * 0.05;
+    body.rotation.x = Math.sin(this.animTime * 3.0) * 0.06;
 
-    // Fast adorable mid-air paddling
     const paddleSpeed = 12.0;
     const paddleAmp = 0.55;
     legs.FL.hip.rotation.x = Math.sin(this.animTime * paddleSpeed) * paddleAmp;
@@ -760,26 +799,18 @@ export class AnimationController {
     tail.rotation.y = Math.sin(this.animTime * 14.0) * 0.85;
   }
 
-  // Chase its own tail (Spinning rapidly on itself trying to bite tail)
   animateChaseTail(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Body curved laterally
+    this.robot.group.rotation.y += delta * 8.5;
     body.rotation.y = Math.sin(this.animTime * 24.0) * 0.2;
     body.rotation.z = -0.15;
     body.position.y = this.baseBodyY;
 
-    // Head turned sharply inward towards tail
     neck.rotation.y = 0.75;
     neck.rotation.x = 0.3;
-
-    // Tail curved towards head
     tail.rotation.y = -0.85;
 
-    // Fast running step cadence
     const legFreq = this.animTime * 18.0;
     legs.FL.hip.rotation.x = Math.sin(legFreq) * 0.6;
     legs.FR.hip.rotation.x = -Math.sin(legFreq) * 0.6;
@@ -787,21 +818,15 @@ export class AnimationController {
     legs.BR.hip.rotation.x = Math.sin(legFreq) * 0.6;
   }
 
-  // Dizzy Wobble (Seated with spinning head wobble)
   animateDizzy(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    const { body, neck, tail, legs } = this.nodes;
 
-    // Seated firmly
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.55, delta * 8);
+    body.position.y = this.damp(body.position.y, 0.55, 8, delta);
     legs.BL.hip.rotation.x = -1.1;
     legs.BR.hip.rotation.x = -1.1;
     legs.FL.hip.rotation.x = 0.2;
     legs.FR.hip.rotation.x = 0.2;
 
-    // Wobbling head rotation in roll and yaw
     neck.rotation.z = Math.sin(this.animTime * 6.0) * 0.35;
     neck.rotation.y = Math.cos(this.animTime * 4.5) * 0.3;
     neck.rotation.x = 0.25;
@@ -810,67 +835,47 @@ export class AnimationController {
     tail.rotation.y = Math.sin(this.animTime * 2.0) * 0.2;
   }
 
-  // Swimming in water (Low profile with rhythmic doggy paddle)
   animateSwimming(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    const { body, neck, tail, legs } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, 0.45, delta * 6);
-    body.rotation.x = 0.12; // tilted slightly forward
+    body.position.y = this.damp(body.position.y, 0.45 + Math.sin(this.animTime * 4) * 0.04, 6, delta);
+    body.rotation.x = this.damp(body.rotation.x, 0.14, 6, delta);
     body.rotation.z = Math.sin(this.animTime * 6.0) * 0.08;
 
-    // Head held high above the water surface
-    neck.rotation.x = -0.35;
+    neck.rotation.x = this.damp(neck.rotation.x, -0.36, 6, delta);
     neck.rotation.y = Math.sin(this.animTime * 3.0) * 0.1;
 
-    // Doggy paddling legs
-    const paddleSpeed = 8.0;
+    const paddleSpeed = 8.5;
     legs.FL.hip.rotation.x = Math.sin(this.animTime * paddleSpeed) * 0.65;
+    legs.FL.knee.rotation.x = 0.5 + Math.cos(this.animTime * paddleSpeed) * 0.4;
     legs.FR.hip.rotation.x = -Math.sin(this.animTime * paddleSpeed) * 0.65;
+    legs.FR.knee.rotation.x = 0.5 - Math.cos(this.animTime * paddleSpeed) * 0.4;
     legs.BL.hip.rotation.x = -Math.cos(this.animTime * paddleSpeed) * 0.5;
     legs.BR.hip.rotation.x = Math.cos(this.animTime * paddleSpeed) * 0.5;
 
-    tail.rotation.y = Math.sin(this.animTime * 10.0) * 0.6;
+    tail.rotation.y = Math.sin(this.animTime * 10.0) * 0.65;
   }
 
-  // Perimeter Lookout (Standing alert, scanning left and right)
   animatePatrolLook(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 7, { keepNeck: true, keepTail: true });
+    const { neck, tail } = this.nodes;
 
-    body.position.y = this.baseBodyY;
-    legs.FL.hip.rotation.x = 0;
-    legs.FR.hip.rotation.x = 0;
-    legs.BL.hip.rotation.x = 0;
-    legs.BR.hip.rotation.x = 0;
-
-    // Smooth head scan cycle
     const scanCycle = Math.sin(this.animTime * 2.0);
-    neck.rotation.y = THREE.MathUtils.lerp(neck.rotation.y, scanCycle * 0.75, delta * 5);
-    neck.rotation.x = -0.15; // attentive upward look
-
+    neck.rotation.y = this.damp(neck.rotation.y, scanCycle * 0.75, 5, delta);
+    neck.rotation.x = this.damp(neck.rotation.x, -0.15, 5, delta);
     tail.rotation.y = Math.sin(this.animTime * 4.0) * 0.25;
   }
 
-  // Scent Track (Head low to ground, slow deliberate walk)
   animateScentTrack(delta) {
-    const body = this.nodes.body;
-    const neck = this.nodes.neck;
-    const tail = this.nodes.tail;
-    const legs = this.nodes.legs;
+    this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true, keepLegs: true });
+    const { body, neck, tail, legs } = this.nodes;
 
-    body.position.y = THREE.MathUtils.lerp(body.position.y, this.baseBodyY - 0.14, delta * 6);
-    body.rotation.x = 0.18; // body angled down to grass
+    body.position.y = this.damp(body.position.y, this.baseBodyY - 0.14, 6, delta);
+    body.rotation.x = this.damp(body.rotation.x, 0.18, 6, delta);
 
-    // Nose sniff hovering above ground
-    neck.rotation.x = 0.48;
+    neck.rotation.x = this.damp(neck.rotation.x, 0.48, 6, delta);
     neck.rotation.y = Math.sin(this.animTime * 4.0) * 0.22;
 
-    // Gentle slow walk cycle
     const t = this.animTime * 4.2;
     legs.FL.hip.rotation.x = Math.sin(t) * 0.4;
     legs.FR.hip.rotation.x = -Math.sin(t) * 0.4;

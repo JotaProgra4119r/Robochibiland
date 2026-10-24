@@ -1,4 +1,4 @@
-// Highly Detailed 3D Environment with Procedural Textures, Interactive Trampoline, Carousel, Soccer Goal, Disco Pad & Lake Boat
+// Highly Detailed 3D Environment with Procedural Textures, Fixed 3D Architecture & Full OBB/Volumetric Collisions
 import * as THREE from 'three';
 import { roboAudio } from './audio.js';
 
@@ -23,9 +23,12 @@ export class WorldManager {
     this.onTargetHit = null;
     this.solidObstacles = [];
 
-    // 3D Spatial Partitioning Grid for O(1) physics
+    // 3D Spatial Partitioning Grid for fast O(1) physics
     this.spatialGrid = new Map();
     this.gridCellSize = 20;
+
+    // Walkable elevated structures (Bridge, Pier, Ramp)
+    this.elevatedSurfaces = [];
 
     // Mini-game attraction state
     this.ballPit = null;
@@ -55,7 +58,7 @@ export class WorldManager {
     this.buildWaterFountain(new THREE.Vector3(12, 0, 10));
     this.buildCyberSeesaw(new THREE.Vector3(48, 0, 32));
 
-    // New High-Tech Attractions
+    // High-Tech Attractions
     this.buildCyberBallPit(new THREE.Vector3(-32, 0, 48));
     this.buildAgilitySlide(new THREE.Vector3(-18, 0, -32));
     this.buildAgilityObstacleCourse(new THREE.Vector3(22, 0, -50));
@@ -78,35 +81,66 @@ export class WorldManager {
     return `${cx}_${cz}`;
   }
 
+  // Registers an obstacle across ALL overlapping spatial grid cells (supports Cylinder & Rotated OBB Box)
   registerObstacle(obs) {
     if (!obs) return;
     obs.shape = obs.shape || 'cylinder';
+    obs.rotY = obs.rotY || 0;
+    const baseTerrainY = this.getTerrainHeightOnly(obs.x || 0, obs.z || 0);
+
     if (obs.yMin === undefined) {
-      obs.yMin = this.getHeightAt(obs.x || 0, obs.z || 0) - 1.5;
+      obs.yMin = baseTerrainY - 1.5;
     }
     if (obs.yMax === undefined) {
-      obs.yMax = obs.yMin + (obs.height || 4.0);
+      obs.yMax = obs.yMin + (obs.height || 4.0) + 1.5;
     }
     this.solidObstacles.push(obs);
 
-    const cellKey = this.getGridKey(obs.x || 0, obs.z || 0);
-    if (!this.spatialGrid.has(cellKey)) {
-      this.spatialGrid.set(cellKey, []);
+    // Compute bounding extent to insert into all touched grid cells
+    let extentX = obs.radius || 1.0;
+    let extentZ = obs.radius || 1.0;
+    if (obs.shape === 'box') {
+      const cos = Math.abs(Math.cos(obs.rotY));
+      const sin = Math.abs(Math.sin(obs.rotY));
+      const hw = obs.halfW || 1.0;
+      const hd = obs.halfD || 1.0;
+      extentX = hw * cos + hd * sin;
+      extentZ = hw * sin + hd * cos;
     }
-    this.spatialGrid.get(cellKey).push(obs);
+
+    const minCX = Math.floor(((obs.x || 0) - extentX) / this.gridCellSize);
+    const maxCX = Math.floor(((obs.x || 0) + extentX) / this.gridCellSize);
+    const minCZ = Math.floor(((obs.z || 0) - extentZ) / this.gridCellSize);
+    const maxCZ = Math.floor(((obs.z || 0) + extentZ) / this.gridCellSize);
+
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cz = minCZ; cz <= maxCZ; cz++) {
+        const cellKey = `${cx}_${cz}`;
+        if (!this.spatialGrid.has(cellKey)) {
+          this.spatialGrid.set(cellKey, []);
+        }
+        this.spatialGrid.get(cellKey).push(obs);
+      }
+    }
   }
 
   getNearObstacles(x, z) {
     const cx = Math.floor(x / this.gridCellSize);
     const cz = Math.floor(z / this.gridCellSize);
+    const seen = new Set();
     const result = [];
+
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
         const key = `${cx + dx}_${cz + dz}`;
         const cell = this.spatialGrid.get(key);
         if (cell) {
           for (let i = 0; i < cell.length; i++) {
-            result.push(cell[i]);
+            const obs = cell[i];
+            if (!seen.has(obs)) {
+              seen.add(obs);
+              result.push(obs);
+            }
           }
         }
       }
@@ -125,7 +159,6 @@ export class WorldManager {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Base emerald gradient
     const grad = ctx.createLinearGradient(0, 0, 512, 512);
     grad.addColorStop(0, '#388e3c');
     grad.addColorStop(0.5, '#43a047');
@@ -133,7 +166,6 @@ export class WorldManager {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 512, 512);
 
-    // Subtle grass blade flecks
     ctx.fillStyle = 'rgba(102, 187, 106, 0.45)';
     for (let i = 0; i < 4000; i++) {
       const x = Math.random() * 512;
@@ -166,7 +198,6 @@ export class WorldManager {
     ctx.fillRect(0, 0, 512, 512);
 
     ctx.fillStyle = '#0f172a';
-    // Draw classic black pentagons
     const pentagons = [
       [256, 256], [128, 128], [384, 128], [128, 384], [384, 384],
       [256, 60], [256, 452], [60, 256], [452, 256]
@@ -184,14 +215,12 @@ export class WorldManager {
       ctx.closePath();
       ctx.fill();
 
-      // Stitch seams
       ctx.strokeStyle = '#64748b';
       ctx.lineWidth = 3;
       ctx.stroke();
     });
 
-    const tex = new THREE.CanvasTexture(canvas);
-    return tex;
+    return new THREE.CanvasTexture(canvas);
   }
 
   generateWoodTexture() {
@@ -208,7 +237,11 @@ export class WorldManager {
     for (let y = 0; y < 256; y += 6) {
       ctx.beginPath();
       ctx.moveTo(0, y + (Math.random() - 0.5) * 4);
-      ctx.bezierCurveTo(80, y + (Math.random() - 0.5) * 8, 180, y + (Math.random() - 0.5) * 8, 256, y + (Math.random() - 0.5) * 4);
+      ctx.bezierCurveTo(
+        80, y + (Math.random() - 0.5) * 8,
+        180, y + (Math.random() - 0.5) * 8,
+        256, y + (Math.random() - 0.5) * 4
+      );
       ctx.stroke();
     }
 
@@ -274,7 +307,6 @@ export class WorldManager {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Base dark mortar
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, 512, 512);
 
@@ -298,7 +330,6 @@ export class WorldManager {
         else ctx.rect(x, y, w, h);
         ctx.fill();
 
-        // 3D Bevel: top highlight & bottom shadow
         ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
         ctx.fillRect(x + 2, y + 2, w - 4, 3);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
@@ -322,22 +353,7 @@ export class WorldManager {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-
-      const distToLake = Math.hypot(x - (-80), z - (-80));
-      let y = 0;
-
-      if (distToLake < 65) {
-        const lakeFactor = Math.cos((distToLake / 65) * (Math.PI / 2));
-        y = -4.5 * lakeFactor;
-      } else {
-        y = Math.sin(x * 0.02) * 2.2 + Math.cos(z * 0.025) * 1.8 + Math.sin((x + z) * 0.015) * 1.5;
-        const distToPlayground = Math.hypot(x - 50, z - 40);
-        if (distToPlayground < 55) {
-          const blend = distToPlayground / 55;
-          y *= blend * blend;
-        }
-      }
-      pos.setY(i, y);
+      pos.setY(i, this.getTerrainHeightOnly(x, z));
     }
     terrainGeo.computeVertexNormals();
 
@@ -365,7 +381,7 @@ export class WorldManager {
   }
 
   buildCobblestonePaths() {
-    // 1. Central Plaza circular stone terrace at (0, 0)
+    const baseH = this.getTerrainHeightOnly(0, 0);
     const plazaGeo = new THREE.CylinderGeometry(18, 18.2, 0.14, 32);
     const plazaMat = new THREE.MeshStandardMaterial({
       map: this.textures.cobblestone,
@@ -373,33 +389,25 @@ export class WorldManager {
       metalness: 0.08
     });
     const plaza = new THREE.Mesh(plazaGeo, plazaMat);
-    plaza.position.set(0, this.getHeightAt(0, 0) + 0.07, 0);
+    plaza.position.set(0, baseH + 0.07, 0);
     plaza.receiveShadow = true;
     this.scene.add(plaza);
 
-    // Decorative Plaza Border Ring
     const borderMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 });
     const border = new THREE.Mesh(new THREE.TorusGeometry(18.2, 0.25, 12, 32), borderMat);
     border.rotation.x = Math.PI / 2;
-    border.position.set(0, this.getHeightAt(0, 0) + 0.12, 0);
+    border.position.set(0, baseH + 0.12, 0);
     this.scene.add(border);
 
-    // Glowing Neon Center Compass Rose
     const starMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.85 });
     const star = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 0.18, 8), starMat);
-    star.position.set(0, this.getHeightAt(0, 0) + 0.1, 0);
+    star.position.set(0, baseH + 0.1, 0);
     this.scene.add(star);
 
-    // 2. Cobblestone Path Network Ribbons:
-    // Path A: Plaza (0, 0) -> Playground Entrance (30, 26)
     this.createPathRibbon(new THREE.Vector3(0, 0, 0), new THREE.Vector3(30, 0, 26), 4.2);
-    // Path B: Plaza (0, 0) -> Lake Pier Entrance (-36, -68)
     this.createPathRibbon(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-36, 0, -68), 4.0);
-    // Path C: Plaza (0, 0) -> Cyber Doghouse Station (56, 44)
     this.createPathRibbon(new THREE.Vector3(0, 0, 0), new THREE.Vector3(56, 0, 44), 3.8);
-    // Path D: Plaza (0, 0) -> Wooden Bridge (-44, -46)
     this.createPathRibbon(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-44, 0, -46), 3.6);
-    // Path E: Plaza (0, 0) -> Cyber Water Fountain (12, 10)
     this.createPathRibbon(new THREE.Vector3(0, 0, 0), new THREE.Vector3(12, 0, 10), 3.8);
   }
 
@@ -419,7 +427,6 @@ export class WorldManager {
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const center = new THREE.Vector3().lerpVectors(start, end, t);
-      // Subtle natural curve
       const curveDev = Math.sin(t * Math.PI) * 1.8;
       center.x += -dir.z * curveDev;
       center.z += dir.x * curveDev;
@@ -427,8 +434,8 @@ export class WorldManager {
       const pL = new THREE.Vector3().addVectors(center, normal);
       const pR = new THREE.Vector3().subVectors(center, normal);
 
-      pL.y = this.getHeightAt(pL.x, pL.z) + 0.08;
-      pR.y = this.getHeightAt(pR.x, pR.z) + 0.08;
+      pL.y = this.getTerrainHeightOnly(pL.x, pL.z) + 0.08;
+      pR.y = this.getTerrainHeightOnly(pR.x, pR.z) + 0.08;
 
       positions.push(pL.x, pL.y, pL.z);
       positions.push(pR.x, pR.y, pR.z);
@@ -463,71 +470,120 @@ export class WorldManager {
     this.scene.add(mesh);
   }
 
-  buildWoodenBridge(pos, rotY = 0, span = 18, width = 4.2) {
+  // FIXED: Arched Wooden Bridge with curved handrails, side colliders & walkable surface height
+  buildWoodenBridge(pos, rotY = 0, span = 18, width = 4.4) {
     const bridgeGroup = new THREE.Group();
-    bridgeGroup.position.copy(pos);
-    bridgeGroup.position.y = this.getHeightAt(pos.x, pos.z);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    bridgeGroup.position.set(pos.x, baseY, pos.z);
     bridgeGroup.rotation.y = rotY;
 
-    const archSegments = 16;
+    const archSegments = 18;
+    const archPeak = 2.6;
     const woodMat = new THREE.MeshStandardMaterial({ map: this.textures.wood, roughness: 0.75 });
     const railMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.8 });
     const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffea00, emissive: 0xffea00, emissiveIntensity: 1.2 });
 
-    // Wooden planks forming the arched bridge deck
+    const postHeights = [];
+
     for (let i = 0; i < archSegments; i++) {
       const t = i / (archSegments - 1);
       const z = (t - 0.5) * span;
-      const archHeight = Math.sin(t * Math.PI) * 2.8;
+      const archHeight = Math.sin(t * Math.PI) * archPeak;
+      const slopeAngle = -Math.cos(t * Math.PI) * (archPeak * Math.PI / span);
 
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.22, span / archSegments * 0.92), woodMat);
-      plank.position.set(0, archHeight + 0.1, z);
-      plank.rotation.x = Math.cos(t * Math.PI) * 0.28;
+      const plank = new THREE.Mesh(
+        new THREE.BoxGeometry(width, 0.22, (span / archSegments) * 1.05),
+        woodMat
+      );
+      plank.position.set(0, archHeight + 0.11, z);
+      plank.rotation.x = slopeAngle;
       plank.castShadow = true;
       plank.receiveShadow = true;
       bridgeGroup.add(plank);
 
+      postHeights.push({ z, archHeight });
+
       // Side railings posts
-      if (i % 2 === 0) {
-        [-width * 0.5 + 0.15, width * 0.5 - 0.15].forEach(x => {
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 8), railMat);
-          post.position.set(x, archHeight + 0.7, z);
+      if (i % 2 === 0 || i === archSegments - 1) {
+        [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach(x => {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 1.35, 8), railMat);
+          post.position.set(x, archHeight + 0.75, z);
           post.castShadow = true;
           bridgeGroup.add(post);
         });
       }
     }
 
-    // Handrail top beams
-    [-width * 0.5 + 0.15, width * 0.5 - 0.15].forEach(x => {
-      const railGeo = new THREE.BoxGeometry(0.18, 0.15, span);
-      const rail = new THREE.Mesh(railGeo, railMat);
-      rail.position.set(x, 2.1, 0);
-      rail.castShadow = true;
-      bridgeGroup.add(rail);
+    // Curved Handrails following the exact arch segments (instead of cutting flat through the middle)
+    [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach(x => {
+      for (let i = 0; i < postHeights.length - 1; i++) {
+        const p1 = postHeights[i];
+        const p2 = postHeights[i + 1];
+        const dz = p2.z - p1.z;
+        const dy = p2.archHeight - p1.archHeight;
+        const segLen = Math.hypot(dz, dy);
+        const angle = -Math.atan2(dy, dz);
 
-      // Glowing corner lanterns
+        // Top rail bar
+        const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, segLen + 0.08), railMat);
+        topRail.position.set(x, (p1.archHeight + p2.archHeight) * 0.5 + 1.38, (p1.z + p2.z) * 0.5);
+        topRail.rotation.x = angle;
+        topRail.castShadow = true;
+        bridgeGroup.add(topRail);
+
+        // Mid safety rail bar
+        const midRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, segLen + 0.05), railMat);
+        midRail.position.set(x, (p1.archHeight + p2.archHeight) * 0.5 + 0.75, (p1.z + p2.z) * 0.5);
+        midRail.rotation.x = angle;
+        bridgeGroup.add(midRail);
+      }
+
+      // Corner lanterns
       [-span * 0.48, span * 0.48].forEach(z => {
-        const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.45, 0.35), lanternMat);
-        lantern.position.set(x, 1.8, z);
+        const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.44, 0.34), lanternMat);
+        lantern.position.set(x, 1.65, z);
         bridgeGroup.add(lantern);
+      });
 
-        // Register bridge entrance pillars as solid obstacles
-        const worldP = new THREE.Vector3(x, 0, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY).add(pos);
-        this.registerObstacle({ type: 'bridge_post', x: worldP.x, z: worldP.z, radius: 0.55, height: 2.5 });
+      // Register continuous OBB side-rail colliders so the dog stays on the bridge deck
+      const railWorld = new THREE.Vector3(x, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY).add(pos);
+      this.registerObstacle({
+        type: 'bridge_rail',
+        shape: 'box',
+        x: railWorld.x,
+        z: railWorld.z,
+        halfW: 0.22,
+        halfD: span * 0.48,
+        rotY,
+        yMin: baseY - 0.5,
+        yMax: baseY + archPeak + 2.0
       });
     });
 
     this.scene.add(bridgeGroup);
-    this.woodenBridge = { position: pos, span, width };
+    this.woodenBridge = { position: pos, baseY, rotY, span, width, archPeak };
+
+    // Register walkable arch surface
+    this.elevatedSurfaces.push({
+      type: 'bridge',
+      x: pos.x,
+      z: pos.z,
+      rotY,
+      halfW: width * 0.5,
+      halfD: span * 0.5,
+      getHeight: (localX, localZ) => {
+        const t = (localZ / span) + 0.5;
+        if (t < 0 || t > 1) return null;
+        return baseY + Math.sin(t * Math.PI) * archPeak + 0.22;
+      }
+    });
   }
 
   buildWaterFountain(pos) {
     const fGroup = new THREE.Group();
-    fGroup.position.copy(pos);
-    fGroup.position.y = this.getHeightAt(pos.x, pos.z);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    fGroup.position.set(pos.x, baseY, pos.z);
 
-    // Chrome outer bowl
     const bowlMat = new THREE.MeshStandardMaterial({
       color: 0x94a3b8,
       metalness: 0.85,
@@ -538,7 +594,6 @@ export class WorldManager {
     bowl.castShadow = true;
     fGroup.add(bowl);
 
-    // Cyan LED glow rim
     const rimMat = new THREE.MeshStandardMaterial({
       color: 0x00e5ff,
       emissive: 0x00e5ff,
@@ -549,7 +604,6 @@ export class WorldManager {
     rim.position.y = 0.56;
     fGroup.add(rim);
 
-    // Swirling water surface inside bowl
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x00b0ff,
       emissive: 0x0284c7,
@@ -565,13 +619,11 @@ export class WorldManager {
     fGroup.add(water);
     this.fountainWater = water;
 
-    // Center fountain nozzle & bubbling jet
-    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff });
-    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.45, 16), nozzleMat);
+    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, metalness: 0.7, roughness: 0.2 });
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.5, 16), nozzleMat);
     nozzle.position.y = 0.65;
     fGroup.add(nozzle);
 
-    // Center water jet spray
     const jetGeo = new THREE.ConeGeometry(0.4, 1.2, 16);
     const jetMat = new THREE.MeshStandardMaterial({
       color: 0xe0f7fa,
@@ -585,42 +637,45 @@ export class WorldManager {
     fGroup.add(jet);
     this.fountainJet = jet;
 
-    // Holographic Bone Sign
+    // Pedestal support for holographic bone sign so it isn't floating
+    const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 8), bowlMat);
+    signPost.position.set(0, 0.72, 1.52);
+    fGroup.add(signPost);
+
     const signMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 1.0 });
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 0.1), signMat);
-    sign.position.set(0, 0.9, 1.55);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.26, 0.1), signMat);
+    sign.position.set(0, 0.96, 1.52);
     fGroup.add(sign);
 
     this.scene.add(fGroup);
     this.waterFountain = { position: pos, radius: 1.6 };
 
-    // Register into solid obstacles
     this.registerObstacle({ type: 'water_fountain', x: pos.x, z: pos.z, radius: 1.65, height: 2.0 });
   }
 
   buildCyberSeesaw(pos) {
     const seeGroup = new THREE.Group();
-    seeGroup.position.copy(pos);
-    seeGroup.position.y = this.getHeightAt(pos.x, pos.z);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    seeGroup.position.set(pos.x, baseY, pos.z);
 
-    // Triangular pivot base
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.75, roughness: 0.3 });
-    const fulcrum = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.6, 4), baseMat);
-    fulcrum.rotation.y = Math.PI / 4;
-    fulcrum.position.y = 0.8;
-    fulcrum.castShadow = true;
-    seeGroup.add(fulcrum);
+    // Dual A-frame support brackets
+    [-0.75, 0.75].forEach(zOff => {
+      const stand = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.55, 4), baseMat);
+      stand.rotation.y = Math.PI / 4;
+      stand.position.set(0, 0.77, zOff);
+      stand.castShadow = true;
+      seeGroup.add(stand);
+    });
 
-    // Pivot axle
     const axleMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 });
-    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.2, 16), axleMat);
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.0, 16), axleMat);
     axle.rotation.x = Math.PI / 2;
-    axle.position.y = 1.55;
+    axle.position.y = 1.5;
     seeGroup.add(axle);
 
-    // Tilting Plank
     const plankPivot = new THREE.Group();
-    plankPivot.position.y = 1.55;
+    plankPivot.position.y = 1.5;
     seeGroup.add(plankPivot);
 
     const plankMat = new THREE.MeshStandardMaterial({
@@ -628,20 +683,20 @@ export class WorldManager {
       roughness: 0.4,
       metalness: 0.3
     });
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(10.0, 0.18, 1.4), plankMat);
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(10.0, 0.18, 1.45), plankMat);
     plank.castShadow = true;
     plank.receiveShadow = true;
     plankPivot.add(plank);
 
-    // Neon handle grips on both ends
-    [-4.5, 4.5].forEach((hx, idx) => {
+    [-4.3, 4.3].forEach((hx, idx) => {
       const handleColor = idx === 0 ? 0x00e5ff : 0xff4081;
       const hMat = new THREE.MeshStandardMaterial({ color: handleColor, emissive: handleColor, emissiveIntensity: 0.85 });
       const handle = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.06, 12, 24), hMat);
-      handle.position.set(hx, 0.45, 0);
+      handle.rotation.y = Math.PI / 2;
+      handle.position.set(hx * 0.88, 0.38, 0);
       plankPivot.add(handle);
 
-      const seatPad = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 1.2), hMat);
+      const seatPad = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.08, 1.25), hMat);
       seatPad.position.set(hx, 0.12, 0);
       plankPivot.add(seatPad);
     });
@@ -655,7 +710,6 @@ export class WorldManager {
       targetTilt: 0
     };
 
-    // Register fulcrum base into solid obstacles
     this.registerObstacle({ type: 'seesaw_fulcrum', x: pos.x, z: pos.z, radius: 1.0, height: 1.8 });
   }
 
@@ -678,7 +732,6 @@ export class WorldManager {
     this.scene.add(water);
     this.waterMesh = water;
 
-    // Shore rim with river stones
     const rimGeo = new THREE.RingGeometry(lakeRadius - 1.5, lakeRadius + 7, 64);
     rimGeo.rotateX(-Math.PI / 2);
     const rimMat = new THREE.MeshStandardMaterial({ color: 0xd7ccc8, roughness: 0.85 });
@@ -686,26 +739,29 @@ export class WorldManager {
     rim.position.set(-80, 0.06, -80);
     this.scene.add(rim);
 
-    // River rocks
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
     for (let i = 0; i < 35; i++) {
       const angle = (i / 35) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
+      // Leave gap near the pier entrance
+      if (Math.abs(angle - 0.0) < 0.25) continue;
       const rad = lakeRadius + (Math.random() - 0.5) * 5;
       const rx = -80 + Math.cos(angle) * rad;
       const rz = -80 + Math.sin(angle) * rad;
       const rockGeo = new THREE.DodecahedronGeometry(0.7 + Math.random() * 0.8, 1);
       const rock = new THREE.Mesh(rockGeo, rockMat);
-      rock.position.set(rx, this.getHeightAt(rx, rz) + 0.3, rz);
+      rock.position.set(rx, this.getTerrainHeightOnly(rx, rz) + 0.3, rz);
       rock.rotation.set(Math.random(), Math.random(), Math.random());
       rock.castShadow = true;
       this.scene.add(rock);
       this.registerObstacle({ type: 'rock', x: rx, z: rz, radius: 1.35, height: 1.8 });
     }
 
-    // Wooden Pier with Posts and Glowing Lanterns
+    // Wooden Pier with Posts, Glowing Lanterns & Walkable Surface
+    const pierPos = new THREE.Vector3(-44, 0.35, -80);
+    const pierRotY = 0.28;
     const pierGroup = new THREE.Group();
-    pierGroup.position.set(-80 + 36, 0.25, -80);
-    pierGroup.rotation.y = 0.28;
+    pierGroup.position.copy(pierPos);
+    pierGroup.rotation.y = pierRotY;
 
     const deckGeo = new THREE.BoxGeometry(6, 0.35, 24);
     const deckMat = new THREE.MeshStandardMaterial({ map: this.textures.wood, roughness: 0.7 });
@@ -718,124 +774,287 @@ export class WorldManager {
     const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b, emissive: 0xffeb3b, emissiveIntensity: 1.0 });
 
     [-2.8, 2.8].forEach(x => {
-      [-10, 0, 10].forEach(z => {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.8, 8), postMat);
-        post.position.set(x, 0.6, z);
+      [-10, -3.3, 3.3, 10].forEach(z => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 4.2, 8), postMat);
+        post.position.set(x, -0.3, z);
         post.castShadow = true;
         pierGroup.add(post);
 
         const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 0.3), lanternMat);
-        lantern.position.set(x, 2.1, z);
+        lantern.position.set(x, 1.95, z);
         pierGroup.add(lantern);
+
+        const worldPost = new THREE.Vector3(x, 0, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), pierRotY).add(pierPos);
+        this.registerObstacle({
+          type: 'pier_post',
+          x: worldPost.x,
+          z: worldPost.z,
+          radius: 0.32,
+          yMin: -2.0,
+          yMax: 2.5
+        });
       });
     });
 
     this.scene.add(pierGroup);
 
-    // Floating Toy Motorboat on the Lake
+    // Register Pier as walkable elevated deck
+    this.elevatedSurfaces.push({
+      type: 'pier',
+      x: pierPos.x,
+      z: pierPos.z,
+      rotY: pierRotY,
+      halfW: 3.1,
+      halfD: 12.1,
+      getHeight: () => pierPos.y + 0.18
+    });
+
     this.buildToyBoat(new THREE.Vector3(-80, 0, -65));
   }
 
+  // IMPROVED: Detailed Cyber Speedboat with Bow, Cabin, Windshield & Motor
   buildToyBoat(pos) {
     const boatGroup = new THREE.Group();
     boatGroup.position.copy(pos);
 
-    const hullMat = new THREE.MeshStandardMaterial({ color: 0xff1744, roughness: 0.3 });
-    const cabinMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0xff1744, roughness: 0.25, metalness: 0.3 });
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 });
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00b0ff,
+      emissiveIntensity: 0.35,
+      roughness: 0.1,
+      metalness: 0.8,
+      transparent: true,
+      opacity: 0.78
+    });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
 
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 4.2), hullMat);
-    hull.position.y = 0.2;
+    // Main hull body
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.75, 3.6), hullMat);
+    hull.position.set(0, 0.22, -0.3);
+    hull.castShadow = true;
     boatGroup.add(hull);
 
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 2.2), cabinMat);
-    cabin.position.set(0, 0.9, -0.4);
+    // Pointed Bow (Proa en punta)
+    const bowGeo = new THREE.ConeGeometry(1.77, 1.8, 4);
+    bowGeo.rotateX(Math.PI / 2);
+    bowGeo.rotateZ(Math.PI / 4);
+    const bow = new THREE.Mesh(bowGeo, hullMat);
+    bow.scale.set(1.0, 0.42, 1.0);
+    bow.position.set(0, 0.22, 2.4);
+    bow.castShadow = true;
+    boatGroup.add(bow);
+
+    // White upper deck trim
+    const upperDeck = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.15, 3.4), deckMat);
+    upperDeck.position.set(0, 0.62, -0.3);
+    boatGroup.add(upperDeck);
+
+    // Cabin & Angled Windshield
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.75, 1.8), deckMat);
+    cabin.position.set(0, 1.0, -0.4);
+    cabin.castShadow = true;
     boatGroup.add(cabin);
 
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.55, 0.85), glassMat);
+    windshield.position.set(0, 0.98, 0.6);
+    windshield.rotation.x = -0.45;
+    boatGroup.add(windshield);
+
+    // Outboard engine at stern
+    const motor = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.75, 0.6), darkMat);
+    motor.position.set(0, 0.45, -2.25);
+    boatGroup.add(motor);
+
+    // Glowing Cyber Antenna
     const antenna = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.04, 0.04, 1.2, 8),
-      new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.8 })
+      new THREE.CylinderGeometry(0.035, 0.035, 1.3, 8),
+      new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.9 })
     );
-    antenna.position.set(0, 1.8, -0.4);
+    antenna.position.set(0, 1.9, -0.6);
     boatGroup.add(antenna);
 
     this.scene.add(boatGroup);
     this.toyBoat = boatGroup;
+    this.registerObstacle({
+      type: 'toy_boat',
+      x: pos.x,
+      z: pos.z,
+      radius: 2.3,
+      yMin: -1.5,
+      yMax: 2.2
+    });
   }
 
   buildDetailedPlayground() {
     const playCenter = new THREE.Vector3(50, 0, 40);
 
-    // Checkered Tartan Play Floor
-    const floorGeo = new THREE.CylinderGeometry(42, 42, 0.12, 40);
+    const floorGeo = new THREE.CylinderGeometry(42, 42, 0.12, 48);
     const floorMat = new THREE.MeshStandardMaterial({ map: this.textures.tartan, roughness: 0.8 });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.position.copy(playCenter);
-    floor.position.y = 0.06;
+    floor.position.y = this.getTerrainHeightOnly(50, 40) + 0.06;
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Cyber Doghouse
     this.buildCyberDoghouse(new THREE.Vector3(72, 0, 52));
-
-    // 1. TRAMPOLÍN ELÁSTICO DE SALTO ALTO (Interactive Trampoline)
     this.buildTrampoline(new THREE.Vector3(38, 0, 22));
-
-    // 2. CARRUSEL GIRATORIO (Interactive Carousel)
     this.buildCarousel(new THREE.Vector3(62, 0, 26));
-
-    // 3. PORTERÍA DE FÚTBOL CON DETECTOR DE GOLES (Soccer Goal)
     this.buildSoccerGoal(new THREE.Vector3(25, 0, 40));
-
-    // 4. PLATAFORMA DE BAILE DISCO (Interactive Dance Pad)
     this.buildDiscoPad(new THREE.Vector3(52, 0, 56));
 
-    // Agility Ramp with Grip Strips
+    // FIXED: Agility A-Frame / Grounded Ramp with Support Pillars & Side Curbs
+    const rampCenter = new THREE.Vector3(45, 0, 45);
+    const rampBaseY = this.getTerrainHeightOnly(rampCenter.x, rampCenter.z);
+    const rampLen = 12.0;
+    const rampWidth = 4.6;
+    const rampAngle = 0.22; // ~12.6 deg climb
+    const rampMidY = Math.sin(rampAngle) * (rampLen * 0.5);
+    const rampTopY = Math.sin(rampAngle) * rampLen;
+
     const rampGroup = new THREE.Group();
-    rampGroup.position.set(45, 1.4, 45);
-    rampGroup.rotation.x = 0.24;
+    rampGroup.position.set(rampCenter.x, rampBaseY, rampCenter.z);
 
-    const ramp = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.35, 14), new THREE.MeshStandardMaterial({ color: 0xff9800, roughness: 0.45 }));
-    ramp.castShadow = true;
-    rampGroup.add(ramp);
+    const rampSlope = new THREE.Group();
+    rampSlope.position.set(0, rampMidY, 0);
+    rampSlope.rotation.x = -rampAngle; // Low at +Z, climbs toward -Z
 
-    for (let s = -6; s <= 6; s += 1.8) {
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.08, 0.25), new THREE.MeshStandardMaterial({ color: 0x212121 }));
-      strip.position.set(0, 0.2, s);
-      rampGroup.add(strip);
+    const rampMat = new THREE.MeshStandardMaterial({ color: 0xff9800, roughness: 0.45 });
+    const curbMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.6 });
+    const supportMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+
+    const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(rampWidth, 0.28, rampLen), rampMat);
+    rampMesh.castShadow = true;
+    rampMesh.receiveShadow = true;
+    rampSlope.add(rampMesh);
+
+    // Side safety curbs
+    [-rampWidth * 0.5 + 0.12, rampWidth * 0.5 - 0.12].forEach(cx => {
+      const curb = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.28, rampLen), curbMat);
+      curb.position.set(cx, 0.2, 0);
+      rampSlope.add(curb);
+    });
+
+    // Non-slip grip strips
+    for (let s = -5.2; s <= 5.2; s += 1.4) {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(rampWidth - 0.5, 0.08, 0.24), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+      strip.position.set(0, 0.16, s);
+      rampSlope.add(strip);
     }
+    rampGroup.add(rampSlope);
+
+    // Support pillars under the raised (-Z) and middle sections of the ramp so it never floats
+    [-rampWidth * 0.42, rampWidth * 0.42].forEach(px => {
+      [-rampLen * 0.42, 0].forEach(pz => {
+        const t = 0.5 - (pz / rampLen);
+        const h = Math.max(0.3, t * rampTopY);
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, h, 10), supportMat);
+        pillar.position.set(px, h * 0.5, pz);
+        pillar.castShadow = true;
+        rampGroup.add(pillar);
+      });
+    });
+
     this.scene.add(rampGroup);
 
-    // Pulsing Agility Hoops
+    // Register Ramp as walkable inclined surface
+    this.elevatedSurfaces.push({
+      type: 'ramp',
+      x: rampCenter.x,
+      z: rampCenter.z,
+      rotY: 0,
+      halfW: rampWidth * 0.5,
+      halfD: rampLen * 0.5,
+      getHeight: (localX, localZ) => {
+        const t = 0.5 - (localZ / rampLen);
+        if (t < 0 || t > 1) return null;
+        return rampBaseY + t * rampTopY + 0.18;
+      }
+    });
+
+    // FIXED: Pulsing Agility Hoops with proper dual side-base stands (no pole piercing center)
     this.agilityHoops = [];
     const ringColors = [0x00e5ff, 0xff4081, 0x76ff03];
+    const standMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.7, roughness: 0.3 });
+
     [-10, 0, 10].forEach((offset, idx) => {
+      const hx = 36;
+      const hz = 26 + offset;
+      const groundY = this.getTerrainHeightOnly(hx, hz);
+
       const hoopGroup = new THREE.Group();
-      hoopGroup.position.set(36, 2.6, 26 + offset);
+      hoopGroup.position.set(hx, groundY, hz);
+      hoopGroup.rotation.y = 0.3;
 
       const color = ringColors[idx % ringColors.length];
       const ringMat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.95 });
-      const hoopMesh = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.16, 16, 32), ringMat);
-      hoopMesh.rotation.y = 0.3;
+      const hoopMesh = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.14, 16, 32), ringMat);
+      hoopMesh.position.y = 2.1;
       hoopGroup.add(hoopMesh);
 
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.6, 10), new THREE.MeshStandardMaterial({ color: 0x37474f }));
-      pole.position.set(0, -1.3, 0);
-      hoopGroup.add(pole);
+      // Left & Right side support legs holding the hoop
+      [-1.75, 1.75].forEach(lx => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 2.1, 10), standMat);
+        leg.position.set(lx, 1.05, 0);
+        leg.castShadow = true;
+        hoopGroup.add(leg);
+      });
+
+      const baseBar = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.12, 0.45), standMat);
+      baseBar.position.y = 0.06;
+      hoopGroup.add(baseBar);
 
       this.scene.add(hoopGroup);
       this.agilityHoops.push({ mesh: hoopMesh, baseColor: color });
     });
 
-    // Crawl Agility Tunnel
-    const tunnel = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.6, 2.6, 12, 24, 1, true, 0, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0x7c4dff, roughness: 0.45, side: THREE.DoubleSide })
-    );
-    tunnel.position.set(56, 0, 24);
-    tunnel.rotation.z = Math.PI / 2;
-    tunnel.rotation.y = -0.55;
-    tunnel.castShadow = true;
-    this.scene.add(tunnel);
+    // FIXED: Crawl Agility Tunnel properly arched over the ground (U-arch facing downward) + Side Colliders
+    const tunnelPos = new THREE.Vector3(56, this.getTerrainHeightOnly(56, 24), 24);
+    const tunnelRotY = -0.55;
+    const tunnelGroup = new THREE.Group();
+    tunnelGroup.position.copy(tunnelPos);
+    tunnelGroup.rotation.y = tunnelRotY;
+
+    const tunnelGeo = new THREE.CylinderGeometry(2.2, 2.2, 10, 24, 1, true, 0, Math.PI);
+    tunnelGeo.rotateZ(Math.PI / 2); // Aligns cylinder axis along X, arch facing +Y (upward)
+    tunnelGeo.rotateY(Math.PI / 2); // Aligns tunnel axis along local Z
+
+    const tunnelMat = new THREE.MeshStandardMaterial({
+      color: 0x7c4dff,
+      roughness: 0.4,
+      metalness: 0.2,
+      side: THREE.DoubleSide
+    });
+    const tunnelMesh = new THREE.Mesh(tunnelGeo, tunnelMat);
+    tunnelMesh.castShadow = true;
+    tunnelMesh.receiveShadow = true;
+    tunnelGroup.add(tunnelMesh);
+
+    // Neon entry & exit arch ribs
+    const archRibMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.85 });
+    [-4.9, 0, 4.9].forEach(tz => {
+      const rib = new THREE.Mesh(new THREE.TorusGeometry(2.22, 0.1, 12, 24, Math.PI), archRibMat);
+      rib.position.set(0, 0, tz);
+      tunnelGroup.add(rib);
+    });
+
+    this.scene.add(tunnelGroup);
+
+    // Left & Right wall colliders for the playground crawl tunnel
+    [-2.15, 2.15].forEach(wallX => {
+      const worldWall = new THREE.Vector3(wallX, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), tunnelRotY).add(tunnelPos);
+      this.registerObstacle({
+        type: 'playground_tunnel_wall',
+        shape: 'box',
+        x: worldWall.x,
+        z: worldWall.z,
+        halfW: 0.25,
+        halfD: 5.0,
+        rotY: tunnelRotY,
+        height: 2.2
+      });
+    });
 
     // Balls with Real Physics
     this.soccerBall = this.spawnSoccerBall(new THREE.Vector3(42, 1.2, 38), 1.2);
@@ -851,32 +1070,33 @@ export class WorldManager {
 
   buildTrampoline(pos) {
     const trampGroup = new THREE.Group();
-    trampGroup.position.copy(pos);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    trampGroup.position.set(pos.x, baseY, pos.z);
 
-    // Frame ring
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.8, roughness: 0.3 });
-    const frame = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.22, 16, 32), frameMat);
+    const frame = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.24, 16, 32), frameMat);
     frame.rotation.x = Math.PI / 2;
     frame.position.y = 1.0;
+    frame.castShadow = true;
     trampGroup.add(frame);
 
-    // Bouncy canvas mat
-    const matGeo = new THREE.CylinderGeometry(3.4, 3.4, 0.1, 32);
+    const matGeo = new THREE.CylinderGeometry(3.4, 3.4, 0.12, 32);
     const canvasMat = new THREE.MeshStandardMaterial({
       color: 0x00e5ff,
       emissive: 0x00e5ff,
-      emissiveIntensity: 0.6,
+      emissiveIntensity: 0.55,
       roughness: 0.4
     });
     const bouncer = new THREE.Mesh(matGeo, canvasMat);
-    bouncer.position.y = 0.95;
+    bouncer.position.y = 0.96;
+    bouncer.receiveShadow = true;
     trampGroup.add(bouncer);
 
-    // 6 Support legs
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.0, 8), frameMat);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.0, 10), frameMat);
       leg.position.set(Math.cos(a) * 3.4, 0.5, Math.sin(a) * 3.4);
+      leg.castShadow = true;
       trampGroup.add(leg);
     }
 
@@ -886,110 +1106,223 @@ export class WorldManager {
 
   buildCarousel(pos) {
     const carGroup = new THREE.Group();
-    carGroup.position.copy(pos);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    carGroup.position.set(pos.x, baseY, pos.z);
 
-    // Fixed base
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x263238, metalness: 0.7 });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.4, 0.25, 32), baseMat);
     base.position.y = 0.12;
+    base.receiveShadow = true;
     carGroup.add(base);
 
-    // Rotating platform
     const rotorGroup = new THREE.Group();
-    rotorGroup.position.y = 0.35;
+    rotorGroup.position.y = 0.32;
     carGroup.add(rotorGroup);
 
     const platformMat = new THREE.MeshStandardMaterial({
       color: 0xff4081,
-      roughness: 0.35
+      roughness: 0.35,
+      metalness: 0.2
     });
-    const platform = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 3.8, 0.15, 32), platformMat);
+    const platform = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 3.8, 0.16, 32), platformMat);
+    platform.receiveShadow = true;
     rotorGroup.add(platform);
 
-    // Center pole with cyber cone
-    const centerPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.8, 12), new THREE.MeshStandardMaterial({ color: 0xffeb3b }));
+    const centerPole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.26, 2.8, 16),
+      new THREE.MeshStandardMaterial({ color: 0xffeb3b, metalness: 0.5, roughness: 0.3 })
+    );
     centerPole.position.y = 1.4;
+    centerPole.castShadow = true;
     rotorGroup.add(centerPole);
 
-    // 4 Grab handles around carousel
+    const topCap = new THREE.Mesh(
+      new THREE.ConeGeometry(1.2, 0.7, 16),
+      new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.6 })
+    );
+    topCap.position.y = 3.0;
+    rotorGroup.add(topCap);
+
+    // 4 Grab handles with vertical support struts connecting them to the carousel deck
     const handleMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.7 });
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
-      const bar = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 12, 24), handleMat);
-      bar.position.set(Math.cos(a) * 2.4, 1.1, Math.sin(a) * 2.4);
+      const hx = Math.cos(a) * 2.5;
+      const hz = Math.sin(a) * 2.5;
+
+      const bar = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.07, 12, 24), handleMat);
+      bar.position.set(hx, 0.95, hz);
+      bar.rotation.y = -a;
       rotorGroup.add(bar);
+
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8), baseMat);
+      strut.position.set(hx, 0.45, hz);
+      rotorGroup.add(strut);
     }
 
     this.scene.add(carGroup);
     this.carousel = { rotor: rotorGroup, position: pos, radius: 4.0 };
-    this.registerObstacle({ type: 'carousel_mast', x: pos.x, z: pos.z, radius: 0.65, height: 3.2 });
+    this.registerObstacle({ type: 'carousel_mast', x: pos.x, z: pos.z, radius: 0.55, height: 3.2 });
   }
 
+  // FIXED: Open-Front Soccer Goal with 4-sided Net & True 3-Wall Box Colliders
   buildSoccerGoal(pos) {
     const goalGroup = new THREE.Group();
-    goalGroup.position.copy(pos);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    goalGroup.position.set(pos.x, baseY, pos.z);
+    // Opens toward +X (toward playground center at x=50)
     goalGroup.rotation.y = Math.PI / 2;
 
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
-    const netMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, wireframe: true });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.3 });
+    const netMat = new THREE.MeshBasicMaterial({
+      color: 0xe2e8f0,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.55
+    });
 
-    // Crossbar and posts
-    const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.4, 12), frameMat);
-    postL.position.set(-3.5, 1.7, 0);
-    const postR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.4, 12), frameMat);
-    postR.position.set(3.5, 1.7, 0);
+    const width = 7.0;
+    const height = 3.4;
+    const depth = 3.0;
+    const hw = width * 0.5;
 
-    const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 7.2, 12), frameMat);
+    // Front posts & crossbar
+    const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, height, 12), frameMat);
+    postL.position.set(-hw, height * 0.5, 0);
+    postL.castShadow = true;
+
+    const postR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, height, 12), frameMat);
+    postR.position.set(hw, height * 0.5, 0);
+    postR.castShadow = true;
+
+    const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, width + 0.24, 12), frameMat);
     crossbar.rotation.z = Math.PI / 2;
-    crossbar.position.set(0, 3.4, 0);
+    crossbar.position.set(0, height, 0);
+    crossbar.castShadow = true;
 
-    // Net box
-    const netGeo = new THREE.BoxGeometry(7.0, 3.2, 3.0);
-    const net = new THREE.Mesh(netGeo, netMat);
-    net.position.set(0, 1.6, -1.5);
+    // Back support frame
+    const backPostL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, height, 10), frameMat);
+    backPostL.position.set(-hw, height * 0.5, -depth);
+    const backPostR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, height, 10), frameMat);
+    backPostR.position.set(hw, height * 0.5, -depth);
+    const backTopBar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, width, 10), frameMat);
+    backTopBar.rotation.z = Math.PI / 2;
+    backTopBar.position.set(0, height, -depth);
 
-    goalGroup.add(postL, postR, crossbar, net);
+    [-hw, hw].forEach(sx => {
+      const topSideBar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, depth, 10), frameMat);
+      topSideBar.rotation.x = Math.PI / 2;
+      topSideBar.position.set(sx, height, -depth * 0.5);
+
+      const bottomSideBar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, depth, 10), frameMat);
+      bottomSideBar.rotation.x = Math.PI / 2;
+      bottomSideBar.position.set(sx, 0.08, -depth * 0.5);
+      goalGroup.add(topSideBar, bottomSideBar);
+    });
+
+    // 4 Open-Front Net Panels (Back, Top, Left, Right - NO front blocking face!)
+    const netBack = new THREE.Mesh(new THREE.PlaneGeometry(width, height, 14, 7), netMat);
+    netBack.position.set(0, height * 0.5, -depth);
+
+    const netTop = new THREE.Mesh(new THREE.PlaneGeometry(width, depth, 14, 6), netMat);
+    netTop.rotation.x = Math.PI / 2;
+    netTop.position.set(0, height, -depth * 0.5);
+
+    const netLeft = new THREE.Mesh(new THREE.PlaneGeometry(depth, height, 6, 7), netMat);
+    netLeft.rotation.y = Math.PI / 2;
+    netLeft.position.set(-hw, height * 0.5, -depth * 0.5);
+
+    const netRight = new THREE.Mesh(new THREE.PlaneGeometry(depth, height, 6, 7), netMat);
+    netRight.rotation.y = -Math.PI / 2;
+    netRight.position.set(hw, height * 0.5, -depth * 0.5);
+
+    goalGroup.add(postL, postR, crossbar, backPostL, backPostR, backTopBar, netBack, netTop, netLeft, netRight);
     this.scene.add(goalGroup);
 
     this.soccerGoal = {
       position: pos,
-      width: 7.0,
-      depth: 3.0
+      width,
+      depth,
+      height
     };
 
-    // Solid obstacle boundaries for posts and back net
-    this.registerObstacle({ type: 'goal_post', x: pos.x, z: pos.z - 3.5, radius: 0.35, height: 3.5 });
-    this.registerObstacle({ type: 'goal_post', x: pos.x, z: pos.z + 3.5, radius: 0.35, height: 3.5 });
-    this.registerObstacle({ type: 'goal_net', x: pos.x - 1.5, z: pos.z, radius: 1.8, height: 3.2 });
+    // Accurate Colliders: Front posts + Left/Right/Back net walls
+    this.registerObstacle({ type: 'goal_post_l', x: pos.x, z: pos.z - hw, radius: 0.25, height });
+    this.registerObstacle({ type: 'goal_post_r', x: pos.x, z: pos.z + hw, radius: 0.25, height });
+    this.registerObstacle({ type: 'goal_net_back', shape: 'box', x: pos.x - depth, z: pos.z, halfW: 0.2, halfD: hw, height });
+    this.registerObstacle({ type: 'goal_net_side_n', shape: 'box', x: pos.x - depth * 0.5, z: pos.z - hw, halfW: depth * 0.5, halfD: 0.2, height });
+    this.registerObstacle({ type: 'goal_net_side_s', shape: 'box', x: pos.x - depth * 0.5, z: pos.z + hw, halfW: depth * 0.5, halfD: 0.2, height });
   }
 
+  // FIXED: Disco Pad with Cyber Truss Arch holding the Mirror Ball (no longer floating in mid-air)
   buildDiscoPad(pos) {
     const padGroup = new THREE.Group();
-    padGroup.position.copy(pos);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    padGroup.position.set(pos.x, baseY, pos.z);
 
-    // 16 Illuminated Disco Floor Tiles
     this.discoTiles = [];
     const tileColors = [0xff1744, 0x00e5ff, 0x76ff03, 0xffea00, 0xd500f9, 0xff9100];
 
+    // Dark base frame
+    const frameBase = new THREE.Mesh(
+      new THREE.BoxGeometry(6.6, 0.1, 6.6),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 })
+    );
+    frameBase.position.y = 0.05;
+    padGroup.add(frameBase);
+
     for (let x = -2; x <= 1; x++) {
       for (let z = -2; z <= 1; z++) {
+        const col = tileColors[Math.floor(Math.random() * tileColors.length)];
         const mat = new THREE.MeshStandardMaterial({
-          color: tileColors[Math.floor(Math.random() * tileColors.length)],
-          emissive: 0x000000,
-          emissiveIntensity: 0.5,
+          color: col,
+          emissive: col,
+          emissiveIntensity: 0.25,
           roughness: 0.2
         });
-        const tile = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 1.4), mat);
-        tile.position.set(x * 1.5 + 0.75, 0.08, z * 1.5 + 0.75);
+        const tile = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.14, 1.4), mat);
+        tile.position.set(x * 1.5 + 0.75, 0.1, z * 1.5 + 0.75);
         padGroup.add(tile);
         this.discoTiles.push(tile);
       }
     }
 
-    // Overhead Hanging Disco Mirror Ball
-    const ballMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.95, roughness: 0.1 });
-    const discoBall = new THREE.Mesh(new THREE.SphereGeometry(0.85, 16, 16), ballMat);
-    discoBall.position.set(0, 4.2, 0);
+    // 4 Corner Truss Pillars + Overhead Crossbeams holding the Disco Mirror Ball
+    const trussMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.2 });
+    const cornerOffset = 3.15;
+    const trussHeight = 5.0;
+
+    [[-cornerOffset, -cornerOffset], [cornerOffset, -cornerOffset], [-cornerOffset, cornerOffset], [cornerOffset, cornerOffset]].forEach(([cx, cz]) => {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, trussHeight, 10), trussMat);
+      pillar.position.set(cx, trussHeight * 0.5, cz);
+      pillar.castShadow = true;
+      padGroup.add(pillar);
+
+      this.registerObstacle({
+        type: 'disco_pillar',
+        x: pos.x + cx,
+        z: pos.z + cz,
+        radius: 0.25,
+        height: trussHeight
+      });
+    });
+
+    // Overhead diagonal roof beams & hanging cable
+    const diagLen = cornerOffset * 2 * Math.SQRT2;
+    [Math.PI / 4, -Math.PI / 4].forEach(rot => {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.14, 0.14), trussMat);
+      beam.position.set(0, trussHeight, 0);
+      beam.rotation.y = rot;
+      padGroup.add(beam);
+    });
+
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 8), trussMat);
+    cable.position.set(0, trussHeight - 0.4, 0);
+    padGroup.add(cable);
+
+    const ballMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.95, roughness: 0.08 });
+    const discoBall = new THREE.Mesh(new THREE.SphereGeometry(0.8, 20, 20), ballMat);
+    discoBall.position.set(0, trussHeight - 0.95, 0);
     padGroup.add(discoBall);
     this.discoBall = discoBall;
 
@@ -997,52 +1330,106 @@ export class WorldManager {
     this.discoPad = { position: pos, radius: 3.5 };
   }
 
+  // FIXED: Hollow Cyber Doghouse with real walls, open doorway, and visible interior pad
   buildCyberDoghouse(pos) {
     const houseGroup = new THREE.Group();
-    houseGroup.position.copy(pos);
+    const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+    houseGroup.position.set(pos.x, baseY, pos.z);
 
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35, metalness: 0.4 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35, metalness: 0.45 });
+    const interiorFloorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.3 });
     const roofMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.2, metalness: 0.6 });
+    const neonTrimMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.85 });
 
-    const booth = new THREE.Mesh(new THREE.BoxGeometry(6.4, 4.8, 6.4), wallMat);
-    booth.position.y = 2.4;
-    booth.castShadow = true;
-    houseGroup.add(booth);
+    const w = 6.4;
+    const h = 4.6;
+    const d = 6.4;
+    const wallT = 0.4;
 
-    const door = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.4, 0.8), new THREE.MeshBasicMaterial({ color: 0x090d16 }));
-    door.position.set(0, 1.7, 2.9);
-    houseGroup.add(door);
+    // Base floor slab
+    const floorSlab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, d), interiorFloorMat);
+    floorSlab.position.y = 0.08;
+    floorSlab.receiveShadow = true;
+    houseGroup.add(floorSlab);
 
+    // Back wall (-Z)
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(w, h, wallT), wallMat);
+    backWall.position.set(0, h * 0.5, -d * 0.5 + wallT * 0.5);
+    backWall.castShadow = true;
+    backWall.receiveShadow = true;
+    houseGroup.add(backWall);
+
+    // Left wall (-X) & Right wall (+X)
+    [-w * 0.5 + wallT * 0.5, w * 0.5 - wallT * 0.5].forEach(wx => {
+      const sideWall = new THREE.Mesh(new THREE.BoxGeometry(wallT, h, d), wallMat);
+      sideWall.position.set(wx, h * 0.5, 0);
+      sideWall.castShadow = true;
+      sideWall.receiveShadow = true;
+      houseGroup.add(sideWall);
+    });
+
+    // Front wall left & right pillars (+Z) leaving a real 3.0m wide open doorway in the center
+    const doorWidth = 3.0;
+    const doorHeight = 3.4;
+    const pillarWidth = (w - doorWidth) * 0.5;
+    [-w * 0.5 + pillarWidth * 0.5, w * 0.5 - pillarWidth * 0.5].forEach(px => {
+      const frontPillar = new THREE.Mesh(new THREE.BoxGeometry(pillarWidth, h, wallT), wallMat);
+      frontPillar.position.set(px, h * 0.5, d * 0.5 - wallT * 0.5);
+      frontPillar.castShadow = true;
+      houseGroup.add(frontPillar);
+    });
+
+    // Front top lintel above doorway
+    const lintelH = h - doorHeight;
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, lintelH, wallT), wallMat);
+    lintel.position.set(0, doorHeight + lintelH * 0.5, d * 0.5 - wallT * 0.5);
+    lintel.castShadow = true;
+    houseGroup.add(lintel);
+
+    // Neon doorway frame strips
+    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(doorWidth + 0.2, 0.12, wallT + 0.08), neonTrimMat);
+    frameTop.position.set(0, doorHeight, d * 0.5 - wallT * 0.5);
+    houseGroup.add(frameTop);
+
+    [-doorWidth * 0.5, doorWidth * 0.5].forEach(dx => {
+      const frameSide = new THREE.Mesh(new THREE.BoxGeometry(0.12, doorHeight, wallT + 0.08), neonTrimMat);
+      frameSide.position.set(dx, doorHeight * 0.5, d * 0.5 - wallT * 0.5);
+      houseGroup.add(frameSide);
+    });
+
+    // Glowing Recharge Pad clearly visible inside the hollow house
     const padMat = new THREE.MeshStandardMaterial({ color: 0x22ff88, emissive: 0x22ff88, emissiveIntensity: 0.9 });
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 0.16, 24), padMat);
-    pad.position.set(0, 0.12, 0.9);
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.85, 1.95, 0.14, 28), padMat);
+    pad.position.set(0, 0.2, 0);
     houseGroup.add(pad);
 
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(5.6, 2.6, 4), roofMat);
+    // Pyramidal Roof properly seated on top of the walls (y = 4.6)
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(5.4, 2.4, 4), roofMat);
     roof.rotateY(Math.PI / 4);
-    roof.position.y = 5.8;
+    roof.position.y = h + 1.2;
+    roof.castShadow = true;
     houseGroup.add(roof);
 
-    const sign = new THREE.Mesh(
-      new THREE.BoxGeometry(3.6, 0.85, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.8 })
-    );
-    sign.position.set(0, 4.4, 3.3);
+    // Glowing Sign on Front Lintel
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.7, 0.18), neonTrimMat);
+    sign.position.set(0, h - 0.55, d * 0.5 + 0.05);
     houseGroup.add(sign);
 
     this.scene.add(houseGroup);
-    // Left, Right and Back Wall Colliders (Allows front door entrance for recharge!)
-    this.registerObstacle({ type: 'doghouse_wall_back', shape: 'box', x: pos.x, z: pos.z - 3.0, halfW: 3.2, halfD: 0.4, height: 4.8 });
-    this.registerObstacle({ type: 'doghouse_wall_left', shape: 'box', x: pos.x - 3.0, z: pos.z, halfW: 0.4, halfD: 3.2, height: 4.8 });
-    this.registerObstacle({ type: 'doghouse_wall_right', shape: 'box', x: pos.x + 3.0, z: pos.z, halfW: 0.4, halfD: 3.2, height: 4.8 });
+
+    // Colliders for Back, Left, Right walls and Front doorway pillars
+    this.registerObstacle({ type: 'doghouse_wall_back', shape: 'box', x: pos.x, z: pos.z - d * 0.5 + wallT * 0.5, halfW: w * 0.5, halfD: wallT * 0.5, height: h });
+    this.registerObstacle({ type: 'doghouse_wall_left', shape: 'box', x: pos.x - w * 0.5 + wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
+    this.registerObstacle({ type: 'doghouse_wall_right', shape: 'box', x: pos.x + w * 0.5 - wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
+    this.registerObstacle({ type: 'doghouse_pillar_l', shape: 'box', x: pos.x - w * 0.5 + pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
+    this.registerObstacle({ type: 'doghouse_pillar_r', shape: 'box', x: pos.x + w * 0.5 - pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
   }
 
-  // --- NEW HIGH-TECH ATTRACTIONS ---
+  // --- HIGH-TECH ATTRACTIONS ---
   buildCyberBallPit(pos) {
     const pitGroup = new THREE.Group();
-    pitGroup.position.copy(pos);
-    const groundY = this.getHeightAt(pos.x, pos.z);
-    pitGroup.position.y = groundY;
+    const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+    pitGroup.position.set(pos.x, groundY, pos.z);
 
     const padMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
@@ -1056,14 +1443,13 @@ export class WorldManager {
       roughness: 0.2
     });
 
-    // Padded bottom mattress
     const floor = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.2, 7.2), padMat);
     floor.position.y = 0.1;
+    floor.receiveShadow = true;
     pitGroup.add(floor);
 
-    // 4 Padded Rim Walls
-    const wallGeoX = new THREE.BoxGeometry(7.2, 0.7, 0.35);
-    const wallGeoZ = new THREE.BoxGeometry(0.35, 0.7, 7.2);
+    const wallGeoX = new THREE.BoxGeometry(7.4, 0.65, 0.35);
+    const wallGeoZ = new THREE.BoxGeometry(0.35, 0.65, 7.4);
 
     const wallN = new THREE.Mesh(wallGeoX, rimMat); wallN.position.set(0, 0.35, -3.5);
     const wallS = new THREE.Mesh(wallGeoX, rimMat); wallS.position.set(0, 0.35, 3.5);
@@ -1071,7 +1457,6 @@ export class WorldManager {
     const wallE = new THREE.Mesh(wallGeoZ, rimMat); wallE.position.set(3.5, 0.35, 0);
     pitGroup.add(wallN, wallS, wallW, wallE);
 
-    // Fill with 45 colorful bouncy mini-balls!
     const ballColors = [0x00e5ff, 0xff3399, 0xffea00, 0x22ff88, 0xa855f7, 0xff9100];
     const miniBallGeo = new THREE.SphereGeometry(0.24, 12, 12);
 
@@ -1086,7 +1471,7 @@ export class WorldManager {
       const bMesh = new THREE.Mesh(miniBallGeo, mat);
       const rx = (Math.random() - 0.5) * 6.0;
       const rz = (Math.random() - 0.5) * 6.0;
-      const ry = 0.25 + Math.random() * 0.35;
+      const ry = 0.28 + Math.random() * 0.28;
       bMesh.position.set(rx, ry, rz);
       pitGroup.add(bMesh);
 
@@ -1101,128 +1486,182 @@ export class WorldManager {
     this.scene.add(pitGroup);
     this.ballPit = { position: pos, radius: 3.6 };
 
-    // Register outer rim colliders
-    this.registerObstacle({ type: 'ballpit_wall_n', shape: 'box', x: pos.x, z: pos.z - 3.5, halfW: 3.6, halfD: 0.25, height: 0.8 });
-    this.registerObstacle({ type: 'ballpit_wall_s', shape: 'box', x: pos.x, z: pos.z + 3.5, halfW: 3.6, halfD: 0.25, height: 0.8 });
-    this.registerObstacle({ type: 'ballpit_wall_w', shape: 'box', x: pos.x - 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, height: 0.8 });
-    this.registerObstacle({ type: 'ballpit_wall_e', shape: 'box', x: pos.x + 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, height: 0.8 });
+    // Low step-over rim walls (yMax allows jumping in/out smoothly)
+    this.registerObstacle({ type: 'ballpit_wall_n', shape: 'box', x: pos.x, z: pos.z - 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
+    this.registerObstacle({ type: 'ballpit_wall_s', shape: 'box', x: pos.x, z: pos.z + 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
+    this.registerObstacle({ type: 'ballpit_wall_w', shape: 'box', x: pos.x - 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
+    this.registerObstacle({ type: 'ballpit_wall_e', shape: 'box', x: pos.x + 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
   }
 
+  // FIXED: Agility Slide with accurate downward slope (+0.52 rad), ladder rails & safety handrails
   buildAgilitySlide(pos) {
     const slideGroup = new THREE.Group();
-    slideGroup.position.copy(pos);
-    const groundY = this.getHeightAt(pos.x, pos.z);
-    slideGroup.position.y = groundY;
+    const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+    slideGroup.position.set(pos.x, groundY, pos.z);
 
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.2 });
-    const neonCyan = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.7 });
+    const neonCyan = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.75 });
     const chuteMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.15, metalness: 0.4 });
 
-    // 4 Support Pillars
     const platformH = 4.0;
+
+    // 4 Support Pillars
     [-1.2, 1.2].forEach(px => {
       [-1.2, 1.2].forEach(pz => {
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, platformH, 12), metalMat);
-        pillar.position.set(px, platformH / 2, pz);
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, platformH + 0.8, 12), metalMat);
+        pillar.position.set(px, (platformH + 0.8) * 0.5, pz);
+        pillar.castShadow = true;
         slideGroup.add(pillar);
       });
     });
 
-    // Top Platform
-    const topFloor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.18, 2.6), metalMat);
+    // Top Platform Deck
+    const topFloor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.2, 2.6), metalMat);
     topFloor.position.set(0, platformH, 0);
+    topFloor.castShadow = true;
     slideGroup.add(topFloor);
 
-    // Ladder steps on back side
-    for (let s = 0.5; s < platformH; s += 0.55) {
-      const step = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.2, 8), neonCyan);
+    // Top Safety Railings (Left & Right)
+    [-1.2, 1.2].forEach(rx => {
+      const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.5), neonCyan);
+      topRail.position.set(rx, platformH + 0.8, 0);
+      slideGroup.add(topRail);
+    });
+
+    // Back Ladder with side stringers (largueros) & rungs
+    [-0.85, 0.85].forEach(lx => {
+      const stringer = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, platformH + 0.4, 10), metalMat);
+      stringer.position.set(lx, (platformH + 0.4) * 0.5, -1.25);
+      slideGroup.add(stringer);
+    });
+
+    for (let s = 0.45; s < platformH; s += 0.52) {
+      const step = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.7, 10), neonCyan);
       step.rotation.z = Math.PI / 2;
-      step.position.set(0, s, -1.2);
+      step.position.set(0, s, -1.25);
       slideGroup.add(step);
     }
 
-    // Curved Chute Ramp (from [0, 4.0, 1.2] down to [0, 0.15, 8.5])
-    const chuteLength = 7.5;
-    const chuteGeo = new THREE.BoxGeometry(1.6, 0.16, chuteLength);
-    chuteGeo.rotateX(-0.5);
-    const chute = new THREE.Mesh(chuteGeo, chuteMat);
-    chute.position.set(0, platformH * 0.48, 4.6);
-    slideGroup.add(chute);
+    // FIXED: Chute Ramp sloping DOWNWARD from (0, 4.0, 1.25) to (0, 0.22, 7.8)
+    const startY = platformH;
+    const endY = 0.22;
+    const startZ = 1.2;
+    const endZ = 7.8;
+    const dy = startY - endY;
+    const dz = endZ - startZ;
+    const chuteLength = Math.hypot(dy, dz);
+    const chuteAngle = Math.atan2(dy, dz); // Positive X rotation slopes downward toward +Z!
 
-    // Glowing rails on chute sides
-    [-0.85, 0.85].forEach(rx => {
-      const railGeo = new THREE.CylinderGeometry(0.045, 0.045, chuteLength, 12);
-      railGeo.rotateX(-0.5);
-      const rail = new THREE.Mesh(railGeo, neonCyan);
-      rail.position.set(rx, platformH * 0.48 + 0.18, 4.6);
-      slideGroup.add(rail);
+    const chutePivot = new THREE.Group();
+    chutePivot.position.set(0, (startY + endY) * 0.5, (startZ + endZ) * 0.5);
+    chutePivot.rotation.x = chuteAngle;
+
+    const chuteBed = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.14, chuteLength), chuteMat);
+    chuteBed.castShadow = true;
+    chutePivot.add(chuteBed);
+
+    // U-shaped Chute Side Walls & Glowing Top Rails
+    [-0.82, 0.82].forEach(rx => {
+      const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.36, chuteLength), chuteMat);
+      sideWall.position.set(rx, 0.18, 0);
+      chutePivot.add(sideWall);
+
+      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, chuteLength, 10), neonCyan);
+      rail.rotation.x = Math.PI / 2;
+      rail.position.set(rx, 0.38, 0);
+      chutePivot.add(rail);
     });
 
-    // Landing Foam Cushion at end
+    slideGroup.add(chutePivot);
+
+    // Landing Foam Cushion at bottom end
     const cushion = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.22, 2.6),
+      new THREE.BoxGeometry(2.4, 0.24, 2.6),
       new THREE.MeshStandardMaterial({ color: 0xffea00, roughness: 0.6 })
     );
-    cushion.position.set(0, 0.11, 8.2);
+    cushion.position.set(0, 0.12, 8.2);
+    cushion.receiveShadow = true;
     slideGroup.add(cushion);
 
     this.scene.add(slideGroup);
 
     this.slide = {
       position: pos,
-      topPos: new THREE.Vector3(pos.x, groundY + platformH, pos.z),
-      endPos: new THREE.Vector3(pos.x, groundY, pos.z + 8.5),
+      topPos: new THREE.Vector3(pos.x, groundY + platformH + 0.2, pos.z),
+      endPos: new THREE.Vector3(pos.x, groundY + 0.25, pos.z + 8.2),
       platformH
     };
 
-    this.registerObstacle({ type: 'slide_tower', x: pos.x, z: pos.z, radius: 1.5, height: platformH });
+    this.registerObstacle({ type: 'slide_tower', shape: 'box', x: pos.x, z: pos.z, halfW: 1.35, halfD: 1.35, height: platformH });
+    this.registerObstacle({ type: 'slide_chute', shape: 'box', x: pos.x, z: pos.z + 4.5, halfW: 0.95, halfD: 3.2, height: 2.2 });
   }
 
   buildAgilityObstacleCourse(pos) {
     const courseGroup = new THREE.Group();
-    courseGroup.position.copy(pos);
-    const groundY = this.getHeightAt(pos.x, pos.z);
-    courseGroup.position.y = groundY;
+    const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+    courseGroup.position.set(pos.x, groundY, pos.z);
 
     const neonYellow = new THREE.MeshStandardMaterial({ color: 0xffea00, emissive: 0xffea00, emissiveIntensity: 0.8 });
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7 });
 
-    // 1. Agility Tunnel (Ribbed glowing cylinder open at both ends)
+    // 1. Agility Tunnel
     const tunnelGroup = new THREE.Group();
-    tunnelGroup.position.set(0, 0.95, 0);
+    tunnelGroup.position.set(0, 1.05, 0);
 
-    const ribGeo = new THREE.TorusGeometry(1.05, 0.06, 12, 24);
+    const ribGeo = new THREE.TorusGeometry(1.08, 0.07, 12, 24);
     for (let tz = -3.0; tz <= 3.0; tz += 1.0) {
       const rib = new THREE.Mesh(ribGeo, neonYellow);
       rib.position.set(0, 0, tz);
       tunnelGroup.add(rib);
     }
 
-    const tubeGeo = new THREE.CylinderGeometry(1.02, 1.02, 6.2, 24, 1, true);
+    const tubeGeo = new THREE.CylinderGeometry(1.04, 1.04, 6.2, 24, 1, true);
     tubeGeo.rotateX(Math.PI / 2);
     const tubeMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.65,
       side: THREE.DoubleSide
     });
     const tube = new THREE.Mesh(tubeGeo, tubeMat);
     tunnelGroup.add(tube);
     courseGroup.add(tunnelGroup);
 
-    // 2. Three Jump Hurdles (spaced at Z = 6, 10, 14)
+    // Side wall colliders so the dog goes through the tunnel opening
+    [-1.1, 1.1].forEach(wx => {
+      this.registerObstacle({
+        type: 'agility_tunnel_side',
+        shape: 'box',
+        x: pos.x + wx,
+        z: pos.z,
+        halfW: 0.18,
+        halfD: 3.1,
+        height: 2.1
+      });
+    });
+
+    // 2. Three Jump Hurdles (with vertical clearance so jumping dogs pass over them)
     this.hurdles = [];
     [6.0, 10.0, 14.0].forEach((hz) => {
       const hurdleGroup = new THREE.Group();
       hurdleGroup.position.set(0, 0, hz);
 
-      [-1.2, 1.2].forEach(hx => {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 10), metalMat);
+      [-1.3, 1.3].forEach(hx => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 1.1, 10), metalMat);
         post.position.set(hx, 0.55, 0);
+        post.castShadow = true;
         hurdleGroup.add(post);
+
+        this.registerObstacle({
+          type: 'hurdle_post',
+          x: pos.x + hx,
+          z: pos.z + hz,
+          radius: 0.18,
+          height: 1.1
+        });
       });
 
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.4, 12), neonYellow);
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 12), neonYellow);
       bar.rotation.z = Math.PI / 2;
       bar.position.set(0, 0.65, 0);
       hurdleGroup.add(bar);
@@ -1245,29 +1684,42 @@ export class WorldManager {
     };
   }
 
+  // FIXED: Cyber Target Toss with stepped ring thicknesses (zero Z-fighting) & full frame up to Scoreboard
   buildCyberTargetToss(pos) {
     const targetGroup = new THREE.Group();
-    targetGroup.position.copy(pos);
-    const groundY = this.getHeightAt(pos.x, pos.z);
-    targetGroup.position.y = groundY;
+    const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+    targetGroup.position.set(pos.x, groundY, pos.z);
 
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.15 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 });
+    const neonFrameMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 0.8 });
 
-    // Stand Legs
-    [-1.8, 1.8].forEach(sx => {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4.6, 12), chromeMat);
-      leg.position.set(sx, 2.3, 0);
+    // Stand Legs extending all the way up to the overhead scoreboard (y = 5.8)
+    [-2.2, 2.2].forEach(sx => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 5.9, 12), chromeMat);
+      leg.position.set(sx, 2.95, 0);
+      leg.castShadow = true;
       targetGroup.add(leg);
     });
+
+    // Horizontal crossbar at target axle & top scoreboard mount
+    const midBar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4.5, 12), chromeMat);
+    midBar.rotation.z = Math.PI / 2;
+    midBar.position.set(0, 3.2, 0);
+    targetGroup.add(midBar);
+
+    const topBar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 4.6, 12), chromeMat);
+    topBar.rotation.z = Math.PI / 2;
+    topBar.position.set(0, 5.8, 0);
+    targetGroup.add(topBar);
 
     const targetRotor = new THREE.Group();
     targetRotor.position.set(0, 3.2, 0);
 
-    // Target Rings
+    // Stepped thicknesses (0.12, 0.18, 0.24) completely eliminate Z-fighting!
     const ringConfigs = [
-      { r: 2.2, col: 0x00e5ff, pts: 10 },
-      { r: 1.4, col: 0xffea00, pts: 25 },
-      { r: 0.7, col: 0xff1744, pts: 50 } // Bullseye
+      { r: 2.1, thickness: 0.12, col: 0x00e5ff, pts: 10 },
+      { r: 1.35, thickness: 0.18, col: 0xffea00, pts: 25 },
+      { r: 0.65, thickness: 0.24, col: 0xff1744, pts: 50 }
     ];
 
     ringConfigs.forEach(rc => {
@@ -1277,58 +1729,60 @@ export class WorldManager {
         emissiveIntensity: 0.75,
         roughness: 0.2
       });
-      const ringMesh = new THREE.Mesh(new THREE.CylinderGeometry(rc.r, rc.r, 0.12, 32), ringMat);
+      const ringMesh = new THREE.Mesh(new THREE.CylinderGeometry(rc.r, rc.r, rc.thickness, 32), ringMat);
       ringMesh.rotateX(Math.PI / 2);
       targetRotor.add(ringMesh);
     });
 
     targetGroup.add(targetRotor);
 
-    // Overhead Digital Score Billboard
+    // Overhead Digital Score Billboard mounted on topBar
     const boardMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.75, 0.2),
+      new THREE.BoxGeometry(2.8, 0.85, 0.24),
       new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.3 })
     );
     boardMesh.position.set(0, 5.8, 0);
     targetGroup.add(boardMesh);
+
+    const boardRim = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.95, 0.18), neonFrameMat);
+    boardRim.position.set(0, 5.8, 0);
+    targetGroup.add(boardRim);
 
     this.scene.add(targetGroup);
 
     this.targetBoard = {
       position: new THREE.Vector3(pos.x, groundY + 3.2, pos.z),
       rotor: targetRotor,
-      radius: 2.2
+      radius: 2.1
     };
 
-    this.registerObstacle({ type: 'target_post_l', x: pos.x - 1.8, z: pos.z, radius: 0.25, height: 4.8 });
-    this.registerObstacle({ type: 'target_post_r', x: pos.x + 1.8, z: pos.z, radius: 0.25, height: 4.8 });
+    this.registerObstacle({ type: 'target_post_l', x: pos.x - 2.2, z: pos.z, radius: 0.28, height: 5.9 });
+    this.registerObstacle({ type: 'target_post_r', x: pos.x + 2.2, z: pos.z, radius: 0.28, height: 5.9 });
   }
 
   buildCyberPinata(pos) {
     const pinGroup = new THREE.Group();
-    pinGroup.position.copy(pos);
-    const groundY = this.getHeightAt(pos.x, pos.z);
-    pinGroup.position.y = groundY;
+    const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+    pinGroup.position.set(pos.x, groundY, pos.z);
 
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8 });
 
-    // Hanging Arch
-    const archTop = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.6, 12), metalMat);
+    const archTop = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.6, 12), metalMat);
     archTop.rotation.z = Math.PI / 2;
     archTop.position.set(0, 4.2, 0);
 
     [-1.7, 1.7].forEach(ax => {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 4.2, 12), metalMat);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 4.2, 12), metalMat);
       post.position.set(ax, 2.1, 0);
+      post.castShadow = true;
       pinGroup.add(post);
     });
     pinGroup.add(archTop);
 
-    // Hanging Rope & Bone-shaped Piñata
     const pinataPivot = new THREE.Group();
     pinataPivot.position.set(0, 4.2, 0);
 
-    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.8, 8), metalMat);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.8, 8), metalMat);
     rope.position.set(0, -0.9, 0);
     pinataPivot.add(rope);
 
@@ -1342,7 +1796,6 @@ export class WorldManager {
       roughness: 0.25
     });
 
-    // Bone shape
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.1, 12), pinataMat);
     shaft.rotation.z = Math.PI / 2;
     pinataBody.add(shaft);
@@ -1379,28 +1832,37 @@ export class WorldManager {
 
     const offsets = [
       { x: -8, z: -10, col: 0x00e5ff, rotY: 0.2 },
-      { x: -3, z: -4,  col: 0xffea00, rotY: -0.15 },
-      { x: 3,  z: 3,   col: 0xff007f, rotY: 0.3 },
-      { x: -2, z: 10,  col: 0x22ff88, rotY: -0.2 },
-      { x: 6,  z: 16,  col: 0xff9100, rotY: 0.25 }
+      { x: -3, z: -4, col: 0xffea00, rotY: -0.15 },
+      { x: 3, z: 3, col: 0xff007f, rotY: 0.3 },
+      { x: -2, z: 10, col: 0x22ff88, rotY: -0.2 },
+      { x: 6, z: 16, col: 0xff9100, rotY: 0.25 }
     ];
 
     offsets.forEach((cfg, idx) => {
       const arch = new THREE.Group();
-      const groundY = this.getHeightAt(pos.x + cfg.x, pos.z + cfg.z);
+      const wx = pos.x + cfg.x;
+      const wz = pos.z + cfg.z;
+      const groundY = this.getTerrainHeightOnly(wx, wz);
       arch.position.set(cfg.x, groundY, cfg.z);
       arch.rotation.y = cfg.rotY;
 
-      // Base chrome support posts
       const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.2 });
       [-1.3, 1.3].forEach(px => {
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 12), postMat);
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.8, 12), postMat);
         p.position.set(px, 0.9, 0);
         p.castShadow = true;
         arch.add(p);
+
+        const worldPost = new THREE.Vector3(px, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cfg.rotY).add(new THREE.Vector3(wx, groundY, wz));
+        this.registerObstacle({
+          type: 'slalom_post',
+          x: worldPost.x,
+          z: worldPost.z,
+          radius: 0.2,
+          height: 1.8
+        });
       });
 
-      // Vibrant Neon Torus Ring
       const ringMat = new THREE.MeshStandardMaterial({
         color: cfg.col,
         emissive: cfg.col,
@@ -1414,13 +1876,13 @@ export class WorldManager {
 
       ringGroup.add(arch);
 
-      const worldPos = new THREE.Vector3(pos.x + cfg.x, groundY + 1.6, pos.z + cfg.z);
+      const worldPos = new THREE.Vector3(wx, groundY + 1.6, wz);
       this.slalomRings.push({
         index: idx,
         position: worldPos,
-        entryPos: new THREE.Vector3(pos.x + cfg.x - Math.sin(cfg.rotY) * 2.5, groundY, pos.z + cfg.z - Math.cos(cfg.rotY) * 2.5),
+        entryPos: new THREE.Vector3(wx - Math.sin(cfg.rotY) * 2.5, groundY, wz - Math.cos(cfg.rotY) * 2.5),
         centerPos: worldPos,
-        exitPos: new THREE.Vector3(pos.x + cfg.x + Math.sin(cfg.rotY) * 2.5, groundY, pos.z + cfg.z + Math.cos(cfg.rotY) * 2.5),
+        exitPos: new THREE.Vector3(wx + Math.sin(cfg.rotY) * 2.5, groundY, wz + Math.cos(cfg.rotY) * 2.5),
         radius: 1.3
       });
     });
@@ -1441,7 +1903,7 @@ export class WorldManager {
 
     this.treasureSpots.forEach((spot) => {
       const g = new THREE.Group();
-      const gy = this.getHeightAt(spot.x, spot.z);
+      const gy = this.getTerrainHeightOnly(spot.x, spot.z);
       g.position.set(spot.x, gy + 0.04, spot.z);
 
       const mound = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 0.12, 16), dirtMat);
@@ -1585,7 +2047,6 @@ export class WorldManager {
     return ball;
   }
 
-  // Interactive Fetch Throw Mechanism
   throwBall(originPos, direction, force = 24) {
     if (!this.soccerBall) return null;
     const ball = this.soccerBall;
@@ -1684,11 +2145,10 @@ export class WorldManager {
     });
   }
 
-  // Spawn tasty Cyber Biscuit Treat
   spawnCyberSnack(pos) {
     const snackGroup = new THREE.Group();
     snackGroup.position.copy(pos);
-    snackGroup.position.y += 0.4;
+    snackGroup.position.y = this.getHeightAt(pos.x, pos.z) + 0.4;
 
     const biscuitMat = new THREE.MeshStandardMaterial({
       color: 0xffea00,
@@ -1710,7 +2170,7 @@ export class WorldManager {
 
   triggerDiscoParty() {
     this.discoPartyActive = true;
-    this.discoTimer = 12.0; // 12 seconds dance party!
+    this.discoTimer = 12.0;
     this.logActivity(`🪩 ¡FIESTA DISCO ACTIVADA! ¡A bailar todos!`);
     roboAudio.playTrickSuccess();
   }
@@ -1725,15 +2185,20 @@ export class WorldManager {
 
     for (let i = 0; i < 95; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = 30 + Math.random() * 220;
+      const dist = 32 + Math.random() * 210;
       const x = Math.cos(angle) * dist;
       const z = Math.sin(angle) * dist;
 
-      if (Math.hypot(x - (-80), z - (-80)) < 68) continue;
-      if (Math.hypot(x - 50, z - 40) < 38) continue;
+      // Avoid Lake, Playground, Plaza, and Attraction footprints
+      if (Math.hypot(x - (-80), z - (-80)) < 70) continue;
+      if (Math.hypot(x - 50, z - 40) < 46) continue;
+      if (Math.hypot(x - (-46), z - (-48)) < 14) continue;
+      if (Math.hypot(x - (-32), z - 48) < 10) continue;
+      if (Math.hypot(x - (-18), z - (-32)) < 12) continue;
+      if (Math.hypot(x - 22, z - (-50)) < 16) continue;
 
       const treeGroup = new THREE.Group();
-      treeGroup.position.set(x, this.getHeightAt(x, z), z);
+      treeGroup.position.set(x, this.getTerrainHeightOnly(x, z), z);
 
       const height = 4.2 + Math.random() * 3.5;
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.55, height, 8), trunkMat);
@@ -1753,7 +2218,7 @@ export class WorldManager {
       this.registerObstacle({ type: 'tree', x, z, radius: 0.85, height: 7.0 });
     }
 
-    // Wildflowers via InstancedMesh (Massive Draw-Call Optimization!)
+    // Wildflowers via InstancedMesh
     const flowerGeo = new THREE.SphereGeometry(0.2, 8, 8);
     const flwMat = new THREE.MeshStandardMaterial({ roughness: 0.4, emissive: 0xffffff, emissiveIntensity: 0.25 });
     const flowerInst = new THREE.InstancedMesh(flowerGeo, flwMat, 240);
@@ -1766,7 +2231,7 @@ export class WorldManager {
       const z = (Math.random() - 0.5) * 360;
       if (Math.hypot(x - (-80), z - (-80)) < 65) continue;
 
-      const y = this.getHeightAt(x, z) + 0.16;
+      const y = this.getTerrainHeightOnly(x, z) + 0.16;
       dummy.position.set(x, y, z);
       dummy.scale.setScalar(0.7 + Math.random() * 0.6);
       dummy.updateMatrix();
@@ -1798,7 +2263,7 @@ export class WorldManager {
       sp.scale.set(0.65, 0.65, 0.65);
       const bx = (Math.random() - 0.5) * 220;
       const bz = (Math.random() - 0.5) * 220;
-      const by = this.getHeightAt(bx, bz) + 1.5 + Math.random() * 2.5;
+      const by = this.getTerrainHeightOnly(bx, bz) + 1.5 + Math.random() * 2.5;
       sp.position.set(bx, by, bz);
       this.scene.add(sp);
       this.butterflies.push({
@@ -1831,7 +2296,8 @@ export class WorldManager {
     ];
   }
 
-  getHeightAt(x, z) {
+  // Raw terrain height without elevated structures
+  getTerrainHeightOnly(x, z) {
     const distToLake = Math.hypot(x - (-80), z - (-80));
     if (distToLake < 65) {
       const lakeFactor = Math.cos((distToLake / 65) * (Math.PI / 2));
@@ -1846,16 +2312,40 @@ export class WorldManager {
     return y;
   }
 
-  resolveObstacleCollisions(pos, radius = 0.75, height = 1.0) {
+  // Unified height query including walkable Bridge, Pier, and Ramp surfaces!
+  getHeightAt(x, z) {
+    let y = this.getTerrainHeightOnly(x, z);
+
+    for (let i = 0; i < this.elevatedSurfaces.length; i++) {
+      const surf = this.elevatedSurfaces[i];
+      const dx = x - surf.x;
+      const dz = z - surf.z;
+      const cos = Math.cos(-surf.rotY);
+      const sin = Math.sin(-surf.rotY);
+      const localX = dx * cos - dz * sin;
+      const localZ = dx * sin + dz * cos;
+
+      if (Math.abs(localX) <= surf.halfW && Math.abs(localZ) <= surf.halfD) {
+        const surfY = surf.getHeight(localX, localZ);
+        if (surfY !== null && surfY > y) {
+          y = surfY;
+        }
+      }
+    }
+
+    return y;
+  }
+
+  // Full 3D Volumetric Collision Resolution (Supports Cylinder + Rotated OBB Box + Surface Normals)
+  resolveObstacleCollisions(pos, radius = 0.75, height = 1.0, outNormal = null) {
     let collided = false;
     const obstacles = this.getNearObstacles(pos.x, pos.z);
     const posY = pos.y;
 
-    // 1. True 3D Obstacle Volumetric Clearance (Cylinders and Oriented AABBs)
     for (let i = 0; i < obstacles.length; i++) {
       const obs = obstacles[i];
 
-      // Vertical 3D clearance: if the dog jumps over or passes below, no horizontal collision!
+      // Vertical 3D clearance: if the entity jumps over or passes below, skip horizontal pushout
       if (obs.yMin !== undefined && obs.yMax !== undefined) {
         if (posY + height < obs.yMin || posY > obs.yMax) {
           continue;
@@ -1863,23 +2353,64 @@ export class WorldManager {
       }
 
       if (obs.shape === 'box') {
-        const minX = obs.x - obs.halfW - radius;
-        const maxX = obs.x + obs.halfW + radius;
-        const minZ = obs.z - obs.halfD - radius;
-        const maxZ = obs.z + obs.halfD + radius;
+        const dx = pos.x - obs.x;
+        const dz = pos.z - obs.z;
+        const rotY = obs.rotY || 0;
+        const cos = Math.cos(-rotY);
+        const sin = Math.sin(-rotY);
 
-        if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ) {
+        // Transform position into Box Local Space
+        const localX = dx * cos - dz * sin;
+        const localZ = dx * sin + dz * cos;
+
+        // Closest point on box to circle center in local space
+        const clampedX = THREE.MathUtils.clamp(localX, -obs.halfW, obs.halfW);
+        const clampedZ = THREE.MathUtils.clamp(localZ, -obs.halfD, obs.halfD);
+
+        const diffX = localX - clampedX;
+        const diffZ = localZ - clampedZ;
+        const distSq = diffX * diffX + diffZ * diffZ;
+
+        if (distSq < radius * radius) {
           collided = true;
-          const dLeft = Math.abs(pos.x - minX);
-          const dRight = Math.abs(maxX - pos.x);
-          const dBack = Math.abs(pos.z - minZ);
-          const dFront = Math.abs(maxZ - pos.z);
+          let pushLocalX = 0;
+          let pushLocalZ = 0;
+          let nxLocal = 0;
+          let nzLocal = 0;
 
-          const minPush = Math.min(dLeft, dRight, dBack, dFront);
-          if (minPush === dLeft) pos.x = minX;
-          else if (minPush === dRight) pos.x = maxX;
-          else if (minPush === dBack) pos.z = minZ;
-          else pos.z = maxZ;
+          if (distSq > 0.00001) {
+            const dist = Math.sqrt(distSq);
+            const overlap = radius - dist;
+            nxLocal = diffX / dist;
+            nzLocal = diffZ / dist;
+            pushLocalX = nxLocal * overlap;
+            pushLocalZ = nzLocal * overlap;
+          } else {
+            // Center is inside the box: push out along shortest axis
+            const penX = obs.halfW - Math.abs(localX) + radius;
+            const penZ = obs.halfD - Math.abs(localZ) + radius;
+            if (penX < penZ) {
+              nxLocal = localX >= 0 ? 1 : -1;
+              pushLocalX = nxLocal * penX;
+            } else {
+              nzLocal = localZ >= 0 ? 1 : -1;
+              pushLocalZ = nzLocal * penZ;
+            }
+          }
+
+          // Transform push vector back to World Space
+          const cosW = Math.cos(rotY);
+          const sinW = Math.sin(rotY);
+          pos.x += pushLocalX * cosW - pushLocalZ * sinW;
+          pos.z += pushLocalX * sinW + pushLocalZ * cosW;
+
+          if (outNormal) {
+            outNormal.set(
+              nxLocal * cosW - nzLocal * sinW,
+              0,
+              nxLocal * sinW + nzLocal * cosW
+            ).normalize();
+          }
         }
       } else {
         const dx = pos.x - obs.x;
@@ -1890,17 +2421,16 @@ export class WorldManager {
         if (dist < minDist && dist > 0.0001) {
           collided = true;
           const overlap = minDist - dist;
-          pos.x += (dx / dist) * overlap;
-          pos.z += (dz / dist) * overlap;
+          const nx = dx / dist;
+          const nz = dz / dist;
+          pos.x += nx * overlap;
+          pos.z += nz * overlap;
+          if (outNormal) outNormal.set(nx, 0, nz);
         }
       }
     }
 
-    // 2. Lake Water Area: Dogs and player are allowed to swim freely in the lake!
-    // No artificial barrier blocking entry into the water.
-    // (Deep underwater height is smoothly handled in getHeightAt)
-
-    // 3. World Boundary Clamping (238m radius circle around 0, 0)
+    // World Boundary Clamping (238m radius circle around 0, 0)
     const distFromOrigin = Math.hypot(pos.x, pos.z);
     const maxWorldRadius = 238;
     if (distFromOrigin > maxWorldRadius) {
@@ -1908,6 +2438,9 @@ export class WorldManager {
       const factor = maxWorldRadius / distFromOrigin;
       pos.x *= factor;
       pos.z *= factor;
+      if (outNormal) {
+        outNormal.set(-pos.x / distFromOrigin, 0, -pos.z / distFromOrigin);
+      }
     }
 
     return collided;
@@ -1921,7 +2454,6 @@ export class WorldManager {
     roboAudio.playTrickSuccess();
     if (this.onTargetHit) this.onTargetHit(this.targetScore);
 
-    // Bounce ball backward with high energetic rebound
     ball.velocity.x *= -1.1;
     ball.velocity.z *= -1.1;
     ball.velocity.y = 4.5;
@@ -1933,22 +2465,18 @@ export class WorldManager {
       this.waterMesh.material.opacity = 0.86 + Math.sin(this.waterTime * 2.2) * 0.04;
     }
 
-    // Low-poly 3D clouds drifting smoothly
     this.clouds.forEach(c => {
       c.group.rotation.y += delta * 0.012 * c.speed;
     });
 
-    // Ambient floating fireflies / pollen
     if (this.ambientParticles) {
       this.ambientParticles.rotation.y += delta * 0.02;
     }
 
-    // Rotating Target Toss Board
     if (this.targetBoard && this.targetBoard.rotor) {
       this.targetBoard.rotor.rotation.z += delta * 0.85;
     }
 
-    // Swinging Cyber Piñata physics
     if (this.pinata) {
       this.pinata.swingVel += (-this.pinata.swingAngle * 14) * delta;
       this.pinata.swingVel *= Math.exp(-2.2 * delta);
@@ -1956,25 +2484,23 @@ export class WorldManager {
       this.pinata.pivot.rotation.z = this.pinata.swingAngle;
     }
 
-    // Ball Pit mini-balls gentle floating oscillation
     this.ballPitBalls.forEach(b => {
       b.mesh.position.y = b.localOrigin.y + Math.sin(this.waterTime * 3.0 + b.localOrigin.x) * 0.035;
+      b.mesh.position.x = THREE.MathUtils.lerp(b.mesh.position.x, b.localOrigin.x, delta * 1.5);
+      b.mesh.position.z = THREE.MathUtils.lerp(b.mesh.position.z, b.localOrigin.z, delta * 1.5);
     });
 
-    // Toy boat bobbing in lake water
     if (this.toyBoat) {
       this.toyBoat.position.y = Math.sin(this.waterTime * 1.8) * 0.12;
-      this.toyBoat.rotation.z = Math.sin(this.waterTime * 1.4) * 0.08;
+      this.toyBoat.rotation.z = Math.sin(this.waterTime * 1.4) * 0.06;
       this.toyBoat.rotation.y += delta * 0.15;
     }
 
-    // Rotating carousel
     if (this.carousel) {
       this.carouselAngle += delta * 1.2;
       this.carousel.rotor.rotation.y = this.carouselAngle;
     }
 
-    // Disco Party Mode
     if (this.discoPartyActive) {
       this.discoTimer -= delta;
       if (this.discoBall) this.discoBall.rotation.y += delta * 4;
@@ -1983,7 +2509,6 @@ export class WorldManager {
         roboAudio.playDanceBeat();
       }
 
-      // Flash disco floor tiles
       if (this.discoTiles) {
         this.discoTiles.forEach((tile, idx) => {
           tile.material.emissiveIntensity = 0.4 + Math.sin(this.waterTime * 10 + idx) * 0.6;
@@ -1993,19 +2518,17 @@ export class WorldManager {
       if (this.discoTimer <= 0) {
         this.discoPartyActive = false;
         if (this.discoTiles) {
-          this.discoTiles.forEach(tile => tile.material.emissiveIntensity = 0.2);
+          this.discoTiles.forEach(tile => tile.material.emissiveIntensity = 0.25);
         }
       }
     }
 
-    // Rotate holographic bones
     this.interactiveObjects.forEach(item => {
       if (item.type === 'bone') {
         item.object.rotation.y += delta * 1.2;
       }
     });
 
-    // Butterflies flutter
     this.butterflies.forEach(b => {
       b.phase += delta * b.speed;
       b.sprite.position.x = b.basePos.x + Math.sin(b.phase) * 3;
@@ -2013,7 +2536,6 @@ export class WorldManager {
       b.sprite.position.y = b.basePos.y + Math.sin(b.phase * 2.5) * 0.6;
     });
 
-    // Animated water fountain ripples & jet
     if (this.fountainWater) {
       this.fountainWater.rotation.z += delta * 0.75;
     }
@@ -2021,7 +2543,6 @@ export class WorldManager {
       this.fountainJet.scale.y = 1.0 + Math.sin(this.waterTime * 6.0) * 0.22;
     }
 
-    // Interactive Seesaw dynamic tilt
     if (this.seesaw) {
       this.seesaw.pivot.rotation.z = THREE.MathUtils.lerp(
         this.seesaw.pivot.rotation.z,
@@ -2030,11 +2551,11 @@ export class WorldManager {
       );
     }
 
-    // Update physical balls & check Soccer Goal and Target Toss!
+    // Update physical balls (Obstacle CCD + Ball-to-Ball Elastic Collisions + Goal & Target Checks)
+    const hitNormal = new THREE.Vector3();
     this.balls.forEach(ball => {
-      if (ball.carriedBy) return; // Carried in robot's mouth!
+      if (ball.carriedBy) return;
 
-      // Sub-stepping for continuous collision detection (CCD)
       const subSteps = 2;
       const subDelta = delta / subSteps;
 
@@ -2042,11 +2563,17 @@ export class WorldManager {
         ball.velocity.y -= 9.8 * subDelta;
         ball.mesh.position.addScaledVector(ball.velocity, subDelta);
 
-        // Bounce off solid obstacles
-        const hitObstacle = this.resolveObstacleCollisions(ball.mesh.position, ball.radius, ball.radius * 2);
+        // Reflect velocity along obstacle surface normal
+        const hitObstacle = this.resolveObstacleCollisions(ball.mesh.position, ball.radius, ball.radius * 2, hitNormal);
         if (hitObstacle) {
-          ball.velocity.x *= -0.72;
-          ball.velocity.z *= -0.72;
+          const velDot = ball.velocity.x * hitNormal.x + ball.velocity.z * hitNormal.z;
+          if (velDot < 0) {
+            ball.velocity.x -= (1 + ball.bounciness) * velDot * hitNormal.x;
+            ball.velocity.z -= (1 + ball.bounciness) * velDot * hitNormal.z;
+          } else {
+            ball.velocity.x *= -0.75;
+            ball.velocity.z *= -0.75;
+          }
         }
 
         const groundY = this.getHeightAt(ball.mesh.position.x, ball.mesh.position.z) + ball.radius;
@@ -2069,19 +2596,19 @@ export class WorldManager {
         ball.mesh.rotation.z -= ball.velocity.x * delta * (1 / ball.radius);
       }
 
-      // Check Soccer Goal Collision!
+      // Check Soccer Goal Collision
       if (ball.type === 'soccer' && this.soccerGoal) {
         const gx = this.soccerGoal.position.x;
         const gz = this.soccerGoal.position.z;
         const bx = ball.mesh.position.x;
         const bz = ball.mesh.position.z;
 
-        if (Math.abs(bx - gx) < 2.0 && Math.abs(bz - gz) < 3.2 && ball.mesh.position.y < 3.2) {
+        if (bx < gx + 0.3 && bx > gx - this.soccerGoal.depth && Math.abs(bz - gz) < this.soccerGoal.width * 0.46 && ball.mesh.position.y < this.soccerGoal.height) {
           this.handleGoalScored(ball);
         }
       }
 
-      // Check Cyber Target Toss Collision!
+      // Check Cyber Target Toss Collision
       if (this.targetBoard) {
         const tx = this.targetBoard.position.x;
         const tz = this.targetBoard.position.z;
@@ -2089,15 +2616,43 @@ export class WorldManager {
         const distXZ = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.z - tz);
         const distY = Math.abs(ball.mesh.position.y - ty);
 
-        if (distXZ < this.targetBoard.radius && distY < 2.4) {
+        if (distXZ < this.targetBoard.radius && distY < 2.2) {
           const hitRadius = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.y - ty);
           let pts = 10;
-          if (hitRadius < 0.7) pts = 50;
-          else if (hitRadius < 1.4) pts = 25;
+          if (hitRadius < 0.65) pts = 50;
+          else if (hitRadius < 1.35) pts = 25;
           this.handleTargetHit(pts, ball);
         }
       }
     });
+
+    // Ball-to-Ball Elastic Collisions
+    for (let i = 0; i < this.balls.length; i++) {
+      for (let j = i + 1; j < this.balls.length; j++) {
+        const b1 = this.balls[i];
+        const b2 = this.balls[j];
+        if (b1.carriedBy || b2.carriedBy) continue;
+
+        const diff = new THREE.Vector3().subVectors(b2.mesh.position, b1.mesh.position);
+        const dist = diff.length();
+        const minDist = b1.radius + b2.radius;
+
+        if (dist < minDist && dist > 0.001) {
+          const normal = diff.divideScalar(dist);
+          const overlap = minDist - dist;
+          b1.mesh.position.addScaledVector(normal, -overlap * 0.5);
+          b2.mesh.position.addScaledVector(normal, overlap * 0.5);
+
+          const relVel = new THREE.Vector3().subVectors(b2.velocity, b1.velocity);
+          const sepVel = relVel.dot(normal);
+          if (sepVel < 0) {
+            const impulse = -(1 + 0.8) * sepVel / (1 / b1.mass + 1 / b2.mass);
+            b1.velocity.addScaledVector(normal, -impulse / b1.mass);
+            b2.velocity.addScaledVector(normal, impulse / b2.mass);
+          }
+        }
+      }
+    }
 
     // Update floating snacks
     for (let i = this.snacks.length - 1; i >= 0; i--) {
@@ -2117,7 +2672,6 @@ export class WorldManager {
       this.onGoal(this.goalScore);
     }
 
-    // Reset soccer ball to center of playground
     ball.mesh.position.set(45, 1.5, 40);
     ball.velocity.set(0, 2, 0);
   }
@@ -2142,16 +2696,15 @@ export class WorldManager {
     // 0. Solid Obstacle Collisions Pushout
     this.resolveObstacleCollisions(rPos, 0.75, 1.2);
 
-    // Lake Swimming & Drying Shake-Off
+    // Lake Swimming & Drying Shake-Off (Respects elevated Pier & Bridge!)
     const lakeDx = rPos.x - (-80);
     const lakeDz = rPos.z - (-80);
     const distToLake = Math.hypot(lakeDx, lakeDz);
-    const isOnPier = Math.abs(rPos.x - (-44)) < 4.2 && Math.abs(rPos.z - (-80)) < 13.0;
-    const isOnBridge = this.woodenBridge && Math.abs(rPos.x - this.woodenBridge.position.x) < 3.2 && Math.abs(rPos.z - this.woodenBridge.position.z) < 9.5;
+    const surfaceY = this.getHeightAt(rPos.x, rPos.z);
 
-    if (distToLake < 58.0 && !isOnPier && !isOnBridge) {
+    if (distToLake < 58.0 && surfaceY < -0.1) {
       robot.isInWater = true;
-      rPos.y = -0.52; // Partially submerged to collar
+      rPos.y = -0.52;
 
       if (!robot.wasInWater) {
         robot.wasInWater = true;
@@ -2204,16 +2757,18 @@ export class WorldManager {
       if (sDist < 5.4) {
         const relX = rPos.x - this.seesaw.position.x;
         this.seesaw.targetTilt = THREE.MathUtils.clamp(-relX * 0.055, -0.25, 0.25);
+      } else {
+        this.seesaw.targetTilt = THREE.MathUtils.lerp(this.seesaw.targetTilt, 0, 0.05);
       }
     }
 
-    // 3. Trampoline Bounce (Consecutive higher bounces + 360° backflip!)
+    // 3. Trampoline Bounce
     if (this.trampoline) {
       const dist = Math.hypot(rPos.x - this.trampoline.position.x, rPos.z - this.trampoline.position.z);
       if (dist < 2.8 && (!robot.lastTrampTime || Date.now() - robot.lastTrampTime > 1200)) {
         robot.lastTrampTime = Date.now();
         robot.trampConsecutiveHits = ((robot.trampConsecutiveHits || 0) % 4) + 1;
-        const bounceForce = 2.0 + robot.trampConsecutiveHits * 0.7; // +20% each consecutive hit
+        const bounceForce = 2.0 + robot.trampConsecutiveHits * 0.7;
         roboAudio.playTrampoline();
         if (robot.animController) robot.animController.play('backflip', 1.8);
         rPos.y += bounceForce;
@@ -2225,7 +2780,7 @@ export class WorldManager {
     // 4. Carousel Ride
     if (this.carousel) {
       const dist = Math.hypot(rPos.x - this.carousel.position.x, rPos.z - this.carousel.position.z);
-      if (dist < 3.2) {
+      if (dist < 3.6 && dist > 0.6) {
         const a = Math.atan2(rPos.z - this.carousel.position.z, rPos.x - this.carousel.position.x);
         const newA = a + 0.02;
         rPos.x = this.carousel.position.x + Math.cos(newA) * dist;
@@ -2234,11 +2789,10 @@ export class WorldManager {
       }
     }
 
-    // 5. NEW: Cyber Ball Pit Splash Interaction!
+    // 5. Cyber Ball Pit Splash Interaction
     if (this.ballPit) {
       const bDist = Math.hypot(rPos.x - this.ballPit.position.x, rPos.z - this.ballPit.position.z);
       if (bDist < 3.2) {
-        // Disperse mini-balls around robot
         const relX = rPos.x - this.ballPit.position.x;
         const relZ = rPos.z - this.ballPit.position.z;
         this.ballPitBalls.forEach(b => {
@@ -2246,8 +2800,8 @@ export class WorldManager {
           const dz = b.mesh.position.z - relZ;
           const d = Math.hypot(dx, dz);
           if (d < 1.4 && d > 0.01) {
-            b.mesh.position.x += (dx / d) * 0.15;
-            b.mesh.position.z += (dz / d) * 0.15;
+            b.mesh.position.x = THREE.MathUtils.clamp(b.mesh.position.x + (dx / d) * 0.18, -3.1, 3.1);
+            b.mesh.position.z = THREE.MathUtils.clamp(b.mesh.position.z + (dz / d) * 0.18, -3.1, 3.1);
           }
         });
 
@@ -2261,16 +2815,15 @@ export class WorldManager {
       }
     }
 
-    // 6. NEW: Agility Slide Sliding!
+    // 6. Agility Slide Sliding
     if (this.slide) {
       const distToTop = Math.hypot(rPos.x - this.slide.topPos.x, rPos.z - this.slide.topPos.z);
-      if (distToTop < 1.8 && !robot.isSliding) {
+      if (distToTop < 2.0 && !robot.isSliding) {
         robot.isSliding = true;
         this.logActivity(`🎢 ¡${robot.name} se subió al tobogán y se desliza a toda velocidad!`);
         roboAudio.playYip(1.3);
         if (robot.animController) robot.animController.play('roll', 2.0);
 
-        // Smooth slide down animation
         let progress = 0;
         const slideInterval = setInterval(() => {
           progress += 0.08;
@@ -2288,7 +2841,7 @@ export class WorldManager {
       }
     }
 
-    // 7. NEW: Agility Tunnel & Hurdles
+    // 7. Agility Tunnel & Hurdles
     if (this.obstacleCourse && this.obstacleCourse.tunnel) {
       const tStart = this.obstacleCourse.tunnel.start;
       const tDist = Math.hypot(rPos.x - tStart.x, rPos.z - tStart.z);
@@ -2304,7 +2857,7 @@ export class WorldManager {
       }
     }
 
-    // 8. NEW: Cyber Piñata Strike!
+    // 8. Cyber Piñata Strike
     if (this.pinata) {
       const pDist = Math.hypot(rPos.x - this.pinata.position.x, rPos.z - this.pinata.position.z);
       const groundY = this.getHeightAt(rPos.x, rPos.z);
@@ -2320,7 +2873,6 @@ export class WorldManager {
             this.pinata.hits = 0;
             this.logActivity(`🎊 ¡¡¡LA PIÑATA EXPLOTÓ EN GALLETAS PARA TODA LA MANADA!!! 🍪`);
             roboAudio.playTrickSuccess();
-            // Drop 5 cyber snacks around
             for (let k = 0; k < 5; k++) {
               const a = (k / 5) * Math.PI * 2;
               const sp = new THREE.Vector3(
@@ -2356,7 +2908,7 @@ export class WorldManager {
       }
     }
 
-    // 11. Ball collisions
+    // 11. Robot-to-Ball Kick Collisions
     this.balls.forEach(ball => {
       const dist = Math.hypot(rPos.x - ball.mesh.position.x, rPos.z - ball.mesh.position.z);
       const minDist = 0.95 + ball.radius;

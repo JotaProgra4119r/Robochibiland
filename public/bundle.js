@@ -12451,7 +12451,7 @@
      * @param {Raycaster} raycaster - The raycaster.
      * @param {Array<Object>} intersects - The target array that holds the intersection points.
      */
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       if (raycaster.camera === null) {
         error('Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
       }
@@ -12486,7 +12486,7 @@
       }
       const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
       if (distance < raycaster.near || distance > raycaster.far) return;
-      intersects.push({
+      intersects2.push({
         distance,
         point: _intersectPoint.clone(),
         uv: Triangle.getInterpolation(_intersectPoint, _vA$1, _vB$1, _vC$1, _uvA, _uvB, _uvC, new Vector2()),
@@ -13132,7 +13132,7 @@
      * @param {Raycaster} raycaster - The raycaster.
      * @param {Array<Object>} intersects - The target array that holds the intersection points.
      */
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const material = this.material;
       const matrixWorld = this.matrixWorld;
@@ -13150,9 +13150,9 @@
       if (geometry.boundingBox !== null) {
         if (_ray$3.intersectsBox(geometry.boundingBox) === false) return;
       }
-      this._computeIntersections(raycaster, intersects, _ray$3);
+      this._computeIntersections(raycaster, intersects2, _ray$3);
     }
-    _computeIntersections(raycaster, intersects, rayLocalSpace) {
+    _computeIntersections(raycaster, intersects2, rayLocalSpace) {
       let intersection;
       const geometry = this.geometry;
       const material = this.material;
@@ -13178,7 +13178,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -13192,7 +13192,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -13211,7 +13211,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -13225,7 +13225,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -13454,7 +13454,7 @@
         objectInfluences[i] = array[dataIndex + i];
       }
     }
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const matrixWorld = this.matrixWorld;
       const raycastTimes = this.count;
       _mesh$1.geometry = this.geometry;
@@ -13473,7 +13473,7 @@
           const intersect2 = _instanceIntersects[i];
           intersect2.instanceId = instanceId;
           intersect2.object = this;
-          intersects.push(intersect2);
+          intersects2.push(intersect2);
         }
         _instanceIntersects.length = 0;
       }
@@ -13807,7 +13807,7 @@
      * @param {Raycaster} raycaster - The raycaster.
      * @param {Array<Object>} intersects - The target array that holds the intersection points.
      */
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const matrixWorld = this.matrixWorld;
       const threshold = raycaster.params.Points.threshold;
@@ -13830,14 +13830,14 @@
         for (let i = start, il = end; i < il; i++) {
           const a = index.getX(i);
           _position$3.fromBufferAttribute(positionAttribute, a);
-          testPoint(_position$3, a, localThresholdSq, matrixWorld, raycaster, intersects, this);
+          testPoint(_position$3, a, localThresholdSq, matrixWorld, raycaster, intersects2, this);
         }
       } else {
         const start = Math.max(0, drawRange.start);
         const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
         for (let i = start, l = end; i < l; i++) {
           _position$3.fromBufferAttribute(positionAttribute, i);
-          testPoint(_position$3, i, localThresholdSq, matrixWorld, raycaster, intersects, this);
+          testPoint(_position$3, i, localThresholdSq, matrixWorld, raycaster, intersects2, this);
         }
       }
     }
@@ -13863,7 +13863,7 @@
       }
     }
   };
-  function testPoint(point, index, localThresholdSq, matrixWorld, raycaster, intersects, object) {
+  function testPoint(point, index, localThresholdSq, matrixWorld, raycaster, intersects2, object) {
     const rayPointDistanceSq = _ray.distanceSqToPoint(point);
     if (rayPointDistanceSq < localThresholdSq) {
       const intersectPoint = new Vector3();
@@ -13871,7 +13871,7 @@
       intersectPoint.applyMatrix4(matrixWorld);
       const distance = raycaster.ray.origin.distanceTo(intersectPoint);
       if (distance < raycaster.near || distance > raycaster.far) return;
-      intersects.push({
+      intersects2.push({
         distance,
         distanceToRay: Math.sqrt(rayPointDistanceSq),
         point: intersectPoint,
@@ -14287,10 +14287,10 @@
         const vertex2 = new Vector3();
         let groupCount = 0;
         const radius = top === true ? radiusTop : radiusBottom;
-        const sign = top === true ? 1 : -1;
+        const sign2 = top === true ? 1 : -1;
         for (let x = 1; x <= radialSegments; x++) {
-          vertices.push(0, halfHeight * sign, 0);
-          normals.push(0, sign, 0);
+          vertices.push(0, halfHeight * sign2, 0);
+          normals.push(0, sign2, 0);
           uvs.push(0.5, 0.5);
           index++;
         }
@@ -14301,12 +14301,12 @@
           const cosTheta = Math.cos(theta);
           const sinTheta = Math.sin(theta);
           vertex2.x = radius * sinTheta;
-          vertex2.y = halfHeight * sign;
+          vertex2.y = halfHeight * sign2;
           vertex2.z = radius * cosTheta;
           vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, sign, 0);
+          normals.push(0, sign2, 0);
           uv.x = cosTheta * 0.5 + 0.5;
-          uv.y = sinTheta * 0.5 * sign + 0.5;
+          uv.y = sinTheta * 0.5 * sign2 + 0.5;
           uvs.push(uv.x, uv.y);
           index++;
         }
@@ -16205,6 +16205,941 @@
       return this;
     }
   };
+  function earcut(data, holeIndices, dim = 2) {
+    const hasHoles = holeIndices && holeIndices.length;
+    const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+    let outerNode = linkedList(data, 0, outerLen, dim, true);
+    const triangles = [];
+    if (!outerNode || outerNode.next === outerNode.prev) return triangles;
+    let minX, minY, invSize;
+    if (hasHoles) outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
+    if (data.length > 80 * dim) {
+      minX = data[0];
+      minY = data[1];
+      let maxX = minX;
+      let maxY = minY;
+      for (let i = dim; i < outerLen; i += dim) {
+        const x = data[i];
+        const y = data[i + 1];
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+      invSize = Math.max(maxX - minX, maxY - minY);
+      invSize = invSize !== 0 ? 32767 / invSize : 0;
+    }
+    earcutLinked(outerNode, triangles, dim, minX, minY, invSize, 0);
+    return triangles;
+  }
+  function linkedList(data, start, end, dim, clockwise) {
+    let last;
+    if (clockwise === signedArea(data, start, end, dim) > 0) {
+      for (let i = start; i < end; i += dim) last = insertNode(i / dim | 0, data[i], data[i + 1], last);
+    } else {
+      for (let i = end - dim; i >= start; i -= dim) last = insertNode(i / dim | 0, data[i], data[i + 1], last);
+    }
+    if (last && equals(last, last.next)) {
+      removeNode(last);
+      last = last.next;
+    }
+    return last;
+  }
+  function filterPoints(start, end) {
+    if (!start) return start;
+    if (!end) end = start;
+    let p = start, again;
+    do {
+      again = false;
+      if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
+        removeNode(p);
+        p = end = p.prev;
+        if (p === p.next) break;
+        again = true;
+      } else {
+        p = p.next;
+      }
+    } while (again || p !== end);
+    return end;
+  }
+  function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
+    if (!ear) return;
+    if (!pass && invSize) indexCurve(ear, minX, minY, invSize);
+    let stop = ear;
+    while (ear.prev !== ear.next) {
+      const prev = ear.prev;
+      const next = ear.next;
+      if (invSize ? isEarHashed(ear, minX, minY, invSize) : isEar(ear)) {
+        triangles.push(prev.i, ear.i, next.i);
+        removeNode(ear);
+        ear = next.next;
+        stop = next.next;
+        continue;
+      }
+      ear = next;
+      if (ear === stop) {
+        if (!pass) {
+          earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
+        } else if (pass === 1) {
+          ear = cureLocalIntersections(filterPoints(ear), triangles);
+          earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
+        } else if (pass === 2) {
+          splitEarcut(ear, triangles, dim, minX, minY, invSize);
+        }
+        break;
+      }
+    }
+  }
+  function isEar(ear) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+    let p = c.next;
+    while (p !== a) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.next;
+    }
+    return true;
+  }
+  function isEarHashed(ear, minX, minY, invSize) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+    const minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
+    let p = ear.prevZ, n = ear.nextZ;
+    while (p && p.z >= minZ && n && n.z <= maxZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    while (p && p.z >= minZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+    }
+    while (n && n.z <= maxZ) {
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    return true;
+  }
+  function cureLocalIntersections(start, triangles) {
+    let p = start;
+    do {
+      const a = p.prev, b = p.next.next;
+      if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
+        triangles.push(a.i, p.i, b.i);
+        removeNode(p);
+        removeNode(p.next);
+        p = start = b;
+      }
+      p = p.next;
+    } while (p !== start);
+    return filterPoints(p);
+  }
+  function splitEarcut(start, triangles, dim, minX, minY, invSize) {
+    let a = start;
+    do {
+      let b = a.next.next;
+      while (b !== a.prev) {
+        if (a.i !== b.i && isValidDiagonal(a, b)) {
+          let c = splitPolygon(a, b);
+          a = filterPoints(a, a.next);
+          c = filterPoints(c, c.next);
+          earcutLinked(a, triangles, dim, minX, minY, invSize, 0);
+          earcutLinked(c, triangles, dim, minX, minY, invSize, 0);
+          return;
+        }
+        b = b.next;
+      }
+      a = a.next;
+    } while (a !== start);
+  }
+  function eliminateHoles(data, holeIndices, outerNode, dim) {
+    const queue = [];
+    for (let i = 0, len = holeIndices.length; i < len; i++) {
+      const start = holeIndices[i] * dim;
+      const end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+      const list = linkedList(data, start, end, dim, false);
+      if (list === list.next) list.steiner = true;
+      queue.push(getLeftmost(list));
+    }
+    queue.sort(compareXYSlope);
+    for (let i = 0; i < queue.length; i++) {
+      outerNode = eliminateHole(queue[i], outerNode);
+    }
+    return outerNode;
+  }
+  function compareXYSlope(a, b) {
+    let result = a.x - b.x;
+    if (result === 0) {
+      result = a.y - b.y;
+      if (result === 0) {
+        const aSlope = (a.next.y - a.y) / (a.next.x - a.x);
+        const bSlope = (b.next.y - b.y) / (b.next.x - b.x);
+        result = aSlope - bSlope;
+      }
+    }
+    return result;
+  }
+  function eliminateHole(hole, outerNode) {
+    const bridge = findHoleBridge(hole, outerNode);
+    if (!bridge) {
+      return outerNode;
+    }
+    const bridgeReverse = splitPolygon(bridge, hole);
+    filterPoints(bridgeReverse, bridgeReverse.next);
+    return filterPoints(bridge, bridge.next);
+  }
+  function findHoleBridge(hole, outerNode) {
+    let p = outerNode;
+    const hx = hole.x;
+    const hy = hole.y;
+    let qx = -Infinity;
+    let m;
+    if (equals(hole, p)) return p;
+    do {
+      if (equals(hole, p.next)) return p.next;
+      else if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
+        const x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
+        if (x <= hx && x > qx) {
+          qx = x;
+          m = p.x < p.next.x ? p : p.next;
+          if (x === hx) return m;
+        }
+      }
+      p = p.next;
+    } while (p !== outerNode);
+    if (!m) return null;
+    const stop = m;
+    const mx = m.x;
+    const my = m.y;
+    let tanMin = Infinity;
+    p = m;
+    do {
+      if (hx >= p.x && p.x >= mx && hx !== p.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+        const tan = Math.abs(hy - p.y) / (hx - p.x);
+        if (locallyInside(p, hole) && (tan < tanMin || tan === tanMin && (p.x > m.x || p.x === m.x && sectorContainsSector(m, p)))) {
+          m = p;
+          tanMin = tan;
+        }
+      }
+      p = p.next;
+    } while (p !== stop);
+    return m;
+  }
+  function sectorContainsSector(m, p) {
+    return area(m.prev, m, p.prev) < 0 && area(p.next, m, m.next) < 0;
+  }
+  function indexCurve(start, minX, minY, invSize) {
+    let p = start;
+    do {
+      if (p.z === 0) p.z = zOrder(p.x, p.y, minX, minY, invSize);
+      p.prevZ = p.prev;
+      p.nextZ = p.next;
+      p = p.next;
+    } while (p !== start);
+    p.prevZ.nextZ = null;
+    p.prevZ = null;
+    sortLinked(p);
+  }
+  function sortLinked(list) {
+    let numMerges;
+    let inSize = 1;
+    do {
+      let p = list;
+      let e;
+      list = null;
+      let tail = null;
+      numMerges = 0;
+      while (p) {
+        numMerges++;
+        let q = p;
+        let pSize = 0;
+        for (let i = 0; i < inSize; i++) {
+          pSize++;
+          q = q.nextZ;
+          if (!q) break;
+        }
+        let qSize = inSize;
+        while (pSize > 0 || qSize > 0 && q) {
+          if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
+            e = p;
+            p = p.nextZ;
+            pSize--;
+          } else {
+            e = q;
+            q = q.nextZ;
+            qSize--;
+          }
+          if (tail) tail.nextZ = e;
+          else list = e;
+          e.prevZ = tail;
+          tail = e;
+        }
+        p = q;
+      }
+      tail.nextZ = null;
+      inSize *= 2;
+    } while (numMerges > 1);
+    return list;
+  }
+  function zOrder(x, y, minX, minY, invSize) {
+    x = (x - minX) * invSize | 0;
+    y = (y - minY) * invSize | 0;
+    x = (x | x << 8) & 16711935;
+    x = (x | x << 4) & 252645135;
+    x = (x | x << 2) & 858993459;
+    x = (x | x << 1) & 1431655765;
+    y = (y | y << 8) & 16711935;
+    y = (y | y << 4) & 252645135;
+    y = (y | y << 2) & 858993459;
+    y = (y | y << 1) & 1431655765;
+    return x | y << 1;
+  }
+  function getLeftmost(start) {
+    let p = start, leftmost = start;
+    do {
+      if (p.x < leftmost.x || p.x === leftmost.x && p.y < leftmost.y) leftmost = p;
+      p = p.next;
+    } while (p !== start);
+    return leftmost;
+  }
+  function pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2) {
+    return (cx - px2) * (ay - py2) >= (ax - px2) * (cy - py2) && (ax - px2) * (by - py2) >= (bx - px2) * (ay - py2) && (bx - px2) * (cy - py2) >= (cx - px2) * (by - py2);
+  }
+  function pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, px2, py2) {
+    return !(ax === px2 && ay === py2) && pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2);
+  }
+  function isValidDiagonal(a, b) {
+    return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // doesn't intersect other edges
+    (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+    (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
+    equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0);
+  }
+  function area(p, q, r) {
+    return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  }
+  function equals(p1, p2) {
+    return p1.x === p2.x && p1.y === p2.y;
+  }
+  function intersects(p1, q1, p2, q2) {
+    const o1 = sign(area(p1, q1, p2));
+    const o2 = sign(area(p1, q1, q2));
+    const o3 = sign(area(p2, q2, p1));
+    const o4 = sign(area(p2, q2, q1));
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+    return false;
+  }
+  function onSegment(p, q, r) {
+    return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+  }
+  function sign(num) {
+    return num > 0 ? 1 : num < 0 ? -1 : 0;
+  }
+  function intersectsPolygon(a, b) {
+    let p = a;
+    do {
+      if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i && intersects(p, p.next, a, b)) return true;
+      p = p.next;
+    } while (p !== a);
+    return false;
+  }
+  function locallyInside(a, b) {
+    return area(a.prev, a, a.next) < 0 ? area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 : area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
+  }
+  function middleInside(a, b) {
+    let p = a;
+    let inside = false;
+    const px2 = (a.x + b.x) / 2;
+    const py2 = (a.y + b.y) / 2;
+    do {
+      if (p.y > py2 !== p.next.y > py2 && p.next.y !== p.y && px2 < (p.next.x - p.x) * (py2 - p.y) / (p.next.y - p.y) + p.x)
+        inside = !inside;
+      p = p.next;
+    } while (p !== a);
+    return inside;
+  }
+  function splitPolygon(a, b) {
+    const a2 = createNode(a.i, a.x, a.y), b2 = createNode(b.i, b.x, b.y), an = a.next, bp = b.prev;
+    a.next = b;
+    b.prev = a;
+    a2.next = an;
+    an.prev = a2;
+    b2.next = a2;
+    a2.prev = b2;
+    bp.next = b2;
+    b2.prev = bp;
+    return b2;
+  }
+  function insertNode(i, x, y, last) {
+    const p = createNode(i, x, y);
+    if (!last) {
+      p.prev = p;
+      p.next = p;
+    } else {
+      p.next = last.next;
+      p.prev = last;
+      last.next.prev = p;
+      last.next = p;
+    }
+    return p;
+  }
+  function removeNode(p) {
+    p.next.prev = p.prev;
+    p.prev.next = p.next;
+    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
+    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
+  }
+  function createNode(i, x, y) {
+    return {
+      i,
+      // vertex index in coordinates array
+      x,
+      y,
+      // vertex coordinates
+      prev: null,
+      // previous and next vertex nodes in a polygon ring
+      next: null,
+      z: 0,
+      // z-order curve value
+      prevZ: null,
+      // previous and next nodes in z-order
+      nextZ: null,
+      steiner: false
+      // indicates whether this is a steiner point
+    };
+  }
+  function signedArea(data, start, end, dim) {
+    let sum = 0;
+    for (let i = start, j = end - dim; i < end; i += dim) {
+      sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
+      j = i;
+    }
+    return sum;
+  }
+  var Earcut = class {
+    /**
+     * Triangulates the given shape definition by returning an array of triangles.
+     *
+     * @param {Array<number>} data - An array with 2D points.
+     * @param {Array<number>} holeIndices - An array with indices defining holes.
+     * @param {number} [dim=2] - The number of coordinates per vertex in the input array.
+     * @return {Array<number>} An array representing the triangulated faces. Each face is defined by three consecutive numbers
+     * representing vertex indices.
+     */
+    static triangulate(data, holeIndices, dim = 2) {
+      return earcut(data, holeIndices, dim);
+    }
+  };
+  var ShapeUtils = class _ShapeUtils {
+    /**
+     * Calculate area of a ( 2D ) contour polygon.
+     *
+     * @param {Array<Vector2>} contour - An array of 2D points.
+     * @return {number} The area.
+     */
+    static area(contour) {
+      const n = contour.length;
+      let a = 0;
+      for (let p = n - 1, q = 0; q < n; p = q++) {
+        a += contour[p].x * contour[q].y - contour[q].x * contour[p].y;
+      }
+      return a * 0.5;
+    }
+    /**
+     * Returns `true` if the given contour uses a clockwise winding order.
+     *
+     * @param {Array<Vector2>} pts - An array of 2D points defining a polygon.
+     * @return {boolean} Whether the given contour uses a clockwise winding order or not.
+     */
+    static isClockWise(pts) {
+      return _ShapeUtils.area(pts) < 0;
+    }
+    /**
+     * Triangulates the given shape definition.
+     *
+     * @param {Array<Vector2>} contour - An array of 2D points defining the contour.
+     * @param {Array<Array<Vector2>>} holes - An array that holds arrays of 2D points defining the holes.
+     * @return {Array<Array<number>>} An array that holds for each face definition an array with three indices.
+     */
+    static triangulateShape(contour, holes) {
+      const vertices = [];
+      const holeIndices = [];
+      const faces = [];
+      removeDupEndPts(contour);
+      addContour(vertices, contour);
+      let holeIndex = contour.length;
+      holes.forEach(removeDupEndPts);
+      for (let i = 0; i < holes.length; i++) {
+        holeIndices.push(holeIndex);
+        holeIndex += holes[i].length;
+        addContour(vertices, holes[i]);
+      }
+      const triangles = Earcut.triangulate(vertices, holeIndices);
+      for (let i = 0; i < triangles.length; i += 3) {
+        faces.push(triangles.slice(i, i + 3));
+      }
+      return faces;
+    }
+  };
+  function removeDupEndPts(points) {
+    const l = points.length;
+    if (l > 2 && points[l - 1].equals(points[0])) {
+      points.pop();
+    }
+  }
+  function addContour(vertices, contour) {
+    for (let i = 0; i < contour.length; i++) {
+      vertices.push(contour[i].x);
+      vertices.push(contour[i].y);
+    }
+  }
+  var ExtrudeGeometry = class _ExtrudeGeometry extends BufferGeometry {
+    /**
+     * Constructs a new extrude geometry.
+     *
+     * @param {Shape|Array<Shape>} [shapes] - A shape or an array of shapes.
+     * @param {ExtrudeGeometry~Options} [options] - The extrude settings.
+     */
+    constructor(shapes = new Shape([new Vector2(0.5, 0.5), new Vector2(-0.5, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]), options = {}) {
+      super();
+      this.type = "ExtrudeGeometry";
+      this.parameters = {
+        shapes,
+        options
+      };
+      shapes = Array.isArray(shapes) ? shapes : [shapes];
+      const scope = this;
+      const verticesArray = [];
+      const uvArray = [];
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        addShape(shape);
+      }
+      this.setAttribute("position", new Float32BufferAttribute(verticesArray, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvArray, 2));
+      this.computeVertexNormals();
+      function addShape(shape) {
+        const placeholder = [];
+        const curveSegments = options.curveSegments !== void 0 ? options.curveSegments : 12;
+        const steps = options.steps !== void 0 ? options.steps : 1;
+        const depth = options.depth !== void 0 ? options.depth : 1;
+        let bevelEnabled = options.bevelEnabled !== void 0 ? options.bevelEnabled : true;
+        let bevelThickness = options.bevelThickness !== void 0 ? options.bevelThickness : 0.2;
+        let bevelSize = options.bevelSize !== void 0 ? options.bevelSize : bevelThickness - 0.1;
+        let bevelOffset = options.bevelOffset !== void 0 ? options.bevelOffset : 0;
+        let bevelSegments = options.bevelSegments !== void 0 ? options.bevelSegments : 3;
+        const extrudePath = options.extrudePath;
+        const uvgen = options.UVGenerator !== void 0 ? options.UVGenerator : WorldUVGenerator;
+        let extrudePts, extrudeByPath = false;
+        let splineTube, binormal, normal, position2;
+        if (extrudePath) {
+          extrudePts = extrudePath.getSpacedPoints(steps);
+          extrudeByPath = true;
+          bevelEnabled = false;
+          const isClosed = extrudePath.isCatmullRomCurve3 ? extrudePath.closed : false;
+          splineTube = extrudePath.computeFrenetFrames(steps, isClosed);
+          binormal = new Vector3();
+          normal = new Vector3();
+          position2 = new Vector3();
+        }
+        if (!bevelEnabled) {
+          bevelSegments = 0;
+          bevelThickness = 0;
+          bevelSize = 0;
+          bevelOffset = 0;
+        }
+        const shapePoints = shape.extractPoints(curveSegments);
+        let vertices = shapePoints.shape;
+        const holes = shapePoints.holes;
+        const reverse = !ShapeUtils.isClockWise(vertices);
+        if (reverse) {
+          vertices = vertices.reverse();
+          for (let h = 0, hl = holes.length; h < hl; h++) {
+            const ahole = holes[h];
+            if (ShapeUtils.isClockWise(ahole)) {
+              holes[h] = ahole.reverse();
+            }
+          }
+        }
+        function mergeOverlappingPoints(points) {
+          const THRESHOLD = 1e-10;
+          const THRESHOLD_SQ = THRESHOLD * THRESHOLD;
+          let prevPos = points[0];
+          for (let i = 1; i <= points.length; i++) {
+            const currentIndex = i % points.length;
+            const currentPos = points[currentIndex];
+            const dx = currentPos.x - prevPos.x;
+            const dy = currentPos.y - prevPos.y;
+            const distSq = dx * dx + dy * dy;
+            const scalingFactorSqrt = Math.max(
+              Math.abs(currentPos.x),
+              Math.abs(currentPos.y),
+              Math.abs(prevPos.x),
+              Math.abs(prevPos.y)
+            );
+            const thresholdSqScaled = THRESHOLD_SQ * scalingFactorSqrt * scalingFactorSqrt;
+            if (distSq <= thresholdSqScaled) {
+              points.splice(currentIndex, 1);
+              i--;
+              continue;
+            }
+            prevPos = currentPos;
+          }
+        }
+        mergeOverlappingPoints(vertices);
+        holes.forEach(mergeOverlappingPoints);
+        const numHoles = holes.length;
+        const contour = vertices;
+        for (let h = 0; h < numHoles; h++) {
+          const ahole = holes[h];
+          vertices = vertices.concat(ahole);
+        }
+        function scalePt2(pt, vec, size) {
+          if (!vec) error("ExtrudeGeometry: vec does not exist");
+          return pt.clone().addScaledVector(vec, size);
+        }
+        const vlen = vertices.length;
+        function getBevelVec(inPt, inPrev, inNext) {
+          let v_trans_x, v_trans_y, shrink_by;
+          const v_prev_x = inPt.x - inPrev.x, v_prev_y = inPt.y - inPrev.y;
+          const v_next_x = inNext.x - inPt.x, v_next_y = inNext.y - inPt.y;
+          const v_prev_lensq = v_prev_x * v_prev_x + v_prev_y * v_prev_y;
+          const collinear0 = v_prev_x * v_next_y - v_prev_y * v_next_x;
+          if (Math.abs(collinear0) > Number.EPSILON) {
+            const v_prev_len = Math.sqrt(v_prev_lensq);
+            const v_next_len = Math.sqrt(v_next_x * v_next_x + v_next_y * v_next_y);
+            const ptPrevShift_x = inPrev.x - v_prev_y / v_prev_len;
+            const ptPrevShift_y = inPrev.y + v_prev_x / v_prev_len;
+            const ptNextShift_x = inNext.x - v_next_y / v_next_len;
+            const ptNextShift_y = inNext.y + v_next_x / v_next_len;
+            const sf = ((ptNextShift_x - ptPrevShift_x) * v_next_y - (ptNextShift_y - ptPrevShift_y) * v_next_x) / (v_prev_x * v_next_y - v_prev_y * v_next_x);
+            v_trans_x = ptPrevShift_x + v_prev_x * sf - inPt.x;
+            v_trans_y = ptPrevShift_y + v_prev_y * sf - inPt.y;
+            const v_trans_lensq = v_trans_x * v_trans_x + v_trans_y * v_trans_y;
+            if (v_trans_lensq <= 2) {
+              return new Vector2(v_trans_x, v_trans_y);
+            } else {
+              shrink_by = Math.sqrt(v_trans_lensq / 2);
+            }
+          } else {
+            let direction_eq = false;
+            if (v_prev_x > Number.EPSILON) {
+              if (v_next_x > Number.EPSILON) {
+                direction_eq = true;
+              }
+            } else {
+              if (v_prev_x < -Number.EPSILON) {
+                if (v_next_x < -Number.EPSILON) {
+                  direction_eq = true;
+                }
+              } else {
+                if (Math.sign(v_prev_y) === Math.sign(v_next_y)) {
+                  direction_eq = true;
+                }
+              }
+            }
+            if (direction_eq) {
+              v_trans_x = -v_prev_y;
+              v_trans_y = v_prev_x;
+              shrink_by = Math.sqrt(v_prev_lensq);
+            } else {
+              v_trans_x = v_prev_x;
+              v_trans_y = v_prev_y;
+              shrink_by = Math.sqrt(v_prev_lensq / 2);
+            }
+          }
+          return new Vector2(v_trans_x / shrink_by, v_trans_y / shrink_by);
+        }
+        const contourMovements = [];
+        for (let i = 0, il = contour.length, j = il - 1, k = i + 1; i < il; i++, j++, k++) {
+          if (j === il) j = 0;
+          if (k === il) k = 0;
+          contourMovements[i] = getBevelVec(contour[i], contour[j], contour[k]);
+        }
+        const holesMovements = [];
+        let oneHoleMovements, verticesMovements = contourMovements.concat();
+        for (let h = 0, hl = numHoles; h < hl; h++) {
+          const ahole = holes[h];
+          oneHoleMovements = [];
+          for (let i = 0, il = ahole.length, j = il - 1, k = i + 1; i < il; i++, j++, k++) {
+            if (j === il) j = 0;
+            if (k === il) k = 0;
+            oneHoleMovements[i] = getBevelVec(ahole[i], ahole[j], ahole[k]);
+          }
+          holesMovements.push(oneHoleMovements);
+          verticesMovements = verticesMovements.concat(oneHoleMovements);
+        }
+        let faces;
+        if (bevelSegments === 0) {
+          faces = ShapeUtils.triangulateShape(contour, holes);
+        } else {
+          const contractedContourVertices = [];
+          const expandedHoleVertices = [];
+          for (let b = 0; b < bevelSegments; b++) {
+            const t = b / bevelSegments;
+            const z = bevelThickness * Math.cos(t * Math.PI / 2);
+            const bs2 = bevelSize * Math.sin(t * Math.PI / 2) + bevelOffset;
+            for (let i = 0, il = contour.length; i < il; i++) {
+              const vert = scalePt2(contour[i], contourMovements[i], bs2);
+              v(vert.x, vert.y, -z);
+              if (t === 0) contractedContourVertices.push(vert);
+            }
+            for (let h = 0, hl = numHoles; h < hl; h++) {
+              const ahole = holes[h];
+              oneHoleMovements = holesMovements[h];
+              const oneHoleVertices = [];
+              for (let i = 0, il = ahole.length; i < il; i++) {
+                const vert = scalePt2(ahole[i], oneHoleMovements[i], bs2);
+                v(vert.x, vert.y, -z);
+                if (t === 0) oneHoleVertices.push(vert);
+              }
+              if (t === 0) expandedHoleVertices.push(oneHoleVertices);
+            }
+          }
+          faces = ShapeUtils.triangulateShape(contractedContourVertices, expandedHoleVertices);
+        }
+        const flen = faces.length;
+        const bs = bevelSize + bevelOffset;
+        for (let i = 0; i < vlen; i++) {
+          const vert = bevelEnabled ? scalePt2(vertices[i], verticesMovements[i], bs) : vertices[i];
+          if (!extrudeByPath) {
+            v(vert.x, vert.y, 0);
+          } else {
+            normal.copy(splineTube.normals[0]).multiplyScalar(vert.x);
+            binormal.copy(splineTube.binormals[0]).multiplyScalar(vert.y);
+            position2.copy(extrudePts[0]).add(normal).add(binormal);
+            v(position2.x, position2.y, position2.z);
+          }
+        }
+        for (let s = 1; s <= steps; s++) {
+          for (let i = 0; i < vlen; i++) {
+            const vert = bevelEnabled ? scalePt2(vertices[i], verticesMovements[i], bs) : vertices[i];
+            if (!extrudeByPath) {
+              v(vert.x, vert.y, depth / steps * s);
+            } else {
+              normal.copy(splineTube.normals[s]).multiplyScalar(vert.x);
+              binormal.copy(splineTube.binormals[s]).multiplyScalar(vert.y);
+              position2.copy(extrudePts[s]).add(normal).add(binormal);
+              v(position2.x, position2.y, position2.z);
+            }
+          }
+        }
+        for (let b = bevelSegments - 1; b >= 0; b--) {
+          const t = b / bevelSegments;
+          const z = bevelThickness * Math.cos(t * Math.PI / 2);
+          const bs2 = bevelSize * Math.sin(t * Math.PI / 2) + bevelOffset;
+          for (let i = 0, il = contour.length; i < il; i++) {
+            const vert = scalePt2(contour[i], contourMovements[i], bs2);
+            v(vert.x, vert.y, depth + z);
+          }
+          for (let h = 0, hl = holes.length; h < hl; h++) {
+            const ahole = holes[h];
+            oneHoleMovements = holesMovements[h];
+            for (let i = 0, il = ahole.length; i < il; i++) {
+              const vert = scalePt2(ahole[i], oneHoleMovements[i], bs2);
+              if (!extrudeByPath) {
+                v(vert.x, vert.y, depth + z);
+              } else {
+                v(vert.x, vert.y + extrudePts[steps - 1].y, extrudePts[steps - 1].x + z);
+              }
+            }
+          }
+        }
+        buildLidFaces();
+        buildSideFaces();
+        function buildLidFaces() {
+          const start = verticesArray.length / 3;
+          if (bevelEnabled) {
+            let layer = 0;
+            let offset = vlen * layer;
+            for (let i = 0; i < flen; i++) {
+              const face = faces[i];
+              f3(face[2] + offset, face[1] + offset, face[0] + offset);
+            }
+            layer = steps + bevelSegments * 2;
+            offset = vlen * layer;
+            for (let i = 0; i < flen; i++) {
+              const face = faces[i];
+              f3(face[0] + offset, face[1] + offset, face[2] + offset);
+            }
+          } else {
+            for (let i = 0; i < flen; i++) {
+              const face = faces[i];
+              f3(face[2], face[1], face[0]);
+            }
+            for (let i = 0; i < flen; i++) {
+              const face = faces[i];
+              f3(face[0] + vlen * steps, face[1] + vlen * steps, face[2] + vlen * steps);
+            }
+          }
+          scope.addGroup(start, verticesArray.length / 3 - start, 0);
+        }
+        function buildSideFaces() {
+          const start = verticesArray.length / 3;
+          let layeroffset = 0;
+          sidewalls(contour, layeroffset);
+          layeroffset += contour.length;
+          for (let h = 0, hl = holes.length; h < hl; h++) {
+            const ahole = holes[h];
+            sidewalls(ahole, layeroffset);
+            layeroffset += ahole.length;
+          }
+          scope.addGroup(start, verticesArray.length / 3 - start, 1);
+        }
+        function sidewalls(contour2, layeroffset) {
+          let i = contour2.length;
+          while (--i >= 0) {
+            const j = i;
+            let k = i - 1;
+            if (k < 0) k = contour2.length - 1;
+            for (let s = 0, sl = steps + bevelSegments * 2; s < sl; s++) {
+              const slen1 = vlen * s;
+              const slen2 = vlen * (s + 1);
+              const a = layeroffset + j + slen1, b = layeroffset + k + slen1, c = layeroffset + k + slen2, d = layeroffset + j + slen2;
+              f4(a, b, c, d);
+            }
+          }
+        }
+        function v(x, y, z) {
+          placeholder.push(x);
+          placeholder.push(y);
+          placeholder.push(z);
+        }
+        function f3(a, b, c) {
+          addVertex(a);
+          addVertex(b);
+          addVertex(c);
+          const nextIndex = verticesArray.length / 3;
+          const uvs = uvgen.generateTopUV(scope, verticesArray, nextIndex - 3, nextIndex - 2, nextIndex - 1);
+          addUV(uvs[0]);
+          addUV(uvs[1]);
+          addUV(uvs[2]);
+        }
+        function f4(a, b, c, d) {
+          addVertex(a);
+          addVertex(b);
+          addVertex(d);
+          addVertex(b);
+          addVertex(c);
+          addVertex(d);
+          const nextIndex = verticesArray.length / 3;
+          const uvs = uvgen.generateSideWallUV(scope, verticesArray, nextIndex - 6, nextIndex - 3, nextIndex - 2, nextIndex - 1);
+          addUV(uvs[0]);
+          addUV(uvs[1]);
+          addUV(uvs[3]);
+          addUV(uvs[1]);
+          addUV(uvs[2]);
+          addUV(uvs[3]);
+        }
+        function addVertex(index) {
+          verticesArray.push(placeholder[index * 3 + 0]);
+          verticesArray.push(placeholder[index * 3 + 1]);
+          verticesArray.push(placeholder[index * 3 + 2]);
+        }
+        function addUV(vector2) {
+          uvArray.push(vector2.x);
+          uvArray.push(vector2.y);
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      const shapes = this.parameters.shapes;
+      const options = this.parameters.options;
+      return toJSON$1(shapes, options, data);
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @param {Array<Shape>} shapes - An array of shapes.
+     * @return {ExtrudeGeometry} A new instance.
+     */
+    static fromJSON(data, shapes) {
+      const geometryShapes = [];
+      for (let j = 0, jl = data.shapes.length; j < jl; j++) {
+        const shape = shapes[data.shapes[j]];
+        geometryShapes.push(shape);
+      }
+      const extrudePath = data.options.extrudePath;
+      if (extrudePath !== void 0) {
+        data.options.extrudePath = new Curves[extrudePath.type]().fromJSON(extrudePath);
+      }
+      return new _ExtrudeGeometry(geometryShapes, data.options);
+    }
+  };
+  var WorldUVGenerator = {
+    generateTopUV: function(geometry, vertices, indexA, indexB, indexC) {
+      const a_x = vertices[indexA * 3];
+      const a_y = vertices[indexA * 3 + 1];
+      const b_x = vertices[indexB * 3];
+      const b_y = vertices[indexB * 3 + 1];
+      const c_x = vertices[indexC * 3];
+      const c_y = vertices[indexC * 3 + 1];
+      return [
+        new Vector2(a_x, a_y),
+        new Vector2(b_x, b_y),
+        new Vector2(c_x, c_y)
+      ];
+    },
+    generateSideWallUV: function(geometry, vertices, indexA, indexB, indexC, indexD) {
+      const a_x = vertices[indexA * 3];
+      const a_y = vertices[indexA * 3 + 1];
+      const a_z = vertices[indexA * 3 + 2];
+      const b_x = vertices[indexB * 3];
+      const b_y = vertices[indexB * 3 + 1];
+      const b_z = vertices[indexB * 3 + 2];
+      const c_x = vertices[indexC * 3];
+      const c_y = vertices[indexC * 3 + 1];
+      const c_z = vertices[indexC * 3 + 2];
+      const d_x = vertices[indexD * 3];
+      const d_y = vertices[indexD * 3 + 1];
+      const d_z = vertices[indexD * 3 + 2];
+      if (Math.abs(a_y - b_y) < Math.abs(a_x - b_x)) {
+        return [
+          new Vector2(a_x, 1 - a_z),
+          new Vector2(b_x, 1 - b_z),
+          new Vector2(c_x, 1 - c_z),
+          new Vector2(d_x, 1 - d_z)
+        ];
+      } else {
+        return [
+          new Vector2(a_y, 1 - a_z),
+          new Vector2(b_y, 1 - b_z),
+          new Vector2(c_y, 1 - c_z),
+          new Vector2(d_y, 1 - d_z)
+        ];
+      }
+    }
+  };
+  function toJSON$1(shapes, options, data) {
+    data.shapes = [];
+    if (Array.isArray(shapes)) {
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        data.shapes.push(shape.uuid);
+      }
+    } else {
+      data.shapes.push(shapes.uuid);
+    }
+    data.options = Object.assign({}, options);
+    if (options.extrudePath !== void 0) data.options.extrudePath = options.extrudePath.toJSON();
+    return data;
+  }
   var OctahedronGeometry = class _OctahedronGeometry extends PolyhedronGeometry {
     /**
      * Constructs a new octahedron geometry.
@@ -16936,6 +17871,226 @@
       this.wireframeLinejoin = source.wireframeLinejoin;
       this.flatShading = source.flatShading;
       this.fog = source.fog;
+      return this;
+    }
+  };
+  var MeshPhysicalMaterial = class extends MeshStandardMaterial {
+    /**
+     * Constructs a new mesh physical material.
+     *
+     * @param {Object} [parameters] - An object with one or more properties
+     * defining the material's appearance. Any property of the material
+     * (including any property from inherited materials) can be passed
+     * in here. Color values can be passed any type of value accepted
+     * by {@link Color#set}.
+     */
+    constructor(parameters) {
+      super();
+      this.isMeshPhysicalMaterial = true;
+      this.defines = {
+        "STANDARD": "",
+        "PHYSICAL": ""
+      };
+      this.type = "MeshPhysicalMaterial";
+      this.anisotropyRotation = 0;
+      this.anisotropyMap = null;
+      this.clearcoatMap = null;
+      this.clearcoatRoughness = 0;
+      this.clearcoatRoughnessMap = null;
+      this.clearcoatNormalScale = new Vector2(1, 1);
+      this.clearcoatNormalMap = null;
+      this.ior = 1.5;
+      Object.defineProperty(this, "reflectivity", {
+        get: function() {
+          return clamp(2.5 * (this.ior - 1) / (this.ior + 1), 0, 1);
+        },
+        set: function(reflectivity) {
+          this.ior = (1 + 0.4 * reflectivity) / (1 - 0.4 * reflectivity);
+        }
+      });
+      this.iridescenceMap = null;
+      this.iridescenceIOR = 1.3;
+      this.iridescenceThicknessRange = [100, 400];
+      this.iridescenceThicknessMap = null;
+      this.sheenColor = new Color(0);
+      this.sheenColorMap = null;
+      this.sheenRoughness = 1;
+      this.sheenRoughnessMap = null;
+      this.transmissionMap = null;
+      this.thickness = 0;
+      this.thicknessMap = null;
+      this.attenuationDistance = Infinity;
+      this.attenuationColor = new Color(1, 1, 1);
+      this.specularIntensity = 1;
+      this.specularIntensityMap = null;
+      this.specularColor = new Color(1, 1, 1);
+      this.specularColorMap = null;
+      this._anisotropy = 0;
+      this._clearcoat = 0;
+      this._dispersion = 0;
+      this._iridescence = 0;
+      this._retroreflectivity = 0;
+      this._sheen = 0;
+      this._transmission = 0;
+      this.setValues(parameters);
+    }
+    /**
+     * The anisotropy strength, from `0.0` to `1.0`.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get anisotropy() {
+      return this._anisotropy;
+    }
+    set anisotropy(value) {
+      if (this._anisotropy > 0 !== value > 0) {
+        this.version++;
+      }
+      this._anisotropy = value;
+    }
+    /**
+     * Represents the intensity of the clear coat layer, from `0.0` to `1.0`. Use
+     * clear coat related properties to enable multilayer materials that have a
+     * thin translucent layer over the base layer.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get clearcoat() {
+      return this._clearcoat;
+    }
+    set clearcoat(value) {
+      if (this._clearcoat > 0 !== value > 0) {
+        this.version++;
+      }
+      this._clearcoat = value;
+    }
+    /**
+     * The intensity of the iridescence layer, simulating RGB color shift based on the angle between
+     * the surface and the viewer, from `0.0` to `1.0`.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get iridescence() {
+      return this._iridescence;
+    }
+    set iridescence(value) {
+      if (this._iridescence > 0 !== value > 0) {
+        this.version++;
+      }
+      this._iridescence = value;
+    }
+    /**
+     * Defines the strength of the angular separation of colors (chromatic aberration) transmitting
+     * through a relatively clear volume. Any value zero or larger is valid, the typical range of
+     * realistic values is `[0, 1]`. This property can be only be used with transmissive objects.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get dispersion() {
+      return this._dispersion;
+    }
+    set dispersion(value) {
+      if (this._dispersion > 0 !== value > 0) {
+        this.version++;
+      }
+      this._dispersion = value;
+    }
+    /**
+     * The strength of retroreflection, from `0.0` to `1.0`. A value of `1.0`
+     * evaluates the material's microfacet reflection with the view direction
+     * reflected about the surface normal, redirecting the specular lobe back
+     * toward the light source.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get retroreflectivity() {
+      return this._retroreflectivity;
+    }
+    set retroreflectivity(value) {
+      if (this._retroreflectivity > 0 !== value > 0) {
+        this.version++;
+      }
+      this._retroreflectivity = value;
+    }
+    /**
+     * The intensity of the sheen layer, from `0.0` to `1.0`.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get sheen() {
+      return this._sheen;
+    }
+    set sheen(value) {
+      if (this._sheen > 0 !== value > 0) {
+        this.version++;
+      }
+      this._sheen = value;
+    }
+    /**
+     * Degree of transmission (or optical transparency), from `0.0` to `1.0`.
+     *
+     * Thin, transparent or semitransparent, plastic or glass materials remain
+     * largely reflective even if they are fully transmissive. The transmission
+     * property can be used to model these materials.
+     *
+     * When transmission is non-zero, `opacity` should be  set to `1`.
+     *
+     * @type {number}
+     * @default 0
+     */
+    get transmission() {
+      return this._transmission;
+    }
+    set transmission(value) {
+      if (this._transmission > 0 !== value > 0) {
+        this.version++;
+      }
+      this._transmission = value;
+    }
+    copy(source) {
+      super.copy(source);
+      this.defines = {
+        "STANDARD": "",
+        "PHYSICAL": ""
+      };
+      this.anisotropy = source.anisotropy;
+      this.anisotropyRotation = source.anisotropyRotation;
+      this.anisotropyMap = source.anisotropyMap;
+      this.clearcoat = source.clearcoat;
+      this.clearcoatMap = source.clearcoatMap;
+      this.clearcoatRoughness = source.clearcoatRoughness;
+      this.clearcoatRoughnessMap = source.clearcoatRoughnessMap;
+      this.clearcoatNormalMap = source.clearcoatNormalMap;
+      this.clearcoatNormalScale.copy(source.clearcoatNormalScale);
+      this.dispersion = source.dispersion;
+      this.ior = source.ior;
+      this.iridescence = source.iridescence;
+      this.iridescenceMap = source.iridescenceMap;
+      this.iridescenceIOR = source.iridescenceIOR;
+      this.iridescenceThicknessRange = [...source.iridescenceThicknessRange];
+      this.iridescenceThicknessMap = source.iridescenceThicknessMap;
+      this.retroreflectivity = source.retroreflectivity;
+      this.sheen = source.sheen;
+      this.sheenColor.copy(source.sheenColor);
+      this.sheenColorMap = source.sheenColorMap;
+      this.sheenRoughness = source.sheenRoughness;
+      this.sheenRoughnessMap = source.sheenRoughnessMap;
+      this.transmission = source.transmission;
+      this.transmissionMap = source.transmissionMap;
+      this.thickness = source.thickness;
+      this.thicknessMap = source.thicknessMap;
+      this.attenuationDistance = source.attenuationDistance;
+      this.attenuationColor.copy(source.attenuationColor);
+      this.specularIntensity = source.specularIntensity;
+      this.specularIntensityMap = source.specularIntensityMap;
+      this.specularColor.copy(source.specularColor);
+      this.specularColorMap = source.specularColorMap;
       return this;
     }
   };
@@ -19404,10 +20559,10 @@
      * @param {Array<Raycaster~Intersection>} [intersects=[]] The target array that holds the result of the method.
      * @return {Array<Raycaster~Intersection>} An array holding the intersection points.
      */
-    intersectObject(object, recursive = true, intersects = []) {
-      intersect(object, this, intersects, recursive);
-      intersects.sort(ascSort);
-      return intersects;
+    intersectObject(object, recursive = true, intersects2 = []) {
+      intersect(object, this, intersects2, recursive);
+      intersects2.sort(ascSort);
+      return intersects2;
     }
     /**
      * Checks all intersection between the ray and the objects with or without
@@ -19419,27 +20574,27 @@
      * @param {Array<Raycaster~Intersection>} [intersects=[]] The target array that holds the result of the method.
      * @return {Array<Raycaster~Intersection>} An array holding the intersection points.
      */
-    intersectObjects(objects, recursive = true, intersects = []) {
+    intersectObjects(objects, recursive = true, intersects2 = []) {
       for (let i = 0, l = objects.length; i < l; i++) {
-        intersect(objects[i], this, intersects, recursive);
+        intersect(objects[i], this, intersects2, recursive);
       }
-      intersects.sort(ascSort);
-      return intersects;
+      intersects2.sort(ascSort);
+      return intersects2;
     }
   };
   function ascSort(a, b) {
     return a.distance - b.distance;
   }
-  function intersect(object, raycaster, intersects, recursive) {
+  function intersect(object, raycaster, intersects2, recursive) {
     let propagate = true;
     if (object.layers.test(raycaster.layers)) {
-      const result = object.raycast(raycaster, intersects);
+      const result = object.raycast(raycaster, intersects2);
       if (result === false) propagate = false;
     }
     if (propagate === true && recursive === true) {
       const children = object.children;
       for (let i = 0, l = children.length; i < l; i++) {
-        intersect(children[i], raycaster, intersects, true);
+        intersect(children[i], raycaster, intersects2, true);
       }
     }
   }
@@ -32255,6 +33410,11 @@ void main() {
   var RoboAudioEngine = class {
     constructor() {
       this.ctx = null;
+      this.masterGain = null;
+      this.compressor = null;
+      this.reverbNode = null;
+      this.reverbGain = null;
+      this.noiseBuffer = null;
       this.muted = false;
       this.initialized = false;
     }
@@ -32263,10 +33423,59 @@ void main() {
       try {
         const AudioContext2 = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext2();
+        this.compressor = this.ctx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+        this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
+        this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
+        this.compressor.attack.setValueAtTime(3e-3, this.ctx.currentTime);
+        this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+        this.reverbNode = this.createImpulseReverb(0.45, 2.8);
+        this.reverbGain = this.ctx.createGain();
+        this.reverbGain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        this.masterGain.connect(this.compressor);
+        this.masterGain.connect(this.reverbNode);
+        this.reverbNode.connect(this.reverbGain);
+        this.reverbGain.connect(this.compressor);
+        this.compressor.connect(this.ctx.destination);
+        this.noiseBuffer = this.createNoiseBuffer(1);
         this.initialized = true;
       } catch (e) {
         console.warn("AudioContext no soportado:", e);
       }
+    }
+    createImpulseReverb(duration = 0.4, decay = 2.5) {
+      const rate = this.ctx.sampleRate;
+      const length = Math.floor(rate * duration);
+      const impulse = this.ctx.createBuffer(2, length, rate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+        }
+      }
+      const convolver = this.ctx.createConvolver();
+      convolver.buffer = impulse;
+      return convolver;
+    }
+    createNoiseBuffer(duration = 1) {
+      const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.969 * b2 + white * 0.153852;
+        b3 = 0.8665 * b3 + white * 0.3104856;
+        b4 = 0.55 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.016898;
+        output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.08;
+        b6 = white * 0.115926;
+      }
+      return buffer;
     }
     ensureContext() {
       this.init();
@@ -32274,27 +33483,43 @@ void main() {
         this.ctx.resume();
       }
     }
+    get out() {
+      return this.masterGain || this.ctx.destination;
+    }
     playBark(pitch = 1) {
       if (this.muted) return;
       this.ensureContext();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const formant = this.ctx.createBiquadFilter();
       const gain = this.ctx.createGain();
-      const filter = this.ctx.createBiquadFilter();
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(320 * pitch, now);
-      osc.frequency.exponentialRampToValueAtTime(780 * pitch, now + 0.05);
-      osc.frequency.exponentialRampToValueAtTime(220 * pitch, now + 0.16);
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(2e3, now);
-      gain.gain.setValueAtTime(0.24, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.18);
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.18);
+      osc1.type = "sawtooth";
+      osc2.type = "triangle";
+      const baseFreq = 310 * pitch;
+      osc1.frequency.setValueAtTime(baseFreq, now);
+      osc1.frequency.exponentialRampToValueAtTime(820 * pitch, now + 0.045);
+      osc1.frequency.exponentialRampToValueAtTime(210 * pitch, now + 0.17);
+      osc2.frequency.setValueAtTime(baseFreq * 1.5, now);
+      osc2.frequency.exponentialRampToValueAtTime(1180 * pitch, now + 0.045);
+      osc2.frequency.exponentialRampToValueAtTime(310 * pitch, now + 0.17);
+      formant.type = "bandpass";
+      formant.frequency.setValueAtTime(950 * pitch, now);
+      formant.frequency.exponentialRampToValueAtTime(1850 * pitch, now + 0.05);
+      formant.frequency.exponentialRampToValueAtTime(650 * pitch, now + 0.17);
+      formant.Q.setValueAtTime(1.8, now);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.32, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.19);
+      osc1.connect(formant);
+      osc2.connect(formant);
+      formant.connect(gain);
+      gain.connect(this.out);
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.19);
+      osc2.stop(now + 0.19);
     }
     playBoop(pitch = 1) {
       if (this.muted) return;
@@ -32302,16 +33527,42 @@ void main() {
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
+      const sub = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(880 * pitch, now);
-      osc.frequency.exponentialRampToValueAtTime(1320 * pitch, now + 0.08);
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.1);
+      sub.type = "triangle";
+      osc.frequency.setValueAtTime(840 * pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(1380 * pitch, now + 0.09);
+      sub.frequency.setValueAtTime(420 * pitch, now);
+      sub.frequency.exponentialRampToValueAtTime(690 * pitch, now + 0.09);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.2, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.12);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      sub.connect(gain);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.1);
+      sub.start(now);
+      osc.stop(now + 0.12);
+      sub.stop(now + 0.12);
+    }
+    playJump(pitch = 1) {
+      if (this.muted) return;
+      this.ensureContext();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(240 * pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(760 * pitch, now + 0.16);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.18);
+      osc.connect(gain);
+      gain.connect(this.out);
+      osc.start(now);
+      osc.stop(now + 0.18);
     }
     playHappyJingle() {
       if (this.muted) return;
@@ -32321,16 +33572,23 @@ void main() {
       const now = this.ctx.currentTime;
       notes.forEach((freq, idx) => {
         const osc = this.ctx.createOscillator();
+        const harm = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        const startTime = now + idx * 0.08;
+        const startTime = now + idx * 0.075;
         osc.type = "triangle";
+        harm.type = "sine";
         osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.2, startTime);
-        gain.gain.exponentialRampToValueAtTime(1e-3, startTime + 0.15);
+        harm.frequency.setValueAtTime(freq * 2, startTime);
+        gain.gain.setValueAtTime(1e-3, startTime);
+        gain.gain.linearRampToValueAtTime(0.22, startTime + 0.015);
+        gain.gain.exponentialRampToValueAtTime(1e-3, startTime + 0.19);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        harm.connect(gain);
+        gain.connect(this.out);
         osc.start(startTime);
-        osc.stop(startTime + 0.15);
+        harm.start(startTime);
+        osc.stop(startTime + 0.19);
+        harm.stop(startTime + 0.19);
       });
     }
     playCurious() {
@@ -32341,15 +33599,16 @@ void main() {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.exponentialRampToValueAtTime(660, now + 0.12);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.3);
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(640, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(920, now + 0.26);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.32);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.3);
+      osc.stop(now + 0.32);
     }
     playStep() {
       if (this.muted) return;
@@ -32357,129 +33616,164 @@ void main() {
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
       const gain = this.ctx.createGain();
-      osc.type = "square";
-      osc.frequency.setValueAtTime(140 + Math.random() * 30, now);
-      gain.gain.setValueAtTime(0.035, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.04);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      osc.type = "triangle";
+      const base = 115 + Math.random() * 35;
+      osc.frequency.setValueAtTime(base * 1.6, now);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.6, now + 0.045);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(650, now);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.05);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.04);
+      osc.stop(now + 0.05);
     }
     playSplash() {
       if (this.muted) return;
       this.ensureContext();
-      if (!this.ctx) return;
+      if (!this.ctx || !this.noiseBuffer) return;
       const now = this.ctx.currentTime;
-      const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
-      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const output = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-      }
-      const whiteNoise = this.ctx.createBufferSource();
-      whiteNoise.buffer = buffer;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.noiseBuffer;
       const filter = this.ctx.createBiquadFilter();
       filter.type = "bandpass";
-      filter.frequency.setValueAtTime(800, now);
-      filter.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+      filter.frequency.setValueAtTime(950, now);
+      filter.frequency.exponentialRampToValueAtTime(320, now + 0.18);
+      filter.frequency.exponentialRampToValueAtTime(1200, now + 0.32);
+      filter.Q.setValueAtTime(1.5, now);
       const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.25);
-      whiteNoise.connect(filter);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.32, now + 0.025);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.35);
+      noise.connect(filter);
       filter.connect(gain);
-      gain.connect(this.ctx.destination);
-      whiteNoise.start(now);
-      whiteNoise.stop(now + 0.25);
+      gain.connect(this.out);
+      noise.start(now);
+      noise.stop(now + 0.35);
     }
-    // Trampoline boing spring sound!
     playTrampoline() {
       if (this.muted) return;
       this.ensureContext();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
+      const lfo = this.ctx.createOscillator();
+      const lfoGain = this.ctx.createGain();
       const gain = this.ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(180, now);
-      osc.frequency.exponentialRampToValueAtTime(650, now + 0.18);
-      osc.frequency.exponentialRampToValueAtTime(320, now + 0.35);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.4);
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(680, now + 0.18);
+      osc.frequency.exponentialRampToValueAtTime(340, now + 0.42);
+      lfo.frequency.setValueAtTime(28, now);
+      lfoGain.gain.setValueAtTime(45, now);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.28, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.45);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.4);
+      lfo.start(now);
+      osc.stop(now + 0.45);
+      lfo.stop(now + 0.45);
     }
-    // Goal celebration fanfare!
     playGoalFanfare() {
       if (this.muted) return;
       this.ensureContext();
       if (!this.ctx) return;
-      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
       const now = this.ctx.currentTime;
       notes.forEach((freq, idx) => {
         const osc = this.ctx.createOscillator();
+        const sub = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        const startTime = now + idx * 0.1;
+        const startTime = now + idx * 0.09;
+        const dur = idx === notes.length - 1 ? 0.55 : 0.28;
         osc.type = "triangle";
+        sub.type = "sawtooth";
         osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.28, startTime);
-        gain.gain.exponentialRampToValueAtTime(1e-3, startTime + 0.35);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        sub.frequency.setValueAtTime(freq * 0.5, startTime);
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(2800, startTime);
+        gain.gain.setValueAtTime(1e-3, startTime);
+        gain.gain.linearRampToValueAtTime(0.24, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(1e-3, startTime + dur);
+        osc.connect(filter);
+        sub.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.out);
         osc.start(startTime);
-        osc.stop(startTime + 0.35);
+        sub.start(startTime);
+        osc.stop(startTime + dur);
+        sub.stop(startTime + dur);
       });
     }
-    // Cyber snack munching sound
     playSnackMunch() {
       if (this.muted) return;
       this.ensureContext();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      [0, 0.09, 0.18].forEach((offset) => {
+      [0, 0.085, 0.17].forEach((offset, i) => {
         const osc = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
         const gain = this.ctx.createGain();
-        osc.type = "square";
-        osc.frequency.setValueAtTime(700 + Math.random() * 200, now + offset);
-        osc.frequency.exponentialRampToValueAtTime(300, now + offset + 0.06);
-        gain.gain.setValueAtTime(0.15, now + offset);
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(580 + i * 110, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(280, now + offset + 0.065);
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1100, now + offset);
+        gain.gain.setValueAtTime(0.2, now + offset);
         gain.gain.exponentialRampToValueAtTime(1e-3, now + offset + 0.07);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.out);
         osc.start(now + offset);
         osc.stop(now + offset + 0.07);
       });
     }
-    // Party Dance Beat
     playDanceBeat() {
       if (this.muted) return;
       this.ensureContext();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.frequency.setValueAtTime(140, now);
-      osc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
-      gain.gain.setValueAtTime(0.35, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.14);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.14);
+      const kick = this.ctx.createOscillator();
+      const kickGain = this.ctx.createGain();
+      kick.type = "sine";
+      kick.frequency.setValueAtTime(145, now);
+      kick.frequency.exponentialRampToValueAtTime(42, now + 0.13);
+      kickGain.gain.setValueAtTime(0.32, now);
+      kickGain.gain.exponentialRampToValueAtTime(1e-3, now + 0.15);
+      kick.connect(kickGain);
+      kickGain.connect(this.out);
+      kick.start(now);
+      kick.stop(now + 0.15);
       const synth = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
       const synthGain = this.ctx.createGain();
       synth.type = "sawtooth";
-      const chords = [440, 554, 659, 880];
-      synth.frequency.setValueAtTime(chords[Math.floor(Math.random() * chords.length)], now + 0.06);
-      synthGain.gain.setValueAtTime(0.16, now + 0.06);
+      const pentatonic = [440, 523.25, 587.33, 659.25, 783.99, 880];
+      const note = pentatonic[Math.floor(Math.random() * pentatonic.length)];
+      synth.frequency.setValueAtTime(note, now + 0.05);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(2400, now + 0.05);
+      filter.frequency.exponentialRampToValueAtTime(450, now + 0.21);
+      synthGain.gain.setValueAtTime(0.14, now + 0.05);
       synthGain.gain.exponentialRampToValueAtTime(1e-3, now + 0.22);
-      synth.connect(synthGain);
-      synthGain.connect(this.ctx.destination);
-      synth.start(now + 0.06);
+      synth.connect(filter);
+      filter.connect(synthGain);
+      synthGain.connect(this.out);
+      synth.start(now + 0.05);
       synth.stop(now + 0.22);
+    }
+    // Alias used in robot.js PARTY emotion
+    playDiscoBeat() {
+      this.playDanceBeat();
     }
     playTrickSuccess() {
       if (this.muted) return;
@@ -32490,15 +33784,16 @@ void main() {
       notes.forEach((f, i) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        const t = now + i * 0.06;
+        const t = now + i * 0.055;
         osc.type = "triangle";
         osc.frequency.setValueAtTime(f, t);
-        gain.gain.setValueAtTime(0.2, t);
-        gain.gain.exponentialRampToValueAtTime(1e-3, t + 0.18);
+        gain.gain.setValueAtTime(1e-3, t);
+        gain.gain.linearRampToValueAtTime(0.2, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(1e-3, t + 0.2);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
         osc.start(t);
-        osc.stop(t + 0.18);
+        osc.stop(t + 0.2);
       });
     }
     playHowl(pitch = 1) {
@@ -32507,19 +33802,39 @@ void main() {
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
+      const harm = this.ctx.createOscillator();
+      const vibrato = this.ctx.createOscillator();
+      const vibGain = this.ctx.createGain();
       const gain = this.ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(260 * pitch, now);
-      osc.frequency.exponentialRampToValueAtTime(580 * pitch, now + 0.4);
-      osc.frequency.exponentialRampToValueAtTime(740 * pitch, now + 0.85);
-      osc.frequency.exponentialRampToValueAtTime(420 * pitch, now + 1.4);
-      gain.gain.setValueAtTime(0.01, now);
-      gain.gain.linearRampToValueAtTime(0.24, now + 0.3);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 1.45);
+      harm.type = "triangle";
+      osc.frequency.setValueAtTime(280 * pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(620 * pitch, now + 0.42);
+      osc.frequency.exponentialRampToValueAtTime(740 * pitch, now + 0.9);
+      osc.frequency.exponentialRampToValueAtTime(460 * pitch, now + 1.45);
+      harm.frequency.setValueAtTime(560 * pitch, now);
+      harm.frequency.exponentialRampToValueAtTime(1240 * pitch, now + 0.42);
+      harm.frequency.exponentialRampToValueAtTime(1480 * pitch, now + 0.9);
+      harm.frequency.exponentialRampToValueAtTime(920 * pitch, now + 1.45);
+      vibrato.frequency.setValueAtTime(6, now);
+      vibGain.gain.setValueAtTime(12 * pitch, now);
+      vibrato.connect(vibGain);
+      vibGain.connect(osc.frequency);
+      const harmGain = this.ctx.createGain();
+      harmGain.gain.setValueAtTime(0.25, now);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.28);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 1.5);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      harm.connect(harmGain);
+      harmGain.connect(gain);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 1.45);
+      harm.start(now);
+      vibrato.start(now);
+      osc.stop(now + 1.5);
+      harm.stop(now + 1.5);
+      vibrato.stop(now + 1.5);
     }
     playWaveSound(pitch = 1) {
       if (this.muted) return;
@@ -32529,15 +33844,16 @@ void main() {
       [659.25, 880, 1046.5].forEach((freq, idx) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        const t = now + idx * 0.07;
+        const t = now + idx * 0.065;
         osc.type = "sine";
         osc.frequency.setValueAtTime(freq * pitch, t);
-        gain.gain.setValueAtTime(0.15, t);
-        gain.gain.exponentialRampToValueAtTime(1e-3, t + 0.14);
+        gain.gain.setValueAtTime(1e-3, t);
+        gain.gain.linearRampToValueAtTime(0.16, t + 0.012);
+        gain.gain.exponentialRampToValueAtTime(1e-3, t + 0.15);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
         osc.start(t);
-        osc.stop(t + 0.14);
+        osc.stop(t + 0.15);
       });
     }
     playConfused() {
@@ -32548,17 +33864,16 @@ void main() {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.linearRampToValueAtTime(310, now + 0.15);
-      osc.frequency.linearRampToValueAtTime(460, now + 0.3);
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(310, now + 0.15);
+      osc.frequency.exponentialRampToValueAtTime(490, now + 0.3);
       gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.32);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.34);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.32);
+      osc.stop(now + 0.34);
     }
-    // Canine whimper/whine of excitement
     playWhine(pitch = 1) {
       if (this.muted) return;
       this.ensureContext();
@@ -32567,18 +33882,17 @@ void main() {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(800 * pitch, now);
-      osc.frequency.linearRampToValueAtTime(1250 * pitch, now + 0.14);
-      osc.frequency.linearRampToValueAtTime(950 * pitch, now + 0.28);
-      gain.gain.setValueAtTime(0.01, now);
-      gain.gain.linearRampToValueAtTime(0.15, now + 0.1);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.3);
+      osc.frequency.setValueAtTime(780 * pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(1260 * pitch, now + 0.14);
+      osc.frequency.exponentialRampToValueAtTime(920 * pitch, now + 0.3);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.15, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.32);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.3);
+      osc.stop(now + 0.32);
     }
-    // Joyful puppy yip
     playYip(pitch = 1) {
       if (this.muted) return;
       this.ensureContext();
@@ -32587,34 +33901,41 @@ void main() {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(620 * pitch, now);
-      osc.frequency.exponentialRampToValueAtTime(1400 * pitch, now + 0.05);
-      osc.frequency.exponentialRampToValueAtTime(450 * pitch, now + 0.12);
-      gain.gain.setValueAtTime(0.25, now);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.13);
+      osc.frequency.setValueAtTime(640 * pitch, now);
+      osc.frequency.exponentialRampToValueAtTime(1450 * pitch, now + 0.045);
+      osc.frequency.exponentialRampToValueAtTime(480 * pitch, now + 0.12);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.14);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.out);
       osc.start(now);
-      osc.stop(now + 0.13);
+      osc.stop(now + 0.14);
     }
-    // Playful tug grumble
     playGrumble(pitch = 1) {
       if (this.muted) return;
       this.ensureContext();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
       const gain = this.ctx.createGain();
       osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(130 * pitch, now);
-      osc.frequency.linearRampToValueAtTime(180 * pitch, now + 0.15);
-      osc.frequency.linearRampToValueAtTime(110 * pitch, now + 0.3);
-      gain.gain.setValueAtTime(0.12, now);
+      osc.frequency.setValueAtTime(135 * pitch, now);
+      osc.frequency.linearRampToValueAtTime(190 * pitch, now + 0.14);
+      osc.frequency.linearRampToValueAtTime(115 * pitch, now + 0.3);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(520, now);
+      gain.gain.setValueAtTime(0.16, now);
       gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.32);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.out);
       osc.start(now);
       osc.stop(now + 0.32);
+    }
+    playPlayfulGrumble(pitch = 1) {
+      this.playGrumble(pitch);
     }
   };
   var roboAudio = new RoboAudioEngine();
@@ -32754,6 +34075,15 @@ void main() {
       description: "Procesando una orden extra\xF1a o recalculando coordenadas"
     }
   };
+  var ANIMATED_EXPRESSIONS = /* @__PURE__ */ new Set([
+    "party",
+    "scared",
+    "loving",
+    "excited",
+    "sleepy",
+    "hungry",
+    "confused"
+  ]);
   var FaceTextureGenerator = class {
     constructor() {
       this.canvas = document.createElement("canvas");
@@ -32763,18 +34093,27 @@ void main() {
       this.texture = new CanvasTexture(this.canvas);
       this.texture.needsUpdate = true;
       this.blinkTimer = 0;
+      this.nextBlinkInterval = 3.2 + Math.random() * 2.2;
       this.isBlinking = false;
       this.animTime = 0;
+      this.redrawAccumulator = 0;
+      this.lastExpression = "";
+      this.lastGlowColor = "";
     }
     drawFace(expression = "happy", glowColor = "#00e5ff", isBlinking = false) {
       const ctx = this.ctx;
       const w = this.canvas.width;
       const h = this.canvas.height;
-      ctx.fillStyle = "#060a12";
+      this.lastExpression = expression;
+      this.lastGlowColor = glowColor;
+      const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 20, w * 0.5, h * 0.5, w * 0.6);
+      bgGrad.addColorStop(0, "#0a1120");
+      bgGrad.addColorStop(1, "#04070d");
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(0, 229, 255, 0.04)";
+      ctx.strokeStyle = "rgba(0, 229, 255, 0.045)";
       ctx.lineWidth = 1;
-      for (let y = 0; y < h; y += 12) {
+      for (let y = 0; y < h; y += 10) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
@@ -32793,68 +34132,86 @@ void main() {
       const eyeY = h * 0.52;
       if (isBlinking) {
         ctx.beginPath();
-        ctx.moveTo(eyeLeftX - 45, eyeY);
-        ctx.lineTo(eyeLeftX + 45, eyeY);
-        ctx.moveTo(eyeRightX - 45, eyeY);
-        ctx.lineTo(eyeRightX + 45, eyeY);
+        ctx.arc(eyeLeftX, eyeY + 8, 46, Math.PI * 0.15, Math.PI * 0.85, false);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(eyeRightX, eyeY + 8, 46, Math.PI * 0.15, Math.PI * 0.85, false);
         ctx.stroke();
         ctx.restore();
         this.texture.needsUpdate = true;
         return;
       }
       switch (expression) {
-        case "happy":
+        case "happy": {
           ctx.beginPath();
           ctx.arc(eyeLeftX, eyeY + 20, 52, Math.PI * 1.15, Math.PI * 1.85, false);
           ctx.stroke();
           ctx.beginPath();
           ctx.arc(eyeRightX, eyeY + 20, 52, Math.PI * 1.15, Math.PI * 1.85, false);
           ctx.stroke();
-          ctx.fillStyle = "rgba(255, 90, 160, 0.75)";
+          ctx.lineWidth = 8;
           ctx.beginPath();
-          ctx.ellipse(eyeLeftX - 25, eyeY + 54, 24, 14, 0, 0, Math.PI * 2);
-          ctx.ellipse(eyeRightX + 25, eyeY + 54, 24, 14, 0, 0, Math.PI * 2);
+          ctx.arc(w * 0.5 - 12, eyeY + 34, 12, 0.1, Math.PI - 0.1);
+          ctx.arc(w * 0.5 + 12, eyeY + 34, 12, 0.1, Math.PI - 0.1);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(255, 90, 160, 0.78)";
+          ctx.beginPath();
+          ctx.ellipse(eyeLeftX - 28, eyeY + 52, 24, 13, 0, 0, Math.PI * 2);
+          ctx.ellipse(eyeRightX + 28, eyeY + 52, 24, 13, 0, 0, Math.PI * 2);
           ctx.fill();
           break;
-        case "curious":
+        }
+        case "curious": {
           ctx.beginPath();
-          ctx.arc(eyeLeftX, eyeY - 8, 48, 0, Math.PI * 2);
+          ctx.arc(eyeLeftX, eyeY - 6, 48, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
-          ctx.arc(eyeLeftX + 16, eyeY - 22, 14, 0, Math.PI * 2);
+          ctx.arc(eyeLeftX + 16, eyeY - 20, 14, 0, Math.PI * 2);
           ctx.arc(eyeLeftX - 12, eyeY + 14, 7, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = glowColor;
           ctx.beginPath();
-          ctx.arc(eyeRightX, eyeY + 14, 38, 0, Math.PI * 2);
+          ctx.arc(eyeRightX, eyeY + 12, 38, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
-          ctx.arc(eyeRightX + 12, eyeY + 2, 10, 0, Math.PI * 2);
+          ctx.arc(eyeRightX + 12, eyeY, 10, 0, Math.PI * 2);
           ctx.fill();
           break;
-        case "loving":
-          this.drawHeart(ctx, eyeLeftX, eyeY - 10, 50);
-          this.drawHeart(ctx, eyeRightX, eyeY - 10, 50);
-          break;
-        case "excited":
-          this.drawStar(ctx, eyeLeftX, eyeY, 5, 50, 22);
-          this.drawStar(ctx, eyeRightX, eyeY, 5, 50, 22);
-          break;
-        case "sleepy":
+        }
+        case "loving": {
+          const pulse = 1 + Math.sin(this.animTime * 7.5) * 0.12;
+          this.drawHeart(ctx, eyeLeftX, eyeY - 6, 52 * pulse);
+          this.drawHeart(ctx, eyeRightX, eyeY - 6, 52 * pulse);
+          ctx.fillStyle = "rgba(255, 105, 180, 0.65)";
           ctx.beginPath();
-          ctx.moveTo(eyeLeftX - 45, eyeY);
-          ctx.lineTo(eyeLeftX + 45, eyeY);
-          ctx.moveTo(eyeRightX - 45, eyeY);
-          ctx.lineTo(eyeRightX + 45, eyeY);
-          ctx.stroke();
-          ctx.font = "bold 36px monospace";
-          ctx.fillText("z", eyeRightX + 60, eyeY - 25);
-          ctx.font = "bold 48px monospace";
-          ctx.fillText("Z", eyeRightX + 85, eyeY - 55);
+          ctx.ellipse(eyeLeftX - 30, eyeY + 52, 22, 12, 0, 0, Math.PI * 2);
+          ctx.ellipse(eyeRightX + 30, eyeY + 52, 22, 12, 0, 0, Math.PI * 2);
+          ctx.fill();
           break;
-        case "alert":
+        }
+        case "excited": {
+          const rotOffset = Math.sin(this.animTime * 6) * 0.18;
+          this.drawStar(ctx, eyeLeftX, eyeY, 5, 52, 22, rotOffset);
+          this.drawStar(ctx, eyeRightX, eyeY, 5, 52, 22, -rotOffset);
+          break;
+        }
+        case "sleepy": {
+          ctx.beginPath();
+          ctx.arc(eyeLeftX, eyeY - 8, 45, Math.PI * 0.2, Math.PI * 0.8, false);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(eyeRightX, eyeY - 8, 45, Math.PI * 0.2, Math.PI * 0.8, false);
+          ctx.stroke();
+          const floatY = Math.sin(this.animTime * 3) * 8;
+          ctx.font = "bold 34px monospace";
+          ctx.fillText("z", eyeRightX + 55, eyeY - 20 + floatY);
+          ctx.font = "bold 46px monospace";
+          ctx.fillText("Z", eyeRightX + 82, eyeY - 50 - floatY * 0.7);
+          break;
+        }
+        case "alert": {
           ctx.beginPath();
           ctx.arc(eyeLeftX, eyeY, 44, 0, Math.PI * 2);
           ctx.arc(eyeRightX, eyeY, 44, 0, Math.PI * 2);
@@ -32863,8 +34220,16 @@ void main() {
           ctx.arc(eyeLeftX, eyeY, 16, 0, Math.PI * 2);
           ctx.arc(eyeRightX, eyeY, 16, 0, Math.PI * 2);
           ctx.fill();
+          ctx.lineWidth = 10;
+          ctx.beginPath();
+          ctx.moveTo(eyeLeftX - 42, eyeY - 52);
+          ctx.lineTo(eyeLeftX + 35, eyeY - 32);
+          ctx.moveTo(eyeRightX + 42, eyeY - 52);
+          ctx.lineTo(eyeRightX - 35, eyeY - 32);
+          ctx.stroke();
           break;
-        case "mischievous":
+        }
+        case "mischievous": {
           ctx.beginPath();
           ctx.moveTo(eyeLeftX - 42, eyeY + 12);
           ctx.lineTo(eyeLeftX + 42, eyeY - 24);
@@ -32874,11 +34239,13 @@ void main() {
           ctx.beginPath();
           ctx.arc(eyeRightX, eyeY + 12, 45, Math.PI * 1.2, Math.PI * 1.8, false);
           ctx.stroke();
+          ctx.lineWidth = 10;
           ctx.beginPath();
-          ctx.arc(w * 0.52, eyeY + 45, 20, 0, Math.PI * 0.9);
+          ctx.arc(w * 0.52, eyeY + 42, 22, 0.1, Math.PI * 0.85);
           ctx.stroke();
           break;
-        case "proud":
+        }
+        case "proud": {
           ctx.fillStyle = "#0f172a";
           ctx.fillRect(eyeLeftX - 55, eyeY - 28, 100, 56);
           ctx.fillRect(eyeRightX - 45, eyeY - 28, 100, 56);
@@ -32901,25 +34268,28 @@ void main() {
           ctx.lineTo(eyeRightX - 15, eyeY + 20);
           ctx.fill();
           break;
-        case "scared":
-          const jitterX = Math.sin(this.animTime * 35) * 4;
+        }
+        case "scared": {
+          const jitterX = Math.sin(this.animTime * 35) * 4.5;
+          const jitterY = Math.cos(this.animTime * 42) * 3;
           ctx.beginPath();
-          ctx.arc(eyeLeftX + jitterX, eyeY, 52, 0, Math.PI * 2);
-          ctx.arc(eyeRightX + jitterX, eyeY, 52, 0, Math.PI * 2);
+          ctx.arc(eyeLeftX + jitterX, eyeY + jitterY, 50, 0, Math.PI * 2);
+          ctx.arc(eyeRightX + jitterX, eyeY + jitterY, 50, 0, Math.PI * 2);
           ctx.stroke();
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
-          ctx.arc(eyeLeftX + jitterX, eyeY, 8, 0, Math.PI * 2);
-          ctx.arc(eyeRightX + jitterX, eyeY, 8, 0, Math.PI * 2);
+          ctx.arc(eyeLeftX + jitterX, eyeY + jitterY, 9, 0, Math.PI * 2);
+          ctx.arc(eyeRightX + jitterX, eyeY + jitterY, 9, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = "#38bdf8";
           ctx.beginPath();
-          ctx.arc(w * 0.85, eyeY - 40, 14, 0, Math.PI);
-          ctx.lineTo(w * 0.85, eyeY - 65);
+          ctx.arc(w * 0.86, eyeY - 36, 14, 0, Math.PI);
+          ctx.lineTo(w * 0.86, eyeY - 64);
           ctx.closePath();
           ctx.fill();
           break;
-        case "hungry":
+        }
+        case "hungry": {
           ctx.beginPath();
           ctx.arc(eyeLeftX, eyeY - 6, 46, 0, Math.PI * 2);
           ctx.arc(eyeRightX, eyeY - 6, 46, 0, Math.PI * 2);
@@ -32929,28 +34299,31 @@ void main() {
           ctx.arc(eyeLeftX + 14, eyeY - 18, 16, 0, Math.PI * 2);
           ctx.arc(eyeRightX - 10, eyeY - 18, 16, 0, Math.PI * 2);
           ctx.fill();
+          const lickOffset = Math.sin(this.animTime * 6) * 6;
           ctx.fillStyle = "#fb7185";
           ctx.beginPath();
-          ctx.arc(w * 0.5, eyeY + 44, 22, 0, Math.PI);
+          ctx.arc(w * 0.5 + lickOffset, eyeY + 44, 22, 0, Math.PI);
           ctx.fill();
           break;
-        case "party":
+        }
+        case "party": {
           const bars = 8;
           const totalW = 280;
           const startX = (w - totalW) / 2;
           const barWidth = 24;
           const gap = 12;
           for (let i = 0; i < bars; i++) {
-            const barH = 20 + Math.abs(Math.sin(this.animTime * 10 + i * 0.85)) * 90;
+            const barH = 22 + Math.abs(Math.sin(this.animTime * 10 + i * 0.85)) * 92;
             const bx = startX + i * (barWidth + gap);
-            const by = eyeY + 45 - barH;
-            const hue = (this.animTime * 120 + i * 45) % 360;
+            const by = eyeY + 46 - barH;
+            const hue = (this.animTime * 140 + i * 42) % 360;
             ctx.fillStyle = `hsl(${hue}, 100%, 65%)`;
             ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
             ctx.fillRect(bx, by, barWidth, barH);
           }
           break;
-        case "confused":
+        }
+        case "confused": {
           ctx.save();
           ctx.translate(eyeLeftX, eyeY);
           ctx.rotate(-0.25);
@@ -32959,29 +34332,32 @@ void main() {
           ctx.fill();
           ctx.restore();
           ctx.save();
-          ctx.translate(eyeRightX, eyeY - 14);
+          ctx.translate(eyeRightX, eyeY - 12);
           ctx.rotate(0.35);
           ctx.beginPath();
           ctx.arc(0, 0, 32, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
+          const bobY = Math.sin(this.animTime * 5) * 6;
           ctx.font = "bold 64px monospace";
           ctx.fillStyle = "#c084fc";
-          ctx.fillText("?", w * 0.5 - 16, eyeY - 35);
+          ctx.fillText("?", w * 0.5 - 16, eyeY - 32 + bobY);
           break;
-        default:
+        }
+        default: {
           ctx.beginPath();
           ctx.arc(eyeLeftX, eyeY, 42, 0, Math.PI * 2);
           ctx.arc(eyeRightX, eyeY, 42, 0, Math.PI * 2);
           ctx.fill();
           break;
+        }
       }
       ctx.restore();
       this.texture.needsUpdate = true;
     }
     drawHeart(ctx, x, y, size) {
       ctx.save();
-      ctx.translate(x, y);
+      ctx.translate(x, y - size * 0.35);
       ctx.beginPath();
       const d = size;
       ctx.moveTo(0, d / 4);
@@ -32990,13 +34366,13 @@ void main() {
       ctx.fill();
       ctx.restore();
     }
-    drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
-      let rot = Math.PI / 2 * 3;
+    drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotationOffset = 0) {
+      let rot = Math.PI / 2 * 3 + rotationOffset;
       let x = cx;
       let y = cy;
       const step = Math.PI / spikes;
       ctx.beginPath();
-      ctx.moveTo(cx, cy - outerRadius);
+      ctx.moveTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
       for (let i = 0; i < spikes; i++) {
         x = cx + Math.cos(rot) * outerRadius;
         y = cy + Math.sin(rot) * outerRadius;
@@ -33007,21 +34383,33 @@ void main() {
         ctx.lineTo(x, y);
         rot += step;
       }
-      ctx.lineTo(cx, cy - outerRadius);
       ctx.closePath();
       ctx.fill();
     }
-    update(delta, expression, glowColor) {
+    // FIXED: Smoothly updates animated expressions (party, scared, loving, etc.) at ~24 FPS without freezing
+    update(delta, expression = "happy", glowColor = "#00e5ff") {
       this.animTime += delta;
       this.blinkTimer += delta;
-      if (!this.isBlinking && this.blinkTimer > 3.2 + Math.random() * 2) {
+      this.redrawAccumulator += delta;
+      const stateChanged = expression !== this.lastExpression || glowColor !== this.lastGlowColor;
+      if (!this.isBlinking && this.blinkTimer > this.nextBlinkInterval) {
         this.isBlinking = true;
         this.blinkTimer = 0;
+        this.nextBlinkInterval = 2.8 + Math.random() * 2.6;
         this.drawFace(expression, glowColor, true);
-      } else if (this.isBlinking && this.blinkTimer > 0.16) {
+        return;
+      }
+      if (this.isBlinking && this.blinkTimer > 0.15) {
         this.isBlinking = false;
         this.blinkTimer = 0;
         this.drawFace(expression, glowColor, false);
+        return;
+      }
+      if (!this.isBlinking) {
+        if (stateChanged || ANIMATED_EXPRESSIONS.has(expression) && this.redrawAccumulator >= 0.042) {
+          this.redrawAccumulator = 0;
+          this.drawFace(expression, glowColor, false);
+        }
       }
     }
   };
@@ -33029,55 +34417,102 @@ void main() {
     constructor(scene) {
       this.scene = scene;
       this.particles = [];
+      this.textureCache = /* @__PURE__ */ new Map();
     }
-    spawnBurst(position, emotionType) {
-      const count = 16;
+    getOrCreateTexture(emotionType) {
+      const key = emotionType || "HAPPY";
+      if (this.textureCache.has(key)) {
+        return this.textureCache.get(key);
+      }
       const textureCanvas = document.createElement("canvas");
-      textureCanvas.width = 64;
-      textureCanvas.height = 64;
+      textureCanvas.width = 96;
+      textureCanvas.height = 96;
       const ctx = textureCanvas.getContext("2d");
       let symbol = "\u2728";
-      if (emotionType === "LOVING") symbol = "\u{1F496}";
-      else if (emotionType === "CURIOUS") symbol = "\u{1F50D}";
-      else if (emotionType === "EXCITED") symbol = "\u2B50";
-      else if (emotionType === "SLEEPY") symbol = "\u{1F4A4}";
-      else if (emotionType === "ALERT") symbol = "\u26A1";
-      else if (emotionType === "MISCHIEVOUS") symbol = "\u{1F608}";
-      else if (emotionType === "PROUD") symbol = "\u{1F451}";
-      else if (emotionType === "SCARED") symbol = "\u{1F4A6}";
-      else if (emotionType === "HUNGRY") symbol = "\u{1F36A}";
-      else if (emotionType === "PARTY") symbol = "\u{1FAA9}";
-      else if (emotionType === "CONFUSED") symbol = "\u2753";
-      ctx.font = "44px sans-serif";
+      let glow = "#22ff88";
+      if (key === "LOVING") {
+        symbol = "\u{1F496}";
+        glow = "#ff3399";
+      } else if (key === "CURIOUS") {
+        symbol = "\u{1F50D}";
+        glow = "#00e5ff";
+      } else if (key === "EXCITED") {
+        symbol = "\u2B50";
+        glow = "#ff9100";
+      } else if (key === "SLEEPY") {
+        symbol = "\u{1F4A4}";
+        glow = "#7986cb";
+      } else if (key === "ALERT") {
+        symbol = "\u26A1";
+        glow = "#ff3d00";
+      } else if (key === "MISCHIEVOUS") {
+        symbol = "\u{1F608}";
+        glow = "#a855f7";
+      } else if (key === "PROUD") {
+        symbol = "\u{1F451}";
+        glow = "#fbbf24";
+      } else if (key === "SCARED") {
+        symbol = "\u{1F4A6}";
+        glow = "#38bdf8";
+      } else if (key === "HUNGRY") {
+        symbol = "\u{1F36A}";
+        glow = "#f97316";
+      } else if (key === "PARTY") {
+        symbol = "\u{1FAA9}";
+        glow = "#ec4899";
+      } else if (key === "CONFUSED") {
+        symbol = "\u2753";
+        glow = "#818cf8";
+      }
+      const grad = ctx.createRadialGradient(48, 48, 6, 48, 48, 44);
+      grad.addColorStop(0, glow);
+      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(48, 48, 44, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = "50px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(symbol, 32, 32);
+      ctx.fillText(symbol, 48, 50);
       const texture = new CanvasTexture(textureCanvas);
+      this.textureCache.set(key, texture);
+      return texture;
+    }
+    spawnBurst(position, emotionType = "HAPPY") {
+      if (!position) return;
+      const count = 16;
+      const texture = this.getOrCreateTexture(emotionType);
       for (let i = 0; i < count; i++) {
         const material = new SpriteMaterial({
           map: texture,
           transparent: true,
-          opacity: 0.95
+          opacity: 0.95,
+          depthWrite: false
         });
         const sprite = new Sprite(material);
-        sprite.scale.set(0.7, 0.7, 0.7);
-        const offsetRadius = 0.3 + Math.random() * 0.5;
-        const angle = Math.random() * Math.PI * 2;
+        const baseScale = 0.65 + Math.random() * 0.25;
+        sprite.scale.set(baseScale, baseScale, baseScale);
+        const offsetRadius = 0.25 + Math.random() * 0.55;
+        const angle = i / count * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
         sprite.position.set(
           position.x + Math.cos(angle) * offsetRadius,
-          position.y + 1.4 + Math.random() * 0.6,
+          position.y + 1.3 + Math.random() * 0.6,
           position.z + Math.sin(angle) * offsetRadius
         );
+        const speedOut = 1.1 + Math.random() * 1.4;
         const velocity = new Vector3(
-          (Math.random() - 0.5) * 2.2,
-          1.4 + Math.random() * 1.8,
-          (Math.random() - 0.5) * 2.2
+          Math.cos(angle) * speedOut,
+          1.6 + Math.random() * 2,
+          Math.sin(angle) * speedOut
         );
         this.scene.add(sprite);
         this.particles.push({
           sprite,
           velocity,
-          lifetime: 1.8 + Math.random() * 0.6,
+          baseScale,
+          swirlPhase: Math.random() * Math.PI * 2,
+          lifetime: 1.7 + Math.random() * 0.6,
           age: 0
         });
       }
@@ -33091,13 +34526,15 @@ void main() {
           p.sprite.material.dispose();
           this.particles.splice(i, 1);
         } else {
+          p.swirlPhase += delta * 4;
           p.sprite.position.addScaledVector(p.velocity, delta);
-          p.velocity.y -= delta * 0.7;
+          p.sprite.position.x += Math.sin(p.swirlPhase) * delta * 0.35;
+          p.velocity.y -= delta * 0.85;
           p.velocity.x *= 0.98;
           p.velocity.z *= 0.98;
           const progress = p.age / p.lifetime;
-          p.sprite.material.opacity = 1 - progress;
-          const s = 0.7 * (1 + progress * 0.5);
+          p.sprite.material.opacity = Math.max(0, 1 - Math.pow(progress, 1.5));
+          const s = p.baseScale * (1 + Math.sin(progress * Math.PI) * 0.35);
           p.sprite.scale.set(s, s, s);
         }
       }
@@ -33202,6 +34639,28 @@ void main() {
       ]
     }
   };
+  function createBeveledBox(width, height, depth, radius = 0.08, smoothness = 3) {
+    const shape = new Shape();
+    const eps = 1e-5;
+    const r = Math.min(radius, width * 0.45, height * 0.45, depth * 0.45) - eps;
+    const w = width - r * 2;
+    const h = height - r * 2;
+    shape.absarc(eps, eps, eps, -Math.PI / 2, -Math.PI, true);
+    shape.absarc(eps, h, eps, Math.PI, Math.PI / 2, true);
+    shape.absarc(w, h, eps, Math.PI / 2, 0, true);
+    shape.absarc(w, eps, eps, 0, -Math.PI / 2, true);
+    const geo = new ExtrudeGeometry(shape, {
+      depth: depth - r * 2,
+      bevelEnabled: true,
+      bevelSegments: smoothness * 2,
+      steps: 1,
+      bevelSize: r,
+      bevelThickness: r,
+      curveSegments: smoothness
+    });
+    geo.center();
+    return geo;
+  }
   var ChibiRobotDog = class {
     constructor(name = "Sparky", options = {}) {
       this.name = name;
@@ -33270,7 +34729,6 @@ void main() {
     addDialogue(role, author, text) {
       this.dialogueHistory.push({
         role,
-        // 'user' | 'robot' | 'system'
         author,
         text,
         timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -33307,31 +34765,41 @@ void main() {
       return arr[Math.floor(Math.random() * arr.length)] || "Explorando con alegr\xEDa.";
     }
     buildDetailedModel() {
-      const mainMat = new MeshStandardMaterial({
+      const mainMat = new MeshPhysicalMaterial({
         color: this.primaryColor,
-        roughness: 0.28,
-        metalness: 0.35
+        roughness: 0.2,
+        metalness: 0.25,
+        clearcoat: 0.85,
+        clearcoatRoughness: 0.12
       });
       const darkMat = new MeshStandardMaterial({
         color: this.secondaryColor,
-        roughness: 0.4,
-        metalness: 0.65
+        roughness: 0.35,
+        metalness: 0.7
       });
       const jointMat = new MeshStandardMaterial({
         color: this.accentMetalColor,
-        roughness: 0.25,
-        metalness: 0.8
+        roughness: 0.22,
+        metalness: 0.85
       });
       const chromeMat = new MeshStandardMaterial({
-        color: 14870768,
-        roughness: 0.15,
+        color: 15857145,
+        roughness: 0.1,
         metalness: 0.95
       });
       const neonMat = new MeshStandardMaterial({
         color: this.defaultGlowColor,
         emissive: this.defaultGlowColor,
-        emissiveIntensity: 1.15,
+        emissiveIntensity: 1.35,
         roughness: 0.15
+      });
+      const visorGlassMat = new MeshPhysicalMaterial({
+        color: 988970,
+        roughness: 0.08,
+        metalness: 0.1,
+        clearcoat: 1,
+        transparent: true,
+        opacity: 0.28
       });
       const faceMat = new MeshBasicMaterial({
         map: this.faceGen.texture,
@@ -33343,93 +34811,120 @@ void main() {
         joint: jointMat,
         chrome: chromeMat,
         neon: neonMat,
-        face: faceMat
+        face: faceMat,
+        visorGlass: visorGlassMat
       };
       const bodyGroup = new Group();
       bodyGroup.position.y = 0.95;
       this.group.add(bodyGroup);
       this.nodes.body = bodyGroup;
-      const torsoGeo = new BoxGeometry(0.92, 0.72, 1.35);
+      const torsoGeo = createBeveledBox(0.92, 0.72, 1.35, 0.14, 3);
       const torsoMesh = new Mesh(torsoGeo, mainMat);
       torsoMesh.castShadow = true;
       torsoMesh.receiveShadow = true;
       bodyGroup.add(torsoMesh);
-      const panelGeo = new BoxGeometry(0.96, 0.48, 1.1);
+      const bellyGeo = createBeveledBox(0.76, 0.24, 1.12, 0.08, 2);
+      const bellyMesh = new Mesh(bellyGeo, darkMat);
+      bellyMesh.position.set(0, -0.28, 0);
+      bodyGroup.add(bellyMesh);
+      const panelGeo = createBeveledBox(0.98, 0.46, 1.06, 0.08, 2);
       const panelMesh = new Mesh(panelGeo, darkMat);
       panelMesh.position.y = 0.04;
       bodyGroup.add(panelMesh);
-      const stripeGeo = new BoxGeometry(0.98, 0.08, 0.95);
+      const stripeGeo = createBeveledBox(1.01, 0.08, 0.92, 0.02, 2);
       const stripe = new Mesh(stripeGeo, neonMat);
+      stripe.position.y = 0.04;
       bodyGroup.add(stripe);
-      const coreRimGeo = new CylinderGeometry(0.18, 0.18, 0.06, 24);
+      const coreRimGeo = new CylinderGeometry(0.2, 0.22, 0.07, 24);
       coreRimGeo.rotateX(Math.PI / 2);
       const coreRim = new Mesh(coreRimGeo, chromeMat);
-      coreRim.position.set(0, 0.05, 0.68);
+      coreRim.position.set(0, 0.05, 0.67);
       bodyGroup.add(coreRim);
-      const coreInnerGeo = new CylinderGeometry(0.13, 0.13, 0.08, 24);
+      const coreInnerGeo = new CylinderGeometry(0.14, 0.14, 0.09, 24);
       coreInnerGeo.rotateX(Math.PI / 2);
       const coreInner = new Mesh(coreInnerGeo, neonMat);
-      coreInner.position.set(0, 0.05, 0.69);
+      coreInner.position.set(0, 0.05, 0.68);
       bodyGroup.add(coreInner);
       this.nodes.powerCore = coreInner;
-      const collar = new Mesh(new CylinderGeometry(0.38, 0.42, 0.12, 20), darkMat);
-      collar.position.set(0, 0.38, 0.58);
-      collar.rotation.x = 0.35;
+      const collar = new Mesh(new TorusGeometry(0.38, 0.065, 16, 28), darkMat);
+      collar.position.set(0, 0.36, 0.56);
+      collar.rotation.x = Math.PI / 2 + 0.35;
       bodyGroup.add(collar);
-      const tagGeo = new CylinderGeometry(0.08, 0.08, 0.03, 16);
+      const collarGlowRing = new Mesh(new TorusGeometry(0.39, 0.02, 12, 28), neonMat);
+      collarGlowRing.position.copy(collar.position);
+      collarGlowRing.rotation.copy(collar.rotation);
+      bodyGroup.add(collarGlowRing);
+      const tagGeo = new CylinderGeometry(0.09, 0.09, 0.035, 20);
       tagGeo.rotateX(Math.PI / 2);
       const tag = new Mesh(tagGeo, neonMat);
-      tag.position.set(0, 0.3, 0.76);
+      tag.position.set(0, 0.26, 0.76);
       bodyGroup.add(tag);
       const packGroup = new Group();
-      packGroup.position.set(0, 0.46, -0.1);
+      packGroup.position.set(0, 0.45, -0.08);
       bodyGroup.add(packGroup);
-      const pack = new Mesh(new BoxGeometry(0.62, 0.32, 0.75), darkMat);
+      const pack = new Mesh(createBeveledBox(0.64, 0.32, 0.78, 0.08, 2), darkMat);
       pack.castShadow = true;
       packGroup.add(pack);
-      for (let f = -0.2; f <= 0.2; f += 0.1) {
-        const fin = new Mesh(new BoxGeometry(0.52, 0.06, 0.03), chromeMat);
-        fin.position.set(0, 0.18, f);
-        packGroup.add(fin);
+      for (let b = -0.18; b <= 0.18; b += 0.12) {
+        const bar = new Mesh(new BoxGeometry(0.42, 0.03, 0.05), neonMat);
+        bar.position.set(0, 0.17, b);
+        packGroup.add(bar);
       }
-      const thrusterGeo = new CylinderGeometry(0.09, 0.12, 0.22, 16);
+      const thrusterGeo = new CylinderGeometry(0.09, 0.13, 0.26, 16);
       thrusterGeo.rotateX(-Math.PI / 3);
-      const thrusterL = new Mesh(thrusterGeo, darkMat);
-      thrusterL.position.set(-0.22, 0.02, -0.42);
-      const thrusterR = new Mesh(thrusterGeo, darkMat);
-      thrusterR.position.set(0.22, 0.02, -0.42);
-      const nozzleGeo = new CylinderGeometry(0.06, 0.07, 0.06, 16);
-      nozzleGeo.rotateX(-Math.PI / 3);
-      const nozzleL = new Mesh(nozzleGeo, neonMat);
-      nozzleL.position.set(-0.22, -0.05, -0.5);
-      const nozzleR = new Mesh(nozzleGeo, neonMat);
-      nozzleR.position.set(0.22, -0.05, -0.5);
-      packGroup.add(thrusterL, thrusterR, nozzleL, nozzleR);
+      [-0.22, 0.22].forEach((tx) => {
+        const thruster = new Mesh(thrusterGeo, chromeMat);
+        thruster.position.set(tx, 0.02, -0.44);
+        const nozzle = new Mesh(
+          new CylinderGeometry(0.065, 0.08, 0.08, 16).rotateX(-Math.PI / 3),
+          neonMat
+        );
+        nozzle.position.set(tx, -0.05, -0.52);
+        packGroup.add(thruster, nozzle);
+      });
       const neckPivot = new Group();
       neckPivot.position.set(0, 0.38, 0.65);
       bodyGroup.add(neckPivot);
       this.nodes.neck = neckPivot;
+      const neckJoint = new Mesh(new CylinderGeometry(0.18, 0.22, 0.22, 16), jointMat);
+      neckJoint.position.set(0, 0.08, 0.05);
+      neckPivot.add(neckJoint);
       const headGroup = new Group();
       neckPivot.add(headGroup);
       this.nodes.head = headGroup;
-      const headGeo = new BoxGeometry(1.12, 0.95, 1.02);
+      const headGeo = createBeveledBox(1.14, 0.96, 1.04, 0.18, 3);
       const headMesh = new Mesh(headGeo, mainMat);
       headMesh.position.set(0, 0.48, 0.22);
       headMesh.castShadow = true;
       headGroup.add(headMesh);
-      const browMesh = new Mesh(new BoxGeometry(1.14, 0.12, 0.45), darkMat);
-      browMesh.position.set(0, 0.92, 0.48);
-      headGroup.add(browMesh);
+      [-0.58, 0.58].forEach((cx) => {
+        const disc = new Mesh(new CylinderGeometry(0.22, 0.22, 0.06, 20).rotateZ(Math.PI / 2), darkMat);
+        disc.position.set(cx, 0.46, 0.22);
+        const ring = new Mesh(new TorusGeometry(0.16, 0.02, 12, 20).rotateY(Math.PI / 2), neonMat);
+        ring.position.set(cx + (cx > 0 ? 0.03 : -0.03), 0.46, 0.22);
+        headGroup.add(disc, ring);
+      });
+      const bezelGeo = createBeveledBox(0.98, 0.64, 0.08, 0.04, 2);
+      const bezelMesh = new Mesh(bezelGeo, darkMat);
+      bezelMesh.position.set(0, 0.48, 0.71);
+      headGroup.add(bezelMesh);
       const faceMesh = new Mesh(new PlaneGeometry(0.92, 0.58), faceMat);
-      faceMesh.position.set(0, 0.48, 0.74);
+      faceMesh.position.set(0, 0.48, 0.752);
       headGroup.add(faceMesh);
       this.nodes.faceMesh = faceMesh;
+      const glassVisor = new Mesh(new PlaneGeometry(0.93, 0.59), visorGlassMat);
+      glassVisor.position.set(0, 0.48, 0.758);
+      headGroup.add(glassVisor);
+      const browMesh = new Mesh(createBeveledBox(1.12, 0.13, 0.46, 0.04, 2), darkMat);
+      browMesh.position.set(0, 0.91, 0.49);
+      headGroup.add(browMesh);
       const snoutGroup = new Group();
-      snoutGroup.position.set(0, 0.26, 0.76);
+      snoutGroup.position.set(0, 0.25, 0.76);
       headGroup.add(snoutGroup);
-      const snout = new Mesh(new BoxGeometry(0.48, 0.25, 0.32), darkMat);
+      const snout = new Mesh(createBeveledBox(0.48, 0.25, 0.34, 0.07, 2), darkMat);
       snoutGroup.add(snout);
-      const nose = new Mesh(new SphereGeometry(0.09, 16, 16), neonMat);
+      const nose = new Mesh(new SphereGeometry(0.095, 20, 20), neonMat);
+      nose.scale.set(1.15, 0.85, 0.95);
       nose.position.set(0, 0.08, 0.18);
       snoutGroup.add(nose);
       this.nodes.nose = nose;
@@ -33437,84 +34932,88 @@ void main() {
       mouthAnchor.position.set(0, -0.08, 0.22);
       snoutGroup.add(mouthAnchor);
       this.nodes.mouthAnchor = mouthAnchor;
-      const earGeo = new BoxGeometry(0.22, 0.58, 0.14);
+      const earGeo = createBeveledBox(0.24, 0.58, 0.14, 0.05, 2);
       earGeo.translate(0, -0.28, 0);
-      const earPivotL = new Group();
-      earPivotL.position.set(-0.56, 0.9, 0.18);
-      earPivotL.rotation.z = 0.25;
-      const earHingeL = new Mesh(new CylinderGeometry(0.09, 0.09, 0.16, 12), jointMat);
-      earHingeL.rotation.x = Math.PI / 2;
-      earPivotL.add(earHingeL);
-      const earL = new Mesh(earGeo, darkMat);
-      earL.castShadow = true;
-      const earInnerL = new Mesh(new BoxGeometry(0.14, 0.4, 0.02), neonMat);
-      earInnerL.position.set(0, -0.28, 0.08);
-      earPivotL.add(earL, earInnerL);
-      headGroup.add(earPivotL);
-      this.nodes.earL = earPivotL;
-      const earPivotR = new Group();
-      earPivotR.position.set(0.56, 0.9, 0.18);
-      earPivotR.rotation.z = -0.25;
-      const earHingeR = new Mesh(new CylinderGeometry(0.09, 0.09, 0.16, 12), jointMat);
-      earHingeR.rotation.x = Math.PI / 2;
-      earPivotR.add(earHingeR);
-      const earR = new Mesh(earGeo, darkMat);
-      earR.castShadow = true;
-      const earInnerR = new Mesh(new BoxGeometry(0.14, 0.4, 0.02), neonMat);
-      earInnerR.position.set(0, -0.28, 0.08);
-      earPivotR.add(earR, earInnerR);
-      headGroup.add(earPivotR);
-      this.nodes.earR = earPivotR;
-      const antStemGeo = new CylinderGeometry(0.025, 0.025, 0.35, 12);
-      antStemGeo.translate(0, 0.175, 0);
+      const buildEar = (isLeft) => {
+        const sign2 = isLeft ? -1 : 1;
+        const earPivot = new Group();
+        earPivot.position.set(sign2 * 0.56, 0.9, 0.18);
+        earPivot.rotation.z = sign2 * 0.25;
+        const earHinge = new Mesh(new CylinderGeometry(0.095, 0.095, 0.18, 16), chromeMat);
+        earHinge.rotation.x = Math.PI / 2;
+        earPivot.add(earHinge);
+        const earOuter = new Mesh(earGeo, darkMat);
+        earOuter.castShadow = true;
+        const earInner = new Mesh(new BoxGeometry(0.14, 0.42, 0.025), neonMat);
+        earInner.position.set(0, -0.28, 0.075);
+        earPivot.add(earOuter, earInner);
+        headGroup.add(earPivot);
+        return earPivot;
+      };
+      this.nodes.earL = buildEar(true);
+      this.nodes.earR = buildEar(false);
+      const antBase = new Mesh(new ConeGeometry(0.09, 0.1, 16), darkMat);
+      antBase.position.set(0, 0.98, 0.05);
+      const antStemGeo = new CylinderGeometry(0.02, 0.03, 0.34, 12);
+      antStemGeo.translate(0, 0.17, 0);
       const antennaStem = new Mesh(antStemGeo, chromeMat);
-      antennaStem.position.set(0, 0.95, 0.05);
-      const antRingGeo = new TorusGeometry(0.09, 0.02, 8, 16);
-      antRingGeo.rotateX(Math.PI / 2);
-      const antRing = new Mesh(antRingGeo, neonMat);
-      antRing.position.set(0, 1.25, 0.05);
-      const antBall = new Mesh(new SphereGeometry(0.08, 16, 16), neonMat);
-      antBall.position.set(0, 1.35, 0.05);
-      headGroup.add(antennaStem, antRing, antBall);
+      antennaStem.position.set(0, 0.98, 0.05);
+      const antRing = new Mesh(new TorusGeometry(0.09, 0.02, 10, 20).rotateX(Math.PI / 2), neonMat);
+      antRing.position.set(0, 1.26, 0.05);
+      const antBall = new Mesh(new SphereGeometry(0.085, 16, 16), neonMat);
+      antBall.position.set(0, 1.36, 0.05);
+      headGroup.add(antBase, antennaStem, antRing, antBall);
       const tailPivot = new Group();
       tailPivot.position.set(0, 0.24, -0.68);
       tailPivot.rotation.x = 0.55;
       bodyGroup.add(tailPivot);
       this.nodes.tail = tailPivot;
-      const tailHinge = new Mesh(new SphereGeometry(0.11, 12, 12), jointMat);
+      const tailHinge = new Mesh(new SphereGeometry(0.115, 16, 16), jointMat);
       tailPivot.add(tailHinge);
-      const seg1Geo = new CylinderGeometry(0.045, 0.06, 0.35, 10);
-      seg1Geo.translate(0, 0.175, 0);
+      const seg1Geo = new CylinderGeometry(0.045, 0.068, 0.38, 12);
+      seg1Geo.translate(0, 0.19, 0);
       const seg1 = new Mesh(seg1Geo, darkMat);
       tailPivot.add(seg1);
-      const tailTip = new Mesh(new SphereGeometry(0.12, 16, 16), neonMat);
+      [0.14, 0.28].forEach((ry) => {
+        const tRing = new Mesh(new TorusGeometry(0.062, 0.015, 8, 16).rotateX(Math.PI / 2), neonMat);
+        tRing.position.set(0, ry, 0);
+        tailPivot.add(tRing);
+      });
+      const tailTip = new Mesh(new SphereGeometry(0.125, 16, 16), neonMat);
       tailTip.position.set(0, 0.48, 0);
       tailPivot.add(tailTip);
       this.nodes.legs = {};
       const legConfigs = [
-        { id: "FL", x: -0.45, z: 0.46 },
-        { id: "FR", x: 0.45, z: 0.46 },
-        { id: "BL", x: -0.45, z: -0.46 },
-        { id: "BR", x: 0.45, z: -0.46 }
+        { id: "FL", x: -0.46, z: 0.46 },
+        { id: "FR", x: 0.46, z: 0.46 },
+        { id: "BL", x: -0.46, z: -0.46 },
+        { id: "BR", x: 0.46, z: -0.46 }
       ];
       legConfigs.forEach((cfg) => {
+        const isLeft = cfg.x < 0;
         const hipGroup = new Group();
         hipGroup.position.set(cfg.x, -0.18, cfg.z);
         bodyGroup.add(hipGroup);
-        const servoBall = new Mesh(new SphereGeometry(0.15, 16, 16), jointMat);
+        const servoBall = new Mesh(new SphereGeometry(0.155, 16, 16), jointMat);
         hipGroup.add(servoBall);
-        const upperGeo = new CylinderGeometry(0.11, 0.09, 0.44, 12);
+        const hipLedRing = new Mesh(new TorusGeometry(0.145, 0.016, 10, 20).rotateY(Math.PI / 2), neonMat);
+        hipLedRing.position.x = isLeft ? -0.05 : 0.05;
+        hipGroup.add(hipLedRing);
+        const upperGeo = new CylinderGeometry(0.115, 0.095, 0.44, 14);
         upperGeo.translate(0, -0.22, 0);
         const upperMesh = new Mesh(upperGeo, darkMat);
         upperMesh.castShadow = true;
         hipGroup.add(upperMesh);
+        const pistonRod = new Mesh(new CylinderGeometry(0.025, 0.025, 0.36, 8), chromeMat);
+        pistonRod.position.set(0, -0.22, -0.09);
+        hipGroup.add(pistonRod);
         const kneeGroup = new Group();
         kneeGroup.position.set(0, -0.44, 0);
         hipGroup.add(kneeGroup);
-        const kneeRing = new Mesh(new CylinderGeometry(0.1, 0.1, 0.16, 12), jointMat);
+        const kneeRing = new Mesh(new CylinderGeometry(0.105, 0.105, 0.17, 14), chromeMat);
         kneeRing.rotation.z = Math.PI / 2;
         kneeGroup.add(kneeRing);
-        const lowerGeo = new CylinderGeometry(0.09, 0.11, 0.4, 12);
+        const lowerGeo = new CylinderGeometry(0.095, 0.115, 0.4, 14);
         lowerGeo.translate(0, -0.2, 0);
         const lowerMesh = new Mesh(lowerGeo, mainMat);
         lowerMesh.castShadow = true;
@@ -33522,19 +35021,20 @@ void main() {
         const pawGroup = new Group();
         pawGroup.position.set(0, -0.4, 0.08);
         kneeGroup.add(pawGroup);
-        const pawFoot = new Mesh(new BoxGeometry(0.28, 0.16, 0.38), darkMat);
+        const pawFoot = new Mesh(createBeveledBox(0.28, 0.16, 0.38, 0.05, 2), darkMat);
         pawFoot.castShadow = true;
         pawGroup.add(pawFoot);
-        const mainPadGeo = new CylinderGeometry(0.08, 0.08, 0.03, 12);
+        const mainPadGeo = new CylinderGeometry(0.085, 0.085, 0.03, 14);
         mainPadGeo.rotateX(Math.PI / 2);
         const mainPad = new Mesh(mainPadGeo, neonMat);
-        mainPad.position.set(0, -0.08, 0);
+        mainPad.position.set(0, -0.075, -0.02);
         pawGroup.add(mainPad);
         for (let toe = -1; toe <= 1; toe++) {
-          const toeGeo = new CylinderGeometry(0.035, 0.035, 0.03, 8);
-          toeGeo.rotateX(Math.PI / 2);
-          const toePad = new Mesh(toeGeo, neonMat);
-          toePad.position.set(toe * 0.08, -0.08, 0.13);
+          const toeBeam = new Mesh(new SphereGeometry(0.045, 10, 10), mainMat);
+          toeBeam.position.set(toe * 0.085, -0.02, 0.17);
+          pawGroup.add(toeBeam);
+          const toePad = new Mesh(new CylinderGeometry(0.035, 0.035, 0.03, 10).rotateX(Math.PI / 2), neonMat);
+          toePad.position.set(toe * 0.085, -0.075, 0.14);
           pawGroup.add(toePad);
         }
         this.nodes.legs[cfg.id] = {
@@ -33543,7 +35043,7 @@ void main() {
           paw: pawGroup
         };
       });
-      const haloGeo = new TorusGeometry(0.85, 0.04, 16, 32);
+      const haloGeo = new TorusGeometry(0.85, 0.038, 16, 36);
       haloGeo.rotateX(Math.PI / 2);
       const halo = new Mesh(haloGeo, neonMat);
       halo.position.set(0, 2.3, 0);
@@ -33557,121 +35057,117 @@ void main() {
       this.buildCharacterAccessories();
     }
     buildCharacterAccessories() {
-      const { main: mainMat, dark: darkMat, joint: jointMat, chrome: chromeMat, neon: neonMat } = this.materials;
+      const { dark: darkMat, chrome: chromeMat, neon: neonMat } = this.materials;
       const headGroup = this.nodes.head;
       const bodyGroup = this.nodes.body;
       if (this.name === "Sparky") {
         const gogglesGroup = new Group();
         gogglesGroup.position.set(0, 0.88, 0.42);
-        const strapGeo = new BoxGeometry(1.18, 0.08, 0.98);
-        const strap = new Mesh(strapGeo, darkMat);
+        const strap = new Mesh(createBeveledBox(1.18, 0.09, 0.98, 0.02, 2), darkMat);
         gogglesGroup.add(strap);
+        const lensMat = new MeshPhysicalMaterial({
+          color: 2293640,
+          emissive: 2293640,
+          emissiveIntensity: 0.75,
+          roughness: 0.05,
+          clearcoat: 1,
+          transparent: true,
+          opacity: 0.88
+        });
         [-0.26, 0.26].forEach((gx) => {
-          const rimGeo = new CylinderGeometry(0.18, 0.18, 0.08, 20);
-          rimGeo.rotateX(Math.PI / 2);
-          const rim = new Mesh(rimGeo, chromeMat);
+          const rim = new Mesh(new CylinderGeometry(0.19, 0.19, 0.09, 24).rotateX(Math.PI / 2), chromeMat);
           rim.position.set(gx, 0.06, 0.22);
-          const lensGeo = new CylinderGeometry(0.14, 0.14, 0.09, 16);
-          lensGeo.rotateX(Math.PI / 2);
-          const lensMat = new MeshStandardMaterial({
-            color: 2293640,
-            emissive: 2293640,
-            emissiveIntensity: 0.85,
-            roughness: 0.1,
-            transparent: true,
-            opacity: 0.85
-          });
-          const lens = new Mesh(lensGeo, lensMat);
+          const lens = new Mesh(new CylinderGeometry(0.15, 0.15, 0.1, 20).rotateX(Math.PI / 2), lensMat);
           lens.position.set(gx, 0.06, 0.23);
           gogglesGroup.add(rim, lens);
         });
         headGroup.add(gogglesGroup);
-        const compass = new Mesh(new CylinderGeometry(0.09, 0.09, 0.03, 16), chromeMat);
-        compass.rotation.x = Math.PI / 2;
-        compass.position.set(0, 0.18, 0.71);
+        const compass = new Mesh(new CylinderGeometry(0.095, 0.095, 0.035, 20).rotateX(Math.PI / 2), chromeMat);
+        compass.position.set(0, 0.19, 0.71);
         bodyGroup.add(compass);
       } else if (this.name === "Bolt") {
         const finGroup = new Group();
         finGroup.position.set(0, 0.72, -0.2);
-        const finShape = new Shape();
-        finShape.moveTo(0, 0);
-        finShape.lineTo(0.35, -0.55);
-        finShape.lineTo(0.15, -0.55);
-        finShape.lineTo(0, -0.25);
-        finShape.closePath();
-        const finGeo = new BoxGeometry(0.06, 0.45, 0.65);
-        const finMesh = new Mesh(finGeo, neonMat);
-        finMesh.rotation.x = -0.35;
+        const finMesh = new Mesh(createBeveledBox(0.07, 0.46, 0.68, 0.02, 2), neonMat);
+        finMesh.rotation.x = -0.38;
         finGroup.add(finMesh);
         bodyGroup.add(finGroup);
         [-0.22, 0.22].forEach((tx) => {
-          const flameGeo = new ConeGeometry(0.07, 0.28, 12);
+          const flameGeo = new ConeGeometry(0.075, 0.32, 14);
           flameGeo.rotateX(-Math.PI / 2);
           const flameMat = new MeshBasicMaterial({
             color: 16771584,
             transparent: true,
-            opacity: 0.85
+            opacity: 0.88
           });
           const flame = new Mesh(flameGeo, flameMat);
-          flame.position.set(tx, 0.4, -0.68);
+          flame.position.set(tx, 0.4, -0.69);
           bodyGroup.add(flame);
           if (!this.nodes.turboFlames) this.nodes.turboFlames = [];
           this.nodes.turboFlames.push(flame);
         });
       } else if (this.name === "Pixel") {
-        const visorGeo = new BoxGeometry(0.48, 0.28, 0.08);
-        const visorMat = new MeshStandardMaterial({
+        const visorMat = new MeshPhysicalMaterial({
           color: 58879,
           emissive: 58879,
-          emissiveIntensity: 1.2,
+          emissiveIntensity: 1.15,
+          clearcoat: 1,
           transparent: true,
-          opacity: 0.75
+          opacity: 0.78
         });
-        const pixelVisor = new Mesh(visorGeo, visorMat);
-        pixelVisor.position.set(-0.25, 0.58, 0.78);
+        const pixelVisor = new Mesh(createBeveledBox(0.5, 0.28, 0.06, 0.02, 2), visorMat);
+        pixelVisor.position.set(-0.24, 0.56, 0.79);
         headGroup.add(pixelVisor);
         [-0.32, 0.32].forEach((ax) => {
-          const satDish = new Mesh(new CylinderGeometry(0.08, 0.02, 0.04, 12), chromeMat);
+          const satDish = new Mesh(new CylinderGeometry(0.09, 0.02, 0.045, 16), chromeMat);
           satDish.rotation.x = 0.5;
           satDish.position.set(ax, 1.25, -0.05);
           headGroup.add(satDish);
         });
       } else if (this.name === "Luna") {
-        const wingGeo = new BoxGeometry(0.04, 0.32, 0.6);
-        const wingMat = new MeshStandardMaterial({
+        const wingMat = new MeshPhysicalMaterial({
           color: 16744619,
           emissive: 16728193,
-          emissiveIntensity: 0.75,
+          emissiveIntensity: 0.85,
+          clearcoat: 1,
           transparent: true,
-          opacity: 0.85
+          opacity: 0.88
         });
-        const wingL = new Group();
-        wingL.position.set(-0.52, 0.22, 0);
-        const wingMeshL = new Mesh(wingGeo, wingMat);
-        wingMeshL.rotation.y = 0.25;
-        wingL.add(wingMeshL);
-        const wingR = new Group();
-        wingR.position.set(0.52, 0.22, 0);
-        const wingMeshR = new Mesh(wingGeo, wingMat);
-        wingMeshR.rotation.y = -0.25;
-        wingR.add(wingMeshR);
+        const buildWing = (isLeft) => {
+          const sign2 = isLeft ? -1 : 1;
+          const wingPivot = new Group();
+          wingPivot.position.set(sign2 * 0.52, 0.24, 0);
+          for (let f = 0; f < 3; f++) {
+            const feather = new Mesh(
+              createBeveledBox(0.04, 0.14 - f * 0.02, 0.62 - f * 0.12, 0.015, 2),
+              wingMat
+            );
+            feather.position.set(0, 0.1 - f * 0.11, -f * 0.06);
+            feather.rotation.y = sign2 * 0.26;
+            feather.rotation.x = 0.15;
+            wingPivot.add(feather);
+          }
+          return wingPivot;
+        };
+        const wingL = buildWing(true);
+        const wingR = buildWing(false);
         bodyGroup.add(wingL, wingR);
         this.nodes.wingL = wingL;
         this.nodes.wingR = wingR;
-        const heartMat = new MeshStandardMaterial({ color: 16724889, emissive: 16724889, emissiveIntensity: 1 });
-        const heart = new Mesh(new SphereGeometry(0.08, 12, 12), heartMat);
-        heart.position.set(0, 0.28, 0.78);
+        const heartMat = new MeshStandardMaterial({ color: 16724889, emissive: 16724889, emissiveIntensity: 1.2 });
+        const heart = new Mesh(new SphereGeometry(0.085, 16, 16), heartMat);
+        heart.position.set(0, 0.26, 0.78);
         bodyGroup.add(heart);
       } else if (this.name === "Rusty") {
-        const headband = new Mesh(new BoxGeometry(1.18, 0.12, 1.08), neonMat);
-        headband.position.set(0, 0.78, 0.22);
+        const headband = new Mesh(createBeveledBox(1.18, 0.13, 1.08, 0.03, 2), neonMat);
+        headband.position.set(0, 0.79, 0.22);
         headGroup.add(headband);
         if (this.nodes.tail) {
-          const propHub = new Mesh(new SphereGeometry(0.06, 12, 12), chromeMat);
+          const propHub = new Mesh(new SphereGeometry(0.065, 14, 14), chromeMat);
           propHub.position.set(0, 0.48, 0.06);
-          const propGeo = new BoxGeometry(0.38, 0.04, 0.02);
-          const propBlade = new Mesh(propGeo, neonMat);
-          propHub.add(propBlade);
+          const propBlade1 = new Mesh(new BoxGeometry(0.42, 0.045, 0.02), neonMat);
+          const propBlade2 = new Mesh(new BoxGeometry(0.045, 0.42, 0.02), neonMat);
+          propHub.add(propBlade1, propBlade2);
           this.nodes.tail.add(propHub);
           this.nodes.tailPropeller = propHub;
         }
@@ -33714,7 +35210,6 @@ void main() {
       this.curiosity = Math.min(100, this.curiosity + 10);
       this.energy = Math.min(100, this.energy + 15);
       this.tailHelicopterTimer = 4;
-      const pitch = this.profile.voicePitch || 1;
       roboAudio.playHappyJingle();
       if (this.animController) {
         this.animController.play("wagTail", 3);
@@ -33760,6 +35255,9 @@ void main() {
         this.nodes.haloRing.rotation.z += delta * 1.5;
         this.nodes.haloRing.position.y = 2.3 + Math.sin(this.faceGen.animTime * 4) * 0.08;
       }
+      if (this.nodes.powerCore && this.materials.neon) {
+        this.materials.neon.emissiveIntensity = 1.2 + Math.sin(this.faceGen.animTime * 3.5) * 0.25;
+      }
       if (this.nodes.body) {
         this.nodes.body.rotation.z = MathUtils.lerp(this.nodes.body.rotation.z, this.bankAngle, delta * 8);
       }
@@ -33776,22 +35274,22 @@ void main() {
         this.nodes.earR.rotation.z += this.earSpringVelR * delta;
       }
       if (this.nodes.turboFlames) {
-        const isDashing = this.speedScalar > 5.5;
+        const isDashing = this.speedScalar > 5.2;
         this.nodes.turboFlames.forEach((flame) => {
           flame.visible = isDashing;
           if (isDashing) {
-            const s = 0.8 + Math.random() * 0.5;
-            flame.scale.set(s, s * (1.2 + Math.random() * 0.4), s);
+            const s = 0.85 + Math.random() * 0.45;
+            flame.scale.set(s, s * (1.25 + Math.random() * 0.4), s);
           }
         });
       }
       if (this.nodes.wingL && this.nodes.wingR) {
-        const wingFlap = Math.sin(this.faceGen.animTime * 6) * 0.25;
+        const wingFlap = Math.sin(this.faceGen.animTime * 6.5) * 0.28;
         this.nodes.wingL.rotation.y = 0.25 + wingFlap;
         this.nodes.wingR.rotation.y = -0.25 - wingFlap;
       }
       if (this.nodes.tailPropeller) {
-        this.nodes.tailPropeller.rotation.z += delta * (8 + this.speedScalar * 4);
+        this.nodes.tailPropeller.rotation.z += delta * (9 + this.speedScalar * 4);
       }
       if (this.tailHelicopterTimer > 0) {
         this.tailHelicopterTimer -= delta;
@@ -33808,9 +35306,6 @@ void main() {
         const angleX = -Math.atan2(localTarget.y - 1.2, localTarget.z);
         const clampedX = MathUtils.clamp(angleX, -0.4, 0.4);
         this.nodes.neck.rotation.x = MathUtils.lerp(this.nodes.neck.rotation.x, clampedX, delta * 5);
-      } else if (this.nodes.neck) {
-        this.nodes.neck.rotation.y = MathUtils.lerp(this.nodes.neck.rotation.y, 0, delta * 3);
-        this.nodes.neck.rotation.x = MathUtils.lerp(this.nodes.neck.rotation.x, 0, delta * 3);
       }
     }
   };
@@ -33836,6 +35331,7 @@ void main() {
       this.solidObstacles = [];
       this.spatialGrid = /* @__PURE__ */ new Map();
       this.gridCellSize = 20;
+      this.elevatedSurfaces = [];
       this.ballPit = null;
       this.ballPitBalls = [];
       this.slide = null;
@@ -33876,25 +35372,47 @@ void main() {
       const cz = Math.floor(z / this.gridCellSize);
       return `${cx}_${cz}`;
     }
+    // Registers an obstacle across ALL overlapping spatial grid cells (supports Cylinder & Rotated OBB Box)
     registerObstacle(obs) {
       if (!obs) return;
       obs.shape = obs.shape || "cylinder";
+      obs.rotY = obs.rotY || 0;
+      const baseTerrainY = this.getTerrainHeightOnly(obs.x || 0, obs.z || 0);
       if (obs.yMin === void 0) {
-        obs.yMin = this.getHeightAt(obs.x || 0, obs.z || 0) - 1.5;
+        obs.yMin = baseTerrainY - 1.5;
       }
       if (obs.yMax === void 0) {
-        obs.yMax = obs.yMin + (obs.height || 4);
+        obs.yMax = obs.yMin + (obs.height || 4) + 1.5;
       }
       this.solidObstacles.push(obs);
-      const cellKey = this.getGridKey(obs.x || 0, obs.z || 0);
-      if (!this.spatialGrid.has(cellKey)) {
-        this.spatialGrid.set(cellKey, []);
+      let extentX = obs.radius || 1;
+      let extentZ = obs.radius || 1;
+      if (obs.shape === "box") {
+        const cos = Math.abs(Math.cos(obs.rotY));
+        const sin = Math.abs(Math.sin(obs.rotY));
+        const hw = obs.halfW || 1;
+        const hd = obs.halfD || 1;
+        extentX = hw * cos + hd * sin;
+        extentZ = hw * sin + hd * cos;
       }
-      this.spatialGrid.get(cellKey).push(obs);
+      const minCX = Math.floor(((obs.x || 0) - extentX) / this.gridCellSize);
+      const maxCX = Math.floor(((obs.x || 0) + extentX) / this.gridCellSize);
+      const minCZ = Math.floor(((obs.z || 0) - extentZ) / this.gridCellSize);
+      const maxCZ = Math.floor(((obs.z || 0) + extentZ) / this.gridCellSize);
+      for (let cx = minCX; cx <= maxCX; cx++) {
+        for (let cz = minCZ; cz <= maxCZ; cz++) {
+          const cellKey = `${cx}_${cz}`;
+          if (!this.spatialGrid.has(cellKey)) {
+            this.spatialGrid.set(cellKey, []);
+          }
+          this.spatialGrid.get(cellKey).push(obs);
+        }
+      }
     }
     getNearObstacles(x, z) {
       const cx = Math.floor(x / this.gridCellSize);
       const cz = Math.floor(z / this.gridCellSize);
+      const seen = /* @__PURE__ */ new Set();
       const result = [];
       for (let dx = -1; dx <= 1; dx++) {
         for (let dz = -1; dz <= 1; dz++) {
@@ -33902,7 +35420,11 @@ void main() {
           const cell = this.spatialGrid.get(key);
           if (cell) {
             for (let i = 0; i < cell.length; i++) {
-              result.push(cell[i]);
+              const obs = cell[i];
+              if (!seen.has(obs)) {
+                seen.add(obs);
+                result.push(obs);
+              }
             }
           }
         }
@@ -33977,8 +35499,7 @@ void main() {
         ctx.lineWidth = 3;
         ctx.stroke();
       });
-      const tex = new CanvasTexture(canvas);
-      return tex;
+      return new CanvasTexture(canvas);
     }
     generateWoodTexture() {
       const canvas = document.createElement("canvas");
@@ -33992,7 +35513,14 @@ void main() {
       for (let y = 0; y < 256; y += 6) {
         ctx.beginPath();
         ctx.moveTo(0, y + (Math.random() - 0.5) * 4);
-        ctx.bezierCurveTo(80, y + (Math.random() - 0.5) * 8, 180, y + (Math.random() - 0.5) * 8, 256, y + (Math.random() - 0.5) * 4);
+        ctx.bezierCurveTo(
+          80,
+          y + (Math.random() - 0.5) * 8,
+          180,
+          y + (Math.random() - 0.5) * 8,
+          256,
+          y + (Math.random() - 0.5) * 4
+        );
         ctx.stroke();
       }
       const tex = new CanvasTexture(canvas);
@@ -34086,20 +35614,7 @@ void main() {
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
         const z = pos.getZ(i);
-        const distToLake = Math.hypot(x - -80, z - -80);
-        let y = 0;
-        if (distToLake < 65) {
-          const lakeFactor = Math.cos(distToLake / 65 * (Math.PI / 2));
-          y = -4.5 * lakeFactor;
-        } else {
-          y = Math.sin(x * 0.02) * 2.2 + Math.cos(z * 0.025) * 1.8 + Math.sin((x + z) * 0.015) * 1.5;
-          const distToPlayground = Math.hypot(x - 50, z - 40);
-          if (distToPlayground < 55) {
-            const blend = distToPlayground / 55;
-            y *= blend * blend;
-          }
-        }
-        pos.setY(i, y);
+        pos.setY(i, this.getTerrainHeightOnly(x, z));
       }
       terrainGeo.computeVertexNormals();
       const grassMat = new MeshStandardMaterial({
@@ -34122,6 +35637,7 @@ void main() {
       this.scene.add(mountains);
     }
     buildCobblestonePaths() {
+      const baseH = this.getTerrainHeightOnly(0, 0);
       const plazaGeo = new CylinderGeometry(18, 18.2, 0.14, 32);
       const plazaMat = new MeshStandardMaterial({
         map: this.textures.cobblestone,
@@ -34129,17 +35645,17 @@ void main() {
         metalness: 0.08
       });
       const plaza = new Mesh(plazaGeo, plazaMat);
-      plaza.position.set(0, this.getHeightAt(0, 0) + 0.07, 0);
+      plaza.position.set(0, baseH + 0.07, 0);
       plaza.receiveShadow = true;
       this.scene.add(plaza);
       const borderMat = new MeshStandardMaterial({ color: 4674921, roughness: 0.6 });
       const border = new Mesh(new TorusGeometry(18.2, 0.25, 12, 32), borderMat);
       border.rotation.x = Math.PI / 2;
-      border.position.set(0, this.getHeightAt(0, 0) + 0.12, 0);
+      border.position.set(0, baseH + 0.12, 0);
       this.scene.add(border);
       const starMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.85 });
       const star = new Mesh(new CylinderGeometry(2.4, 2.4, 0.18, 8), starMat);
-      star.position.set(0, this.getHeightAt(0, 0) + 0.1, 0);
+      star.position.set(0, baseH + 0.1, 0);
       this.scene.add(star);
       this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(30, 0, 26), 4.2);
       this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(-36, 0, -68), 4);
@@ -34166,8 +35682,8 @@ void main() {
         center.z += dir.x * curveDev;
         const pL = new Vector3().addVectors(center, normal);
         const pR = new Vector3().subVectors(center, normal);
-        pL.y = this.getHeightAt(pL.x, pL.z) + 0.08;
-        pR.y = this.getHeightAt(pR.x, pR.z) + 0.08;
+        pL.y = this.getTerrainHeightOnly(pL.x, pL.z) + 0.08;
+        pR.y = this.getTerrainHeightOnly(pR.x, pR.z) + 0.08;
         positions.push(pL.x, pL.y, pL.z);
         positions.push(pR.x, pR.y, pR.z);
         const vCoord = t * (len / 3);
@@ -34195,55 +35711,98 @@ void main() {
       mesh.receiveShadow = true;
       this.scene.add(mesh);
     }
-    buildWoodenBridge(pos, rotY = 0, span = 18, width = 4.2) {
+    // FIXED: Arched Wooden Bridge with curved handrails, side colliders & walkable surface height
+    buildWoodenBridge(pos, rotY = 0, span = 18, width = 4.4) {
       const bridgeGroup = new Group();
-      bridgeGroup.position.copy(pos);
-      bridgeGroup.position.y = this.getHeightAt(pos.x, pos.z);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      bridgeGroup.position.set(pos.x, baseY, pos.z);
       bridgeGroup.rotation.y = rotY;
-      const archSegments = 16;
+      const archSegments = 18;
+      const archPeak = 2.6;
       const woodMat = new MeshStandardMaterial({ map: this.textures.wood, roughness: 0.75 });
       const railMat = new MeshStandardMaterial({ color: 4073251, roughness: 0.8 });
       const lanternMat = new MeshStandardMaterial({ color: 16771584, emissive: 16771584, emissiveIntensity: 1.2 });
+      const postHeights = [];
       for (let i = 0; i < archSegments; i++) {
         const t = i / (archSegments - 1);
         const z = (t - 0.5) * span;
-        const archHeight = Math.sin(t * Math.PI) * 2.8;
-        const plank = new Mesh(new BoxGeometry(width, 0.22, span / archSegments * 0.92), woodMat);
-        plank.position.set(0, archHeight + 0.1, z);
-        plank.rotation.x = Math.cos(t * Math.PI) * 0.28;
+        const archHeight = Math.sin(t * Math.PI) * archPeak;
+        const slopeAngle = -Math.cos(t * Math.PI) * (archPeak * Math.PI / span);
+        const plank = new Mesh(
+          new BoxGeometry(width, 0.22, span / archSegments * 1.05),
+          woodMat
+        );
+        plank.position.set(0, archHeight + 0.11, z);
+        plank.rotation.x = slopeAngle;
         plank.castShadow = true;
         plank.receiveShadow = true;
         bridgeGroup.add(plank);
-        if (i % 2 === 0) {
-          [-width * 0.5 + 0.15, width * 0.5 - 0.15].forEach((x) => {
-            const post = new Mesh(new CylinderGeometry(0.12, 0.12, 1.4, 8), railMat);
-            post.position.set(x, archHeight + 0.7, z);
+        postHeights.push({ z, archHeight });
+        if (i % 2 === 0 || i === archSegments - 1) {
+          [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach((x) => {
+            const post = new Mesh(new CylinderGeometry(0.11, 0.12, 1.35, 8), railMat);
+            post.position.set(x, archHeight + 0.75, z);
             post.castShadow = true;
             bridgeGroup.add(post);
           });
         }
       }
-      [-width * 0.5 + 0.15, width * 0.5 - 0.15].forEach((x) => {
-        const railGeo = new BoxGeometry(0.18, 0.15, span);
-        const rail = new Mesh(railGeo, railMat);
-        rail.position.set(x, 2.1, 0);
-        rail.castShadow = true;
-        bridgeGroup.add(rail);
+      [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach((x) => {
+        for (let i = 0; i < postHeights.length - 1; i++) {
+          const p1 = postHeights[i];
+          const p2 = postHeights[i + 1];
+          const dz = p2.z - p1.z;
+          const dy = p2.archHeight - p1.archHeight;
+          const segLen = Math.hypot(dz, dy);
+          const angle = -Math.atan2(dy, dz);
+          const topRail = new Mesh(new BoxGeometry(0.16, 0.14, segLen + 0.08), railMat);
+          topRail.position.set(x, (p1.archHeight + p2.archHeight) * 0.5 + 1.38, (p1.z + p2.z) * 0.5);
+          topRail.rotation.x = angle;
+          topRail.castShadow = true;
+          bridgeGroup.add(topRail);
+          const midRail = new Mesh(new BoxGeometry(0.12, 0.1, segLen + 0.05), railMat);
+          midRail.position.set(x, (p1.archHeight + p2.archHeight) * 0.5 + 0.75, (p1.z + p2.z) * 0.5);
+          midRail.rotation.x = angle;
+          bridgeGroup.add(midRail);
+        }
         [-span * 0.48, span * 0.48].forEach((z) => {
-          const lantern = new Mesh(new BoxGeometry(0.35, 0.45, 0.35), lanternMat);
-          lantern.position.set(x, 1.8, z);
+          const lantern = new Mesh(new BoxGeometry(0.34, 0.44, 0.34), lanternMat);
+          lantern.position.set(x, 1.65, z);
           bridgeGroup.add(lantern);
-          const worldP = new Vector3(x, 0, z).applyAxisAngle(new Vector3(0, 1, 0), rotY).add(pos);
-          this.registerObstacle({ type: "bridge_post", x: worldP.x, z: worldP.z, radius: 0.55, height: 2.5 });
+        });
+        const railWorld = new Vector3(x, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), rotY).add(pos);
+        this.registerObstacle({
+          type: "bridge_rail",
+          shape: "box",
+          x: railWorld.x,
+          z: railWorld.z,
+          halfW: 0.22,
+          halfD: span * 0.48,
+          rotY,
+          yMin: baseY - 0.5,
+          yMax: baseY + archPeak + 2
         });
       });
       this.scene.add(bridgeGroup);
-      this.woodenBridge = { position: pos, span, width };
+      this.woodenBridge = { position: pos, baseY, rotY, span, width, archPeak };
+      this.elevatedSurfaces.push({
+        type: "bridge",
+        x: pos.x,
+        z: pos.z,
+        rotY,
+        halfW: width * 0.5,
+        halfD: span * 0.5,
+        getHeight: (localX, localZ) => {
+          const t = localZ / span + 0.5;
+          if (t < 0 || t > 1) return null;
+          return baseY + Math.sin(t * Math.PI) * archPeak + 0.22;
+        }
+      });
     }
     buildWaterFountain(pos) {
       const fGroup = new Group();
-      fGroup.position.copy(pos);
-      fGroup.position.y = this.getHeightAt(pos.x, pos.z);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      fGroup.position.set(pos.x, baseY, pos.z);
       const bowlMat = new MeshStandardMaterial({
         color: 9741240,
         metalness: 0.85,
@@ -34276,8 +35835,8 @@ void main() {
       water.position.y = 0.5;
       fGroup.add(water);
       this.fountainWater = water;
-      const nozzleMat = new MeshStandardMaterial({ color: 58879 });
-      const nozzle = new Mesh(new CylinderGeometry(0.18, 0.22, 0.45, 16), nozzleMat);
+      const nozzleMat = new MeshStandardMaterial({ color: 58879, metalness: 0.7, roughness: 0.2 });
+      const nozzle = new Mesh(new CylinderGeometry(0.18, 0.24, 0.5, 16), nozzleMat);
       nozzle.position.y = 0.65;
       fGroup.add(nozzle);
       const jetGeo = new ConeGeometry(0.4, 1.2, 16);
@@ -34292,48 +35851,54 @@ void main() {
       jet.position.y = 1.3;
       fGroup.add(jet);
       this.fountainJet = jet;
+      const signPost = new Mesh(new CylinderGeometry(0.05, 0.05, 0.45, 8), bowlMat);
+      signPost.position.set(0, 0.72, 1.52);
+      fGroup.add(signPost);
       const signMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 1 });
-      const sign = new Mesh(new BoxGeometry(0.8, 0.25, 0.1), signMat);
-      sign.position.set(0, 0.9, 1.55);
-      fGroup.add(sign);
+      const sign2 = new Mesh(new BoxGeometry(0.85, 0.26, 0.1), signMat);
+      sign2.position.set(0, 0.96, 1.52);
+      fGroup.add(sign2);
       this.scene.add(fGroup);
       this.waterFountain = { position: pos, radius: 1.6 };
       this.registerObstacle({ type: "water_fountain", x: pos.x, z: pos.z, radius: 1.65, height: 2 });
     }
     buildCyberSeesaw(pos) {
       const seeGroup = new Group();
-      seeGroup.position.copy(pos);
-      seeGroup.position.y = this.getHeightAt(pos.x, pos.z);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      seeGroup.position.set(pos.x, baseY, pos.z);
       const baseMat = new MeshStandardMaterial({ color: 1976635, metalness: 0.75, roughness: 0.3 });
-      const fulcrum = new Mesh(new ConeGeometry(1.2, 1.6, 4), baseMat);
-      fulcrum.rotation.y = Math.PI / 4;
-      fulcrum.position.y = 0.8;
-      fulcrum.castShadow = true;
-      seeGroup.add(fulcrum);
+      [-0.75, 0.75].forEach((zOff) => {
+        const stand = new Mesh(new ConeGeometry(0.85, 1.55, 4), baseMat);
+        stand.rotation.y = Math.PI / 4;
+        stand.position.set(0, 0.77, zOff);
+        stand.castShadow = true;
+        seeGroup.add(stand);
+      });
       const axleMat = new MeshStandardMaterial({ color: 9741240, metalness: 0.9 });
-      const axle = new Mesh(new CylinderGeometry(0.14, 0.14, 2.2, 16), axleMat);
+      const axle = new Mesh(new CylinderGeometry(0.14, 0.14, 2, 16), axleMat);
       axle.rotation.x = Math.PI / 2;
-      axle.position.y = 1.55;
+      axle.position.y = 1.5;
       seeGroup.add(axle);
       const plankPivot = new Group();
-      plankPivot.position.y = 1.55;
+      plankPivot.position.y = 1.5;
       seeGroup.add(plankPivot);
       const plankMat = new MeshStandardMaterial({
         color: 3359061,
         roughness: 0.4,
         metalness: 0.3
       });
-      const plank = new Mesh(new BoxGeometry(10, 0.18, 1.4), plankMat);
+      const plank = new Mesh(new BoxGeometry(10, 0.18, 1.45), plankMat);
       plank.castShadow = true;
       plank.receiveShadow = true;
       plankPivot.add(plank);
-      [-4.5, 4.5].forEach((hx, idx) => {
+      [-4.3, 4.3].forEach((hx, idx) => {
         const handleColor = idx === 0 ? 58879 : 16728193;
         const hMat = new MeshStandardMaterial({ color: handleColor, emissive: handleColor, emissiveIntensity: 0.85 });
         const handle = new Mesh(new TorusGeometry(0.35, 0.06, 12, 24), hMat);
-        handle.position.set(hx, 0.45, 0);
+        handle.rotation.y = Math.PI / 2;
+        handle.position.set(hx * 0.88, 0.38, 0);
         plankPivot.add(handle);
-        const seatPad = new Mesh(new BoxGeometry(1.2, 0.08, 1.2), hMat);
+        const seatPad = new Mesh(new BoxGeometry(1.25, 0.08, 1.25), hMat);
         seatPad.position.set(hx, 0.12, 0);
         plankPivot.add(seatPad);
       });
@@ -34372,20 +35937,23 @@ void main() {
       const rockMat = new MeshStandardMaterial({ color: 6583435, roughness: 0.7 });
       for (let i = 0; i < 35; i++) {
         const angle = i / 35 * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
+        if (Math.abs(angle - 0) < 0.25) continue;
         const rad = lakeRadius + (Math.random() - 0.5) * 5;
         const rx = -80 + Math.cos(angle) * rad;
         const rz = -80 + Math.sin(angle) * rad;
         const rockGeo = new DodecahedronGeometry(0.7 + Math.random() * 0.8, 1);
         const rock = new Mesh(rockGeo, rockMat);
-        rock.position.set(rx, this.getHeightAt(rx, rz) + 0.3, rz);
+        rock.position.set(rx, this.getTerrainHeightOnly(rx, rz) + 0.3, rz);
         rock.rotation.set(Math.random(), Math.random(), Math.random());
         rock.castShadow = true;
         this.scene.add(rock);
         this.registerObstacle({ type: "rock", x: rx, z: rz, radius: 1.35, height: 1.8 });
       }
+      const pierPos = new Vector3(-44, 0.35, -80);
+      const pierRotY = 0.28;
       const pierGroup = new Group();
-      pierGroup.position.set(-80 + 36, 0.25, -80);
-      pierGroup.rotation.y = 0.28;
+      pierGroup.position.copy(pierPos);
+      pierGroup.rotation.y = pierRotY;
       const deckGeo = new BoxGeometry(6, 0.35, 24);
       const deckMat = new MeshStandardMaterial({ map: this.textures.wood, roughness: 0.7 });
       const deck = new Mesh(deckGeo, deckMat);
@@ -34395,46 +35963,103 @@ void main() {
       const postMat = new MeshStandardMaterial({ color: 5125166, roughness: 0.8 });
       const lanternMat = new MeshStandardMaterial({ color: 16771899, emissive: 16771899, emissiveIntensity: 1 });
       [-2.8, 2.8].forEach((x) => {
-        [-10, 0, 10].forEach((z) => {
-          const post = new Mesh(new CylinderGeometry(0.18, 0.18, 2.8, 8), postMat);
-          post.position.set(x, 0.6, z);
+        [-10, -3.3, 3.3, 10].forEach((z) => {
+          const post = new Mesh(new CylinderGeometry(0.18, 0.18, 4.2, 8), postMat);
+          post.position.set(x, -0.3, z);
           post.castShadow = true;
           pierGroup.add(post);
           const lantern = new Mesh(new BoxGeometry(0.3, 0.35, 0.3), lanternMat);
-          lantern.position.set(x, 2.1, z);
+          lantern.position.set(x, 1.95, z);
           pierGroup.add(lantern);
+          const worldPost = new Vector3(x, 0, z).applyAxisAngle(new Vector3(0, 1, 0), pierRotY).add(pierPos);
+          this.registerObstacle({
+            type: "pier_post",
+            x: worldPost.x,
+            z: worldPost.z,
+            radius: 0.32,
+            yMin: -2,
+            yMax: 2.5
+          });
         });
       });
       this.scene.add(pierGroup);
+      this.elevatedSurfaces.push({
+        type: "pier",
+        x: pierPos.x,
+        z: pierPos.z,
+        rotY: pierRotY,
+        halfW: 3.1,
+        halfD: 12.1,
+        getHeight: () => pierPos.y + 0.18
+      });
       this.buildToyBoat(new Vector3(-80, 0, -65));
     }
+    // IMPROVED: Detailed Cyber Speedboat with Bow, Cabin, Windshield & Motor
     buildToyBoat(pos) {
       const boatGroup = new Group();
       boatGroup.position.copy(pos);
-      const hullMat = new MeshStandardMaterial({ color: 16717636, roughness: 0.3 });
-      const cabinMat = new MeshStandardMaterial({ color: 16777215, roughness: 0.2 });
-      const hull = new Mesh(new BoxGeometry(2.4, 0.8, 4.2), hullMat);
-      hull.position.y = 0.2;
+      const hullMat = new MeshStandardMaterial({ color: 16717636, roughness: 0.25, metalness: 0.3 });
+      const deckMat = new MeshStandardMaterial({ color: 16317180, roughness: 0.25 });
+      const glassMat = new MeshStandardMaterial({
+        color: 58879,
+        emissive: 45311,
+        emissiveIntensity: 0.35,
+        roughness: 0.1,
+        metalness: 0.8,
+        transparent: true,
+        opacity: 0.78
+      });
+      const darkMat = new MeshStandardMaterial({ color: 1976635, metalness: 0.8, roughness: 0.3 });
+      const hull = new Mesh(new BoxGeometry(2.5, 0.75, 3.6), hullMat);
+      hull.position.set(0, 0.22, -0.3);
+      hull.castShadow = true;
       boatGroup.add(hull);
-      const cabin = new Mesh(new BoxGeometry(1.6, 0.9, 2.2), cabinMat);
-      cabin.position.set(0, 0.9, -0.4);
+      const bowGeo = new ConeGeometry(1.77, 1.8, 4);
+      bowGeo.rotateX(Math.PI / 2);
+      bowGeo.rotateZ(Math.PI / 4);
+      const bow = new Mesh(bowGeo, hullMat);
+      bow.scale.set(1, 0.42, 1);
+      bow.position.set(0, 0.22, 2.4);
+      bow.castShadow = true;
+      boatGroup.add(bow);
+      const upperDeck = new Mesh(new BoxGeometry(2.3, 0.15, 3.4), deckMat);
+      upperDeck.position.set(0, 0.62, -0.3);
+      boatGroup.add(upperDeck);
+      const cabin = new Mesh(new BoxGeometry(1.75, 0.75, 1.8), deckMat);
+      cabin.position.set(0, 1, -0.4);
+      cabin.castShadow = true;
       boatGroup.add(cabin);
+      const windshield = new Mesh(new BoxGeometry(1.68, 0.55, 0.85), glassMat);
+      windshield.position.set(0, 0.98, 0.6);
+      windshield.rotation.x = -0.45;
+      boatGroup.add(windshield);
+      const motor = new Mesh(new BoxGeometry(0.55, 0.75, 0.6), darkMat);
+      motor.position.set(0, 0.45, -2.25);
+      boatGroup.add(motor);
       const antenna = new Mesh(
-        new CylinderGeometry(0.04, 0.04, 1.2, 8),
-        new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.8 })
+        new CylinderGeometry(0.035, 0.035, 1.3, 8),
+        new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.9 })
       );
-      antenna.position.set(0, 1.8, -0.4);
+      antenna.position.set(0, 1.9, -0.6);
       boatGroup.add(antenna);
       this.scene.add(boatGroup);
       this.toyBoat = boatGroup;
+      this.registerObstacle({
+        type: "toy_boat",
+        x: pos.x,
+        z: pos.z,
+        radius: 2.3,
+        yMin: -1.5,
+        yMax: 2.2
+      });
     }
     buildDetailedPlayground() {
       const playCenter = new Vector3(50, 0, 40);
-      const floorGeo = new CylinderGeometry(42, 42, 0.12, 40);
+      const floorGeo = new CylinderGeometry(42, 42, 0.12, 48);
       const floorMat = new MeshStandardMaterial({ map: this.textures.tartan, roughness: 0.8 });
       const floor = new Mesh(floorGeo, floorMat);
       floor.position.copy(playCenter);
-      floor.position.y = 0.06;
+      floor.position.y = this.getTerrainHeightOnly(50, 40) + 0.06;
       floor.receiveShadow = true;
       this.scene.add(floor);
       this.buildCyberDoghouse(new Vector3(72, 0, 52));
@@ -34442,43 +36067,125 @@ void main() {
       this.buildCarousel(new Vector3(62, 0, 26));
       this.buildSoccerGoal(new Vector3(25, 0, 40));
       this.buildDiscoPad(new Vector3(52, 0, 56));
+      const rampCenter = new Vector3(45, 0, 45);
+      const rampBaseY = this.getTerrainHeightOnly(rampCenter.x, rampCenter.z);
+      const rampLen = 12;
+      const rampWidth = 4.6;
+      const rampAngle = 0.22;
+      const rampMidY = Math.sin(rampAngle) * (rampLen * 0.5);
+      const rampTopY = Math.sin(rampAngle) * rampLen;
       const rampGroup = new Group();
-      rampGroup.position.set(45, 1.4, 45);
-      rampGroup.rotation.x = 0.24;
-      const ramp = new Mesh(new BoxGeometry(4.8, 0.35, 14), new MeshStandardMaterial({ color: 16750592, roughness: 0.45 }));
-      ramp.castShadow = true;
-      rampGroup.add(ramp);
-      for (let s = -6; s <= 6; s += 1.8) {
-        const strip = new Mesh(new BoxGeometry(4.6, 0.08, 0.25), new MeshStandardMaterial({ color: 2171169 }));
-        strip.position.set(0, 0.2, s);
-        rampGroup.add(strip);
+      rampGroup.position.set(rampCenter.x, rampBaseY, rampCenter.z);
+      const rampSlope = new Group();
+      rampSlope.position.set(0, rampMidY, 0);
+      rampSlope.rotation.x = -rampAngle;
+      const rampMat = new MeshStandardMaterial({ color: 16750592, roughness: 0.45 });
+      const curbMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.6 });
+      const supportMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.8, roughness: 0.3 });
+      const rampMesh = new Mesh(new BoxGeometry(rampWidth, 0.28, rampLen), rampMat);
+      rampMesh.castShadow = true;
+      rampMesh.receiveShadow = true;
+      rampSlope.add(rampMesh);
+      [-rampWidth * 0.5 + 0.12, rampWidth * 0.5 - 0.12].forEach((cx) => {
+        const curb = new Mesh(new BoxGeometry(0.2, 0.28, rampLen), curbMat);
+        curb.position.set(cx, 0.2, 0);
+        rampSlope.add(curb);
+      });
+      for (let s = -5.2; s <= 5.2; s += 1.4) {
+        const strip = new Mesh(new BoxGeometry(rampWidth - 0.5, 0.08, 0.24), new MeshStandardMaterial({ color: 1976635 }));
+        strip.position.set(0, 0.16, s);
+        rampSlope.add(strip);
       }
+      rampGroup.add(rampSlope);
+      [-rampWidth * 0.42, rampWidth * 0.42].forEach((px2) => {
+        [-rampLen * 0.42, 0].forEach((pz2) => {
+          const t = 0.5 - pz2 / rampLen;
+          const h = Math.max(0.3, t * rampTopY);
+          const pillar = new Mesh(new CylinderGeometry(0.14, 0.16, h, 10), supportMat);
+          pillar.position.set(px2, h * 0.5, pz2);
+          pillar.castShadow = true;
+          rampGroup.add(pillar);
+        });
+      });
       this.scene.add(rampGroup);
+      this.elevatedSurfaces.push({
+        type: "ramp",
+        x: rampCenter.x,
+        z: rampCenter.z,
+        rotY: 0,
+        halfW: rampWidth * 0.5,
+        halfD: rampLen * 0.5,
+        getHeight: (localX, localZ) => {
+          const t = 0.5 - localZ / rampLen;
+          if (t < 0 || t > 1) return null;
+          return rampBaseY + t * rampTopY + 0.18;
+        }
+      });
       this.agilityHoops = [];
       const ringColors = [58879, 16728193, 7798531];
+      const standMat = new MeshStandardMaterial({ color: 3622735, metalness: 0.7, roughness: 0.3 });
       [-10, 0, 10].forEach((offset, idx) => {
+        const hx = 36;
+        const hz = 26 + offset;
+        const groundY = this.getTerrainHeightOnly(hx, hz);
         const hoopGroup = new Group();
-        hoopGroup.position.set(36, 2.6, 26 + offset);
+        hoopGroup.position.set(hx, groundY, hz);
+        hoopGroup.rotation.y = 0.3;
         const color = ringColors[idx % ringColors.length];
         const ringMat = new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.95 });
-        const hoopMesh = new Mesh(new TorusGeometry(2.3, 0.16, 16, 32), ringMat);
-        hoopMesh.rotation.y = 0.3;
+        const hoopMesh = new Mesh(new TorusGeometry(1.75, 0.14, 16, 32), ringMat);
+        hoopMesh.position.y = 2.1;
         hoopGroup.add(hoopMesh);
-        const pole = new Mesh(new CylinderGeometry(0.09, 0.09, 2.6, 10), new MeshStandardMaterial({ color: 3622735 }));
-        pole.position.set(0, -1.3, 0);
-        hoopGroup.add(pole);
+        [-1.75, 1.75].forEach((lx) => {
+          const leg = new Mesh(new CylinderGeometry(0.09, 0.11, 2.1, 10), standMat);
+          leg.position.set(lx, 1.05, 0);
+          leg.castShadow = true;
+          hoopGroup.add(leg);
+        });
+        const baseBar = new Mesh(new BoxGeometry(3.8, 0.12, 0.45), standMat);
+        baseBar.position.y = 0.06;
+        hoopGroup.add(baseBar);
         this.scene.add(hoopGroup);
         this.agilityHoops.push({ mesh: hoopMesh, baseColor: color });
       });
-      const tunnel = new Mesh(
-        new CylinderGeometry(2.6, 2.6, 12, 24, 1, true, 0, Math.PI),
-        new MeshStandardMaterial({ color: 8146431, roughness: 0.45, side: DoubleSide })
-      );
-      tunnel.position.set(56, 0, 24);
-      tunnel.rotation.z = Math.PI / 2;
-      tunnel.rotation.y = -0.55;
-      tunnel.castShadow = true;
-      this.scene.add(tunnel);
+      const tunnelPos = new Vector3(56, this.getTerrainHeightOnly(56, 24), 24);
+      const tunnelRotY = -0.55;
+      const tunnelGroup = new Group();
+      tunnelGroup.position.copy(tunnelPos);
+      tunnelGroup.rotation.y = tunnelRotY;
+      const tunnelGeo = new CylinderGeometry(2.2, 2.2, 10, 24, 1, true, 0, Math.PI);
+      tunnelGeo.rotateZ(Math.PI / 2);
+      tunnelGeo.rotateY(Math.PI / 2);
+      const tunnelMat = new MeshStandardMaterial({
+        color: 8146431,
+        roughness: 0.4,
+        metalness: 0.2,
+        side: DoubleSide
+      });
+      const tunnelMesh = new Mesh(tunnelGeo, tunnelMat);
+      tunnelMesh.castShadow = true;
+      tunnelMesh.receiveShadow = true;
+      tunnelGroup.add(tunnelMesh);
+      const archRibMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.85 });
+      [-4.9, 0, 4.9].forEach((tz) => {
+        const rib = new Mesh(new TorusGeometry(2.22, 0.1, 12, 24, Math.PI), archRibMat);
+        rib.position.set(0, 0, tz);
+        tunnelGroup.add(rib);
+      });
+      this.scene.add(tunnelGroup);
+      [-2.15, 2.15].forEach((wallX) => {
+        const worldWall = new Vector3(wallX, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), tunnelRotY).add(tunnelPos);
+        this.registerObstacle({
+          type: "playground_tunnel_wall",
+          shape: "box",
+          x: worldWall.x,
+          z: worldWall.z,
+          halfW: 0.25,
+          halfD: 5,
+          rotY: tunnelRotY,
+          height: 2.2
+        });
+      });
       this.soccerBall = this.spawnSoccerBall(new Vector3(42, 1.2, 38), 1.2);
       this.spawnBall(new Vector3(52, 1, 42), 0.95, 16771899, "neon");
       this.spawnBall(new Vector3(58, 0.8, 38), 0.75, 16728193, "bouncy");
@@ -34489,26 +36196,30 @@ void main() {
     }
     buildTrampoline(pos) {
       const trampGroup = new Group();
-      trampGroup.position.copy(pos);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      trampGroup.position.set(pos.x, baseY, pos.z);
       const frameMat = new MeshStandardMaterial({ color: 3622735, metalness: 0.8, roughness: 0.3 });
-      const frame = new Mesh(new TorusGeometry(3.6, 0.22, 16, 32), frameMat);
+      const frame = new Mesh(new TorusGeometry(3.6, 0.24, 16, 32), frameMat);
       frame.rotation.x = Math.PI / 2;
       frame.position.y = 1;
+      frame.castShadow = true;
       trampGroup.add(frame);
-      const matGeo = new CylinderGeometry(3.4, 3.4, 0.1, 32);
+      const matGeo = new CylinderGeometry(3.4, 3.4, 0.12, 32);
       const canvasMat = new MeshStandardMaterial({
         color: 58879,
         emissive: 58879,
-        emissiveIntensity: 0.6,
+        emissiveIntensity: 0.55,
         roughness: 0.4
       });
       const bouncer = new Mesh(matGeo, canvasMat);
-      bouncer.position.y = 0.95;
+      bouncer.position.y = 0.96;
+      bouncer.receiveShadow = true;
       trampGroup.add(bouncer);
       for (let i = 0; i < 6; i++) {
         const a = i / 6 * Math.PI * 2;
-        const leg = new Mesh(new CylinderGeometry(0.12, 0.12, 1, 8), frameMat);
+        const leg = new Mesh(new CylinderGeometry(0.12, 0.14, 1, 10), frameMat);
         leg.position.set(Math.cos(a) * 3.4, 0.5, Math.sin(a) * 3.4);
+        leg.castShadow = true;
         trampGroup.add(leg);
       }
       this.scene.add(trampGroup);
@@ -34516,125 +36227,259 @@ void main() {
     }
     buildCarousel(pos) {
       const carGroup = new Group();
-      carGroup.position.copy(pos);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      carGroup.position.set(pos.x, baseY, pos.z);
       const baseMat = new MeshStandardMaterial({ color: 2503224, metalness: 0.7 });
       const base = new Mesh(new CylinderGeometry(4.2, 4.4, 0.25, 32), baseMat);
       base.position.y = 0.12;
+      base.receiveShadow = true;
       carGroup.add(base);
       const rotorGroup = new Group();
-      rotorGroup.position.y = 0.35;
+      rotorGroup.position.y = 0.32;
       carGroup.add(rotorGroup);
       const platformMat = new MeshStandardMaterial({
         color: 16728193,
-        roughness: 0.35
+        roughness: 0.35,
+        metalness: 0.2
       });
-      const platform = new Mesh(new CylinderGeometry(3.8, 3.8, 0.15, 32), platformMat);
+      const platform = new Mesh(new CylinderGeometry(3.8, 3.8, 0.16, 32), platformMat);
+      platform.receiveShadow = true;
       rotorGroup.add(platform);
-      const centerPole = new Mesh(new CylinderGeometry(0.2, 0.2, 2.8, 12), new MeshStandardMaterial({ color: 16771899 }));
+      const centerPole = new Mesh(
+        new CylinderGeometry(0.22, 0.26, 2.8, 16),
+        new MeshStandardMaterial({ color: 16771899, metalness: 0.5, roughness: 0.3 })
+      );
       centerPole.position.y = 1.4;
+      centerPole.castShadow = true;
       rotorGroup.add(centerPole);
+      const topCap = new Mesh(
+        new ConeGeometry(1.2, 0.7, 16),
+        new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.6 })
+      );
+      topCap.position.y = 3;
+      rotorGroup.add(topCap);
       const handleMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.7 });
       for (let i = 0; i < 4; i++) {
         const a = i / 4 * Math.PI * 2;
-        const bar = new Mesh(new TorusGeometry(0.6, 0.08, 12, 24), handleMat);
-        bar.position.set(Math.cos(a) * 2.4, 1.1, Math.sin(a) * 2.4);
+        const hx = Math.cos(a) * 2.5;
+        const hz = Math.sin(a) * 2.5;
+        const bar = new Mesh(new TorusGeometry(0.55, 0.07, 12, 24), handleMat);
+        bar.position.set(hx, 0.95, hz);
+        bar.rotation.y = -a;
         rotorGroup.add(bar);
+        const strut = new Mesh(new CylinderGeometry(0.06, 0.06, 0.9, 8), baseMat);
+        strut.position.set(hx, 0.45, hz);
+        rotorGroup.add(strut);
       }
       this.scene.add(carGroup);
       this.carousel = { rotor: rotorGroup, position: pos, radius: 4 };
-      this.registerObstacle({ type: "carousel_mast", x: pos.x, z: pos.z, radius: 0.65, height: 3.2 });
+      this.registerObstacle({ type: "carousel_mast", x: pos.x, z: pos.z, radius: 0.55, height: 3.2 });
     }
+    // FIXED: Open-Front Soccer Goal with 4-sided Net & True 3-Wall Box Colliders
     buildSoccerGoal(pos) {
       const goalGroup = new Group();
-      goalGroup.position.copy(pos);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      goalGroup.position.set(pos.x, baseY, pos.z);
       goalGroup.rotation.y = Math.PI / 2;
-      const frameMat = new MeshStandardMaterial({ color: 16777215, roughness: 0.2 });
-      const netMat = new MeshBasicMaterial({ color: 9741240, wireframe: true });
-      const postL = new Mesh(new CylinderGeometry(0.12, 0.12, 3.4, 12), frameMat);
-      postL.position.set(-3.5, 1.7, 0);
-      const postR = new Mesh(new CylinderGeometry(0.12, 0.12, 3.4, 12), frameMat);
-      postR.position.set(3.5, 1.7, 0);
-      const crossbar = new Mesh(new CylinderGeometry(0.12, 0.12, 7.2, 12), frameMat);
+      const frameMat = new MeshStandardMaterial({ color: 16777215, roughness: 0.2, metalness: 0.3 });
+      const netMat = new MeshBasicMaterial({
+        color: 14870768,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.55
+      });
+      const width = 7;
+      const height = 3.4;
+      const depth = 3;
+      const hw = width * 0.5;
+      const postL = new Mesh(new CylinderGeometry(0.12, 0.12, height, 12), frameMat);
+      postL.position.set(-hw, height * 0.5, 0);
+      postL.castShadow = true;
+      const postR = new Mesh(new CylinderGeometry(0.12, 0.12, height, 12), frameMat);
+      postR.position.set(hw, height * 0.5, 0);
+      postR.castShadow = true;
+      const crossbar = new Mesh(new CylinderGeometry(0.12, 0.12, width + 0.24, 12), frameMat);
       crossbar.rotation.z = Math.PI / 2;
-      crossbar.position.set(0, 3.4, 0);
-      const netGeo = new BoxGeometry(7, 3.2, 3);
-      const net = new Mesh(netGeo, netMat);
-      net.position.set(0, 1.6, -1.5);
-      goalGroup.add(postL, postR, crossbar, net);
+      crossbar.position.set(0, height, 0);
+      crossbar.castShadow = true;
+      const backPostL = new Mesh(new CylinderGeometry(0.08, 0.08, height, 10), frameMat);
+      backPostL.position.set(-hw, height * 0.5, -depth);
+      const backPostR = new Mesh(new CylinderGeometry(0.08, 0.08, height, 10), frameMat);
+      backPostR.position.set(hw, height * 0.5, -depth);
+      const backTopBar = new Mesh(new CylinderGeometry(0.08, 0.08, width, 10), frameMat);
+      backTopBar.rotation.z = Math.PI / 2;
+      backTopBar.position.set(0, height, -depth);
+      [-hw, hw].forEach((sx) => {
+        const topSideBar = new Mesh(new CylinderGeometry(0.08, 0.08, depth, 10), frameMat);
+        topSideBar.rotation.x = Math.PI / 2;
+        topSideBar.position.set(sx, height, -depth * 0.5);
+        const bottomSideBar = new Mesh(new CylinderGeometry(0.08, 0.08, depth, 10), frameMat);
+        bottomSideBar.rotation.x = Math.PI / 2;
+        bottomSideBar.position.set(sx, 0.08, -depth * 0.5);
+        goalGroup.add(topSideBar, bottomSideBar);
+      });
+      const netBack = new Mesh(new PlaneGeometry(width, height, 14, 7), netMat);
+      netBack.position.set(0, height * 0.5, -depth);
+      const netTop = new Mesh(new PlaneGeometry(width, depth, 14, 6), netMat);
+      netTop.rotation.x = Math.PI / 2;
+      netTop.position.set(0, height, -depth * 0.5);
+      const netLeft = new Mesh(new PlaneGeometry(depth, height, 6, 7), netMat);
+      netLeft.rotation.y = Math.PI / 2;
+      netLeft.position.set(-hw, height * 0.5, -depth * 0.5);
+      const netRight = new Mesh(new PlaneGeometry(depth, height, 6, 7), netMat);
+      netRight.rotation.y = -Math.PI / 2;
+      netRight.position.set(hw, height * 0.5, -depth * 0.5);
+      goalGroup.add(postL, postR, crossbar, backPostL, backPostR, backTopBar, netBack, netTop, netLeft, netRight);
       this.scene.add(goalGroup);
       this.soccerGoal = {
         position: pos,
-        width: 7,
-        depth: 3
+        width,
+        depth,
+        height
       };
-      this.registerObstacle({ type: "goal_post", x: pos.x, z: pos.z - 3.5, radius: 0.35, height: 3.5 });
-      this.registerObstacle({ type: "goal_post", x: pos.x, z: pos.z + 3.5, radius: 0.35, height: 3.5 });
-      this.registerObstacle({ type: "goal_net", x: pos.x - 1.5, z: pos.z, radius: 1.8, height: 3.2 });
+      this.registerObstacle({ type: "goal_post_l", x: pos.x, z: pos.z - hw, radius: 0.25, height });
+      this.registerObstacle({ type: "goal_post_r", x: pos.x, z: pos.z + hw, radius: 0.25, height });
+      this.registerObstacle({ type: "goal_net_back", shape: "box", x: pos.x - depth, z: pos.z, halfW: 0.2, halfD: hw, height });
+      this.registerObstacle({ type: "goal_net_side_n", shape: "box", x: pos.x - depth * 0.5, z: pos.z - hw, halfW: depth * 0.5, halfD: 0.2, height });
+      this.registerObstacle({ type: "goal_net_side_s", shape: "box", x: pos.x - depth * 0.5, z: pos.z + hw, halfW: depth * 0.5, halfD: 0.2, height });
     }
+    // FIXED: Disco Pad with Cyber Truss Arch holding the Mirror Ball (no longer floating in mid-air)
     buildDiscoPad(pos) {
       const padGroup = new Group();
-      padGroup.position.copy(pos);
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      padGroup.position.set(pos.x, baseY, pos.z);
       this.discoTiles = [];
       const tileColors = [16717636, 58879, 7798531, 16771584, 13959417, 16748800];
+      const frameBase = new Mesh(
+        new BoxGeometry(6.6, 0.1, 6.6),
+        new MeshStandardMaterial({ color: 988970, metalness: 0.8, roughness: 0.3 })
+      );
+      frameBase.position.y = 0.05;
+      padGroup.add(frameBase);
       for (let x = -2; x <= 1; x++) {
         for (let z = -2; z <= 1; z++) {
+          const col = tileColors[Math.floor(Math.random() * tileColors.length)];
           const mat = new MeshStandardMaterial({
-            color: tileColors[Math.floor(Math.random() * tileColors.length)],
-            emissive: 0,
-            emissiveIntensity: 0.5,
+            color: col,
+            emissive: col,
+            emissiveIntensity: 0.25,
             roughness: 0.2
           });
-          const tile = new Mesh(new BoxGeometry(1.4, 0.12, 1.4), mat);
-          tile.position.set(x * 1.5 + 0.75, 0.08, z * 1.5 + 0.75);
+          const tile = new Mesh(new BoxGeometry(1.4, 0.14, 1.4), mat);
+          tile.position.set(x * 1.5 + 0.75, 0.1, z * 1.5 + 0.75);
           padGroup.add(tile);
           this.discoTiles.push(tile);
         }
       }
-      const ballMat = new MeshStandardMaterial({ color: 16777215, metalness: 0.95, roughness: 0.1 });
-      const discoBall = new Mesh(new SphereGeometry(0.85, 16, 16), ballMat);
-      discoBall.position.set(0, 4.2, 0);
+      const trussMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.85, roughness: 0.2 });
+      const cornerOffset = 3.15;
+      const trussHeight = 5;
+      [[-cornerOffset, -cornerOffset], [cornerOffset, -cornerOffset], [-cornerOffset, cornerOffset], [cornerOffset, cornerOffset]].forEach(([cx, cz]) => {
+        const pillar = new Mesh(new CylinderGeometry(0.12, 0.14, trussHeight, 10), trussMat);
+        pillar.position.set(cx, trussHeight * 0.5, cz);
+        pillar.castShadow = true;
+        padGroup.add(pillar);
+        this.registerObstacle({
+          type: "disco_pillar",
+          x: pos.x + cx,
+          z: pos.z + cz,
+          radius: 0.25,
+          height: trussHeight
+        });
+      });
+      const diagLen = cornerOffset * 2 * Math.SQRT2;
+      [Math.PI / 4, -Math.PI / 4].forEach((rot) => {
+        const beam = new Mesh(new BoxGeometry(diagLen, 0.14, 0.14), trussMat);
+        beam.position.set(0, trussHeight, 0);
+        beam.rotation.y = rot;
+        padGroup.add(beam);
+      });
+      const cable = new Mesh(new CylinderGeometry(0.03, 0.03, 0.8, 8), trussMat);
+      cable.position.set(0, trussHeight - 0.4, 0);
+      padGroup.add(cable);
+      const ballMat = new MeshStandardMaterial({ color: 16777215, metalness: 0.95, roughness: 0.08 });
+      const discoBall = new Mesh(new SphereGeometry(0.8, 20, 20), ballMat);
+      discoBall.position.set(0, trussHeight - 0.95, 0);
       padGroup.add(discoBall);
       this.discoBall = discoBall;
       this.scene.add(padGroup);
       this.discoPad = { position: pos, radius: 3.5 };
     }
+    // FIXED: Hollow Cyber Doghouse with real walls, open doorway, and visible interior pad
     buildCyberDoghouse(pos) {
       const houseGroup = new Group();
-      houseGroup.position.copy(pos);
-      const wallMat = new MeshStandardMaterial({ color: 3359061, roughness: 0.35, metalness: 0.4 });
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      houseGroup.position.set(pos.x, baseY, pos.z);
+      const wallMat = new MeshStandardMaterial({ color: 3359061, roughness: 0.35, metalness: 0.45 });
+      const interiorFloorMat = new MeshStandardMaterial({ color: 988970, roughness: 0.4, metalness: 0.3 });
       const roofMat = new MeshStandardMaterial({ color: 165063, roughness: 0.2, metalness: 0.6 });
-      const booth = new Mesh(new BoxGeometry(6.4, 4.8, 6.4), wallMat);
-      booth.position.y = 2.4;
-      booth.castShadow = true;
-      houseGroup.add(booth);
-      const door = new Mesh(new BoxGeometry(2.8, 3.4, 0.8), new MeshBasicMaterial({ color: 593174 }));
-      door.position.set(0, 1.7, 2.9);
-      houseGroup.add(door);
+      const neonTrimMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.85 });
+      const w = 6.4;
+      const h = 4.6;
+      const d = 6.4;
+      const wallT = 0.4;
+      const floorSlab = new Mesh(new BoxGeometry(w, 0.16, d), interiorFloorMat);
+      floorSlab.position.y = 0.08;
+      floorSlab.receiveShadow = true;
+      houseGroup.add(floorSlab);
+      const backWall = new Mesh(new BoxGeometry(w, h, wallT), wallMat);
+      backWall.position.set(0, h * 0.5, -d * 0.5 + wallT * 0.5);
+      backWall.castShadow = true;
+      backWall.receiveShadow = true;
+      houseGroup.add(backWall);
+      [-w * 0.5 + wallT * 0.5, w * 0.5 - wallT * 0.5].forEach((wx) => {
+        const sideWall = new Mesh(new BoxGeometry(wallT, h, d), wallMat);
+        sideWall.position.set(wx, h * 0.5, 0);
+        sideWall.castShadow = true;
+        sideWall.receiveShadow = true;
+        houseGroup.add(sideWall);
+      });
+      const doorWidth = 3;
+      const doorHeight = 3.4;
+      const pillarWidth = (w - doorWidth) * 0.5;
+      [-w * 0.5 + pillarWidth * 0.5, w * 0.5 - pillarWidth * 0.5].forEach((px2) => {
+        const frontPillar = new Mesh(new BoxGeometry(pillarWidth, h, wallT), wallMat);
+        frontPillar.position.set(px2, h * 0.5, d * 0.5 - wallT * 0.5);
+        frontPillar.castShadow = true;
+        houseGroup.add(frontPillar);
+      });
+      const lintelH = h - doorHeight;
+      const lintel = new Mesh(new BoxGeometry(doorWidth, lintelH, wallT), wallMat);
+      lintel.position.set(0, doorHeight + lintelH * 0.5, d * 0.5 - wallT * 0.5);
+      lintel.castShadow = true;
+      houseGroup.add(lintel);
+      const frameTop = new Mesh(new BoxGeometry(doorWidth + 0.2, 0.12, wallT + 0.08), neonTrimMat);
+      frameTop.position.set(0, doorHeight, d * 0.5 - wallT * 0.5);
+      houseGroup.add(frameTop);
+      [-doorWidth * 0.5, doorWidth * 0.5].forEach((dx) => {
+        const frameSide = new Mesh(new BoxGeometry(0.12, doorHeight, wallT + 0.08), neonTrimMat);
+        frameSide.position.set(dx, doorHeight * 0.5, d * 0.5 - wallT * 0.5);
+        houseGroup.add(frameSide);
+      });
       const padMat = new MeshStandardMaterial({ color: 2293640, emissive: 2293640, emissiveIntensity: 0.9 });
-      const pad = new Mesh(new CylinderGeometry(1.8, 1.8, 0.16, 24), padMat);
-      pad.position.set(0, 0.12, 0.9);
+      const pad = new Mesh(new CylinderGeometry(1.85, 1.95, 0.14, 28), padMat);
+      pad.position.set(0, 0.2, 0);
       houseGroup.add(pad);
-      const roof = new Mesh(new ConeGeometry(5.6, 2.6, 4), roofMat);
+      const roof = new Mesh(new ConeGeometry(5.4, 2.4, 4), roofMat);
       roof.rotateY(Math.PI / 4);
-      roof.position.y = 5.8;
+      roof.position.y = h + 1.2;
+      roof.castShadow = true;
       houseGroup.add(roof);
-      const sign = new Mesh(
-        new BoxGeometry(3.6, 0.85, 0.2),
-        new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.8 })
-      );
-      sign.position.set(0, 4.4, 3.3);
-      houseGroup.add(sign);
+      const sign2 = new Mesh(new BoxGeometry(3.4, 0.7, 0.18), neonTrimMat);
+      sign2.position.set(0, h - 0.55, d * 0.5 + 0.05);
+      houseGroup.add(sign2);
       this.scene.add(houseGroup);
-      this.registerObstacle({ type: "doghouse_wall_back", shape: "box", x: pos.x, z: pos.z - 3, halfW: 3.2, halfD: 0.4, height: 4.8 });
-      this.registerObstacle({ type: "doghouse_wall_left", shape: "box", x: pos.x - 3, z: pos.z, halfW: 0.4, halfD: 3.2, height: 4.8 });
-      this.registerObstacle({ type: "doghouse_wall_right", shape: "box", x: pos.x + 3, z: pos.z, halfW: 0.4, halfD: 3.2, height: 4.8 });
+      this.registerObstacle({ type: "doghouse_wall_back", shape: "box", x: pos.x, z: pos.z - d * 0.5 + wallT * 0.5, halfW: w * 0.5, halfD: wallT * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_wall_left", shape: "box", x: pos.x - w * 0.5 + wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_wall_right", shape: "box", x: pos.x + w * 0.5 - wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_pillar_l", shape: "box", x: pos.x - w * 0.5 + pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_pillar_r", shape: "box", x: pos.x + w * 0.5 - pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
     }
-    // --- NEW HIGH-TECH ATTRACTIONS ---
+    // --- HIGH-TECH ATTRACTIONS ---
     buildCyberBallPit(pos) {
       const pitGroup = new Group();
-      pitGroup.position.copy(pos);
-      const groundY = this.getHeightAt(pos.x, pos.z);
-      pitGroup.position.y = groundY;
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      pitGroup.position.set(pos.x, groundY, pos.z);
       const padMat = new MeshStandardMaterial({
         color: 988970,
         roughness: 0.5,
@@ -34648,9 +36493,10 @@ void main() {
       });
       const floor = new Mesh(new BoxGeometry(7.2, 0.2, 7.2), padMat);
       floor.position.y = 0.1;
+      floor.receiveShadow = true;
       pitGroup.add(floor);
-      const wallGeoX = new BoxGeometry(7.2, 0.7, 0.35);
-      const wallGeoZ = new BoxGeometry(0.35, 0.7, 7.2);
+      const wallGeoX = new BoxGeometry(7.4, 0.65, 0.35);
+      const wallGeoZ = new BoxGeometry(0.35, 0.65, 7.4);
       const wallN = new Mesh(wallGeoX, rimMat);
       wallN.position.set(0, 0.35, -3.5);
       const wallS = new Mesh(wallGeoX, rimMat);
@@ -34673,7 +36519,7 @@ void main() {
         const bMesh = new Mesh(miniBallGeo, mat);
         const rx = (Math.random() - 0.5) * 6;
         const rz = (Math.random() - 0.5) * 6;
-        const ry = 0.25 + Math.random() * 0.35;
+        const ry = 0.28 + Math.random() * 0.28;
         bMesh.position.set(rx, ry, rz);
         pitGroup.add(bMesh);
         this.ballPitBalls.push({
@@ -34685,100 +36531,143 @@ void main() {
       }
       this.scene.add(pitGroup);
       this.ballPit = { position: pos, radius: 3.6 };
-      this.registerObstacle({ type: "ballpit_wall_n", shape: "box", x: pos.x, z: pos.z - 3.5, halfW: 3.6, halfD: 0.25, height: 0.8 });
-      this.registerObstacle({ type: "ballpit_wall_s", shape: "box", x: pos.x, z: pos.z + 3.5, halfW: 3.6, halfD: 0.25, height: 0.8 });
-      this.registerObstacle({ type: "ballpit_wall_w", shape: "box", x: pos.x - 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, height: 0.8 });
-      this.registerObstacle({ type: "ballpit_wall_e", shape: "box", x: pos.x + 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, height: 0.8 });
+      this.registerObstacle({ type: "ballpit_wall_n", shape: "box", x: pos.x, z: pos.z - 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
+      this.registerObstacle({ type: "ballpit_wall_s", shape: "box", x: pos.x, z: pos.z + 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
+      this.registerObstacle({ type: "ballpit_wall_w", shape: "box", x: pos.x - 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
+      this.registerObstacle({ type: "ballpit_wall_e", shape: "box", x: pos.x + 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
     }
+    // FIXED: Agility Slide with accurate downward slope (+0.52 rad), ladder rails & safety handrails
     buildAgilitySlide(pos) {
       const slideGroup = new Group();
-      slideGroup.position.copy(pos);
-      const groundY = this.getHeightAt(pos.x, pos.z);
-      slideGroup.position.y = groundY;
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      slideGroup.position.set(pos.x, groundY, pos.z);
       const metalMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.85, roughness: 0.2 });
-      const neonCyan = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.7 });
+      const neonCyan = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.75 });
       const chuteMat = new MeshStandardMaterial({ color: 165063, roughness: 0.15, metalness: 0.4 });
       const platformH = 4;
       [-1.2, 1.2].forEach((px2) => {
         [-1.2, 1.2].forEach((pz2) => {
-          const pillar = new Mesh(new CylinderGeometry(0.09, 0.09, platformH, 12), metalMat);
-          pillar.position.set(px2, platformH / 2, pz2);
+          const pillar = new Mesh(new CylinderGeometry(0.1, 0.12, platformH + 0.8, 12), metalMat);
+          pillar.position.set(px2, (platformH + 0.8) * 0.5, pz2);
+          pillar.castShadow = true;
           slideGroup.add(pillar);
         });
       });
-      const topFloor = new Mesh(new BoxGeometry(2.6, 0.18, 2.6), metalMat);
+      const topFloor = new Mesh(new BoxGeometry(2.6, 0.2, 2.6), metalMat);
       topFloor.position.set(0, platformH, 0);
+      topFloor.castShadow = true;
       slideGroup.add(topFloor);
-      for (let s = 0.5; s < platformH; s += 0.55) {
-        const step = new Mesh(new CylinderGeometry(0.04, 0.04, 2.2, 8), neonCyan);
+      [-1.2, 1.2].forEach((rx) => {
+        const topRail = new Mesh(new BoxGeometry(0.1, 0.1, 2.5), neonCyan);
+        topRail.position.set(rx, platformH + 0.8, 0);
+        slideGroup.add(topRail);
+      });
+      [-0.85, 0.85].forEach((lx) => {
+        const stringer = new Mesh(new CylinderGeometry(0.055, 0.055, platformH + 0.4, 10), metalMat);
+        stringer.position.set(lx, (platformH + 0.4) * 0.5, -1.25);
+        slideGroup.add(stringer);
+      });
+      for (let s = 0.45; s < platformH; s += 0.52) {
+        const step = new Mesh(new CylinderGeometry(0.04, 0.04, 1.7, 10), neonCyan);
         step.rotation.z = Math.PI / 2;
-        step.position.set(0, s, -1.2);
+        step.position.set(0, s, -1.25);
         slideGroup.add(step);
       }
-      const chuteLength = 7.5;
-      const chuteGeo = new BoxGeometry(1.6, 0.16, chuteLength);
-      chuteGeo.rotateX(-0.5);
-      const chute = new Mesh(chuteGeo, chuteMat);
-      chute.position.set(0, platformH * 0.48, 4.6);
-      slideGroup.add(chute);
-      [-0.85, 0.85].forEach((rx) => {
-        const railGeo = new CylinderGeometry(0.045, 0.045, chuteLength, 12);
-        railGeo.rotateX(-0.5);
-        const rail = new Mesh(railGeo, neonCyan);
-        rail.position.set(rx, platformH * 0.48 + 0.18, 4.6);
-        slideGroup.add(rail);
+      const startY = platformH;
+      const endY = 0.22;
+      const startZ = 1.2;
+      const endZ = 7.8;
+      const dy = startY - endY;
+      const dz = endZ - startZ;
+      const chuteLength = Math.hypot(dy, dz);
+      const chuteAngle = Math.atan2(dy, dz);
+      const chutePivot = new Group();
+      chutePivot.position.set(0, (startY + endY) * 0.5, (startZ + endZ) * 0.5);
+      chutePivot.rotation.x = chuteAngle;
+      const chuteBed = new Mesh(new BoxGeometry(1.6, 0.14, chuteLength), chuteMat);
+      chuteBed.castShadow = true;
+      chutePivot.add(chuteBed);
+      [-0.82, 0.82].forEach((rx) => {
+        const sideWall = new Mesh(new BoxGeometry(0.12, 0.36, chuteLength), chuteMat);
+        sideWall.position.set(rx, 0.18, 0);
+        chutePivot.add(sideWall);
+        const rail = new Mesh(new CylinderGeometry(0.05, 0.05, chuteLength, 10), neonCyan);
+        rail.rotation.x = Math.PI / 2;
+        rail.position.set(rx, 0.38, 0);
+        chutePivot.add(rail);
       });
+      slideGroup.add(chutePivot);
       const cushion = new Mesh(
-        new BoxGeometry(2.4, 0.22, 2.6),
+        new BoxGeometry(2.4, 0.24, 2.6),
         new MeshStandardMaterial({ color: 16771584, roughness: 0.6 })
       );
-      cushion.position.set(0, 0.11, 8.2);
+      cushion.position.set(0, 0.12, 8.2);
+      cushion.receiveShadow = true;
       slideGroup.add(cushion);
       this.scene.add(slideGroup);
       this.slide = {
         position: pos,
-        topPos: new Vector3(pos.x, groundY + platformH, pos.z),
-        endPos: new Vector3(pos.x, groundY, pos.z + 8.5),
+        topPos: new Vector3(pos.x, groundY + platformH + 0.2, pos.z),
+        endPos: new Vector3(pos.x, groundY + 0.25, pos.z + 8.2),
         platformH
       };
-      this.registerObstacle({ type: "slide_tower", x: pos.x, z: pos.z, radius: 1.5, height: platformH });
+      this.registerObstacle({ type: "slide_tower", shape: "box", x: pos.x, z: pos.z, halfW: 1.35, halfD: 1.35, height: platformH });
+      this.registerObstacle({ type: "slide_chute", shape: "box", x: pos.x, z: pos.z + 4.5, halfW: 0.95, halfD: 3.2, height: 2.2 });
     }
     buildAgilityObstacleCourse(pos) {
       const courseGroup = new Group();
-      courseGroup.position.copy(pos);
-      const groundY = this.getHeightAt(pos.x, pos.z);
-      courseGroup.position.y = groundY;
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      courseGroup.position.set(pos.x, groundY, pos.z);
       const neonYellow = new MeshStandardMaterial({ color: 16771584, emissive: 16771584, emissiveIntensity: 0.8 });
       const metalMat = new MeshStandardMaterial({ color: 4674921, metalness: 0.7 });
       const tunnelGroup = new Group();
-      tunnelGroup.position.set(0, 0.95, 0);
-      const ribGeo = new TorusGeometry(1.05, 0.06, 12, 24);
+      tunnelGroup.position.set(0, 1.05, 0);
+      const ribGeo = new TorusGeometry(1.08, 0.07, 12, 24);
       for (let tz = -3; tz <= 3; tz += 1) {
         const rib = new Mesh(ribGeo, neonYellow);
         rib.position.set(0, 0, tz);
         tunnelGroup.add(rib);
       }
-      const tubeGeo = new CylinderGeometry(1.02, 1.02, 6.2, 24, 1, true);
+      const tubeGeo = new CylinderGeometry(1.04, 1.04, 6.2, 24, 1, true);
       tubeGeo.rotateX(Math.PI / 2);
       const tubeMat = new MeshStandardMaterial({
         color: 165063,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.65,
         side: DoubleSide
       });
       const tube = new Mesh(tubeGeo, tubeMat);
       tunnelGroup.add(tube);
       courseGroup.add(tunnelGroup);
+      [-1.1, 1.1].forEach((wx) => {
+        this.registerObstacle({
+          type: "agility_tunnel_side",
+          shape: "box",
+          x: pos.x + wx,
+          z: pos.z,
+          halfW: 0.18,
+          halfD: 3.1,
+          height: 2.1
+        });
+      });
       this.hurdles = [];
       [6, 10, 14].forEach((hz) => {
         const hurdleGroup = new Group();
         hurdleGroup.position.set(0, 0, hz);
-        [-1.2, 1.2].forEach((hx) => {
-          const post = new Mesh(new CylinderGeometry(0.06, 0.06, 1.1, 10), metalMat);
+        [-1.3, 1.3].forEach((hx) => {
+          const post = new Mesh(new CylinderGeometry(0.07, 0.08, 1.1, 10), metalMat);
           post.position.set(hx, 0.55, 0);
+          post.castShadow = true;
           hurdleGroup.add(post);
+          this.registerObstacle({
+            type: "hurdle_post",
+            x: pos.x + hx,
+            z: pos.z + hz,
+            radius: 0.18,
+            height: 1.1
+          });
         });
-        const bar = new Mesh(new CylinderGeometry(0.045, 0.045, 2.4, 12), neonYellow);
+        const bar = new Mesh(new CylinderGeometry(0.05, 0.05, 2.6, 12), neonYellow);
         bar.rotation.z = Math.PI / 2;
         bar.position.set(0, 0.65, 0);
         hurdleGroup.add(bar);
@@ -34798,24 +36687,33 @@ void main() {
         }
       };
     }
+    // FIXED: Cyber Target Toss with stepped ring thicknesses (zero Z-fighting) & full frame up to Scoreboard
     buildCyberTargetToss(pos) {
       const targetGroup = new Group();
-      targetGroup.position.copy(pos);
-      const groundY = this.getHeightAt(pos.x, pos.z);
-      targetGroup.position.y = groundY;
-      const chromeMat = new MeshStandardMaterial({ color: 16777215, metalness: 0.9, roughness: 0.15 });
-      [-1.8, 1.8].forEach((sx) => {
-        const leg = new Mesh(new CylinderGeometry(0.1, 0.1, 4.6, 12), chromeMat);
-        leg.position.set(sx, 2.3, 0);
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      targetGroup.position.set(pos.x, groundY, pos.z);
+      const chromeMat = new MeshStandardMaterial({ color: 14870768, metalness: 0.9, roughness: 0.15 });
+      const neonFrameMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.8 });
+      [-2.2, 2.2].forEach((sx) => {
+        const leg = new Mesh(new CylinderGeometry(0.11, 0.13, 5.9, 12), chromeMat);
+        leg.position.set(sx, 2.95, 0);
+        leg.castShadow = true;
         targetGroup.add(leg);
       });
+      const midBar = new Mesh(new CylinderGeometry(0.08, 0.08, 4.5, 12), chromeMat);
+      midBar.rotation.z = Math.PI / 2;
+      midBar.position.set(0, 3.2, 0);
+      targetGroup.add(midBar);
+      const topBar = new Mesh(new CylinderGeometry(0.09, 0.09, 4.6, 12), chromeMat);
+      topBar.rotation.z = Math.PI / 2;
+      topBar.position.set(0, 5.8, 0);
+      targetGroup.add(topBar);
       const targetRotor = new Group();
       targetRotor.position.set(0, 3.2, 0);
       const ringConfigs = [
-        { r: 2.2, col: 58879, pts: 10 },
-        { r: 1.4, col: 16771584, pts: 25 },
-        { r: 0.7, col: 16717636, pts: 50 }
-        // Bullseye
+        { r: 2.1, thickness: 0.12, col: 58879, pts: 10 },
+        { r: 1.35, thickness: 0.18, col: 16771584, pts: 25 },
+        { r: 0.65, thickness: 0.24, col: 16717636, pts: 50 }
       ];
       ringConfigs.forEach((rc) => {
         const ringMat = new MeshStandardMaterial({
@@ -34824,44 +36722,47 @@ void main() {
           emissiveIntensity: 0.75,
           roughness: 0.2
         });
-        const ringMesh = new Mesh(new CylinderGeometry(rc.r, rc.r, 0.12, 32), ringMat);
+        const ringMesh = new Mesh(new CylinderGeometry(rc.r, rc.r, rc.thickness, 32), ringMat);
         ringMesh.rotateX(Math.PI / 2);
         targetRotor.add(ringMesh);
       });
       targetGroup.add(targetRotor);
       const boardMesh = new Mesh(
-        new BoxGeometry(2.4, 0.75, 0.2),
+        new BoxGeometry(2.8, 0.85, 0.24),
         new MeshStandardMaterial({ color: 593174, roughness: 0.3 })
       );
       boardMesh.position.set(0, 5.8, 0);
       targetGroup.add(boardMesh);
+      const boardRim = new Mesh(new BoxGeometry(2.9, 0.95, 0.18), neonFrameMat);
+      boardRim.position.set(0, 5.8, 0);
+      targetGroup.add(boardRim);
       this.scene.add(targetGroup);
       this.targetBoard = {
         position: new Vector3(pos.x, groundY + 3.2, pos.z),
         rotor: targetRotor,
-        radius: 2.2
+        radius: 2.1
       };
-      this.registerObstacle({ type: "target_post_l", x: pos.x - 1.8, z: pos.z, radius: 0.25, height: 4.8 });
-      this.registerObstacle({ type: "target_post_r", x: pos.x + 1.8, z: pos.z, radius: 0.25, height: 4.8 });
+      this.registerObstacle({ type: "target_post_l", x: pos.x - 2.2, z: pos.z, radius: 0.28, height: 5.9 });
+      this.registerObstacle({ type: "target_post_r", x: pos.x + 2.2, z: pos.z, radius: 0.28, height: 5.9 });
     }
     buildCyberPinata(pos) {
       const pinGroup = new Group();
-      pinGroup.position.copy(pos);
-      const groundY = this.getHeightAt(pos.x, pos.z);
-      pinGroup.position.y = groundY;
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      pinGroup.position.set(pos.x, groundY, pos.z);
       const metalMat = new MeshStandardMaterial({ color: 4674921, metalness: 0.8 });
-      const archTop = new Mesh(new CylinderGeometry(0.08, 0.08, 3.6, 12), metalMat);
+      const archTop = new Mesh(new CylinderGeometry(0.09, 0.09, 3.6, 12), metalMat);
       archTop.rotation.z = Math.PI / 2;
       archTop.position.set(0, 4.2, 0);
       [-1.7, 1.7].forEach((ax) => {
-        const post = new Mesh(new CylinderGeometry(0.09, 0.09, 4.2, 12), metalMat);
+        const post = new Mesh(new CylinderGeometry(0.1, 0.12, 4.2, 12), metalMat);
         post.position.set(ax, 2.1, 0);
+        post.castShadow = true;
         pinGroup.add(post);
       });
       pinGroup.add(archTop);
       const pinataPivot = new Group();
       pinataPivot.position.set(0, 4.2, 0);
-      const rope = new Mesh(new CylinderGeometry(0.02, 0.02, 1.8, 8), metalMat);
+      const rope = new Mesh(new CylinderGeometry(0.025, 0.025, 1.8, 8), metalMat);
       rope.position.set(0, -0.9, 0);
       pinataPivot.add(rope);
       const pinataBody = new Group();
@@ -34909,15 +36810,25 @@ void main() {
       ];
       offsets.forEach((cfg, idx) => {
         const arch = new Group();
-        const groundY = this.getHeightAt(pos.x + cfg.x, pos.z + cfg.z);
+        const wx = pos.x + cfg.x;
+        const wz = pos.z + cfg.z;
+        const groundY = this.getTerrainHeightOnly(wx, wz);
         arch.position.set(cfg.x, groundY, cfg.z);
         arch.rotation.y = cfg.rotY;
         const postMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.85, roughness: 0.2 });
         [-1.3, 1.3].forEach((px2) => {
-          const p = new Mesh(new CylinderGeometry(0.08, 0.08, 1.8, 12), postMat);
+          const p = new Mesh(new CylinderGeometry(0.08, 0.09, 1.8, 12), postMat);
           p.position.set(px2, 0.9, 0);
           p.castShadow = true;
           arch.add(p);
+          const worldPost = new Vector3(px2, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), cfg.rotY).add(new Vector3(wx, groundY, wz));
+          this.registerObstacle({
+            type: "slalom_post",
+            x: worldPost.x,
+            z: worldPost.z,
+            radius: 0.2,
+            height: 1.8
+          });
         });
         const ringMat = new MeshStandardMaterial({
           color: cfg.col,
@@ -34930,13 +36841,13 @@ void main() {
         torus.castShadow = true;
         arch.add(torus);
         ringGroup.add(arch);
-        const worldPos = new Vector3(pos.x + cfg.x, groundY + 1.6, pos.z + cfg.z);
+        const worldPos = new Vector3(wx, groundY + 1.6, wz);
         this.slalomRings.push({
           index: idx,
           position: worldPos,
-          entryPos: new Vector3(pos.x + cfg.x - Math.sin(cfg.rotY) * 2.5, groundY, pos.z + cfg.z - Math.cos(cfg.rotY) * 2.5),
+          entryPos: new Vector3(wx - Math.sin(cfg.rotY) * 2.5, groundY, wz - Math.cos(cfg.rotY) * 2.5),
           centerPos: worldPos,
-          exitPos: new Vector3(pos.x + cfg.x + Math.sin(cfg.rotY) * 2.5, groundY, pos.z + cfg.z + Math.cos(cfg.rotY) * 2.5),
+          exitPos: new Vector3(wx + Math.sin(cfg.rotY) * 2.5, groundY, wz + Math.cos(cfg.rotY) * 2.5),
           radius: 1.3
         });
       });
@@ -34953,7 +36864,7 @@ void main() {
       const sparkleMat = new MeshStandardMaterial({ color: 16771584, emissive: 16771584, emissiveIntensity: 0.8 });
       this.treasureSpots.forEach((spot) => {
         const g = new Group();
-        const gy = this.getHeightAt(spot.x, spot.z);
+        const gy = this.getTerrainHeightOnly(spot.x, spot.z);
         g.position.set(spot.x, gy + 0.04, spot.z);
         const mound = new Mesh(new CylinderGeometry(1.2, 1.4, 0.12, 16), dirtMat);
         g.add(mound);
@@ -35077,7 +36988,6 @@ void main() {
       });
       return ball;
     }
-    // Interactive Fetch Throw Mechanism
     throwBall(originPos, direction, force = 24) {
       if (!this.soccerBall) return null;
       const ball = this.soccerBall;
@@ -35160,11 +37070,10 @@ void main() {
         radius: 1.1
       });
     }
-    // Spawn tasty Cyber Biscuit Treat
     spawnCyberSnack(pos) {
       const snackGroup = new Group();
       snackGroup.position.copy(pos);
-      snackGroup.position.y += 0.4;
+      snackGroup.position.y = this.getHeightAt(pos.x, pos.z) + 0.4;
       const biscuitMat = new MeshStandardMaterial({
         color: 16771584,
         emissive: 16771584,
@@ -35196,13 +37105,17 @@ void main() {
       ];
       for (let i = 0; i < 95; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const dist = 30 + Math.random() * 220;
+        const dist = 32 + Math.random() * 210;
         const x = Math.cos(angle) * dist;
         const z = Math.sin(angle) * dist;
-        if (Math.hypot(x - -80, z - -80) < 68) continue;
-        if (Math.hypot(x - 50, z - 40) < 38) continue;
+        if (Math.hypot(x - -80, z - -80) < 70) continue;
+        if (Math.hypot(x - 50, z - 40) < 46) continue;
+        if (Math.hypot(x - -46, z - -48) < 14) continue;
+        if (Math.hypot(x - -32, z - 48) < 10) continue;
+        if (Math.hypot(x - -18, z - -32) < 12) continue;
+        if (Math.hypot(x - 22, z - -50) < 16) continue;
         const treeGroup = new Group();
-        treeGroup.position.set(x, this.getHeightAt(x, z), z);
+        treeGroup.position.set(x, this.getTerrainHeightOnly(x, z), z);
         const height = 4.2 + Math.random() * 3.5;
         const trunk = new Mesh(new CylinderGeometry(0.38, 0.55, height, 8), trunkMat);
         trunk.position.y = height / 2;
@@ -35228,7 +37141,7 @@ void main() {
         const x = (Math.random() - 0.5) * 360;
         const z = (Math.random() - 0.5) * 360;
         if (Math.hypot(x - -80, z - -80) < 65) continue;
-        const y = this.getHeightAt(x, z) + 0.16;
+        const y = this.getTerrainHeightOnly(x, z) + 0.16;
         dummy.position.set(x, y, z);
         dummy.scale.setScalar(0.7 + Math.random() * 0.6);
         dummy.updateMatrix();
@@ -35256,7 +37169,7 @@ void main() {
         sp.scale.set(0.65, 0.65, 0.65);
         const bx = (Math.random() - 0.5) * 220;
         const bz = (Math.random() - 0.5) * 220;
-        const by = this.getHeightAt(bx, bz) + 1.5 + Math.random() * 2.5;
+        const by = this.getTerrainHeightOnly(bx, bz) + 1.5 + Math.random() * 2.5;
         sp.position.set(bx, by, bz);
         this.scene.add(sp);
         this.butterflies.push({
@@ -35287,7 +37200,8 @@ void main() {
         { name: "Pi\xF1ata Canina", position: new Vector3(-42, 0, 14), radius: 6, type: "pinata" }
       ];
     }
-    getHeightAt(x, z) {
+    // Raw terrain height without elevated structures
+    getTerrainHeightOnly(x, z) {
       const distToLake = Math.hypot(x - -80, z - -80);
       if (distToLake < 65) {
         const lakeFactor = Math.cos(distToLake / 65 * (Math.PI / 2));
@@ -35301,7 +37215,28 @@ void main() {
       }
       return y;
     }
-    resolveObstacleCollisions(pos, radius = 0.75, height = 1) {
+    // Unified height query including walkable Bridge, Pier, and Ramp surfaces!
+    getHeightAt(x, z) {
+      let y = this.getTerrainHeightOnly(x, z);
+      for (let i = 0; i < this.elevatedSurfaces.length; i++) {
+        const surf = this.elevatedSurfaces[i];
+        const dx = x - surf.x;
+        const dz = z - surf.z;
+        const cos = Math.cos(-surf.rotY);
+        const sin = Math.sin(-surf.rotY);
+        const localX = dx * cos - dz * sin;
+        const localZ = dx * sin + dz * cos;
+        if (Math.abs(localX) <= surf.halfW && Math.abs(localZ) <= surf.halfD) {
+          const surfY = surf.getHeight(localX, localZ);
+          if (surfY !== null && surfY > y) {
+            y = surfY;
+          }
+        }
+      }
+      return y;
+    }
+    // Full 3D Volumetric Collision Resolution (Supports Cylinder + Rotated OBB Box + Surface Normals)
+    resolveObstacleCollisions(pos, radius = 0.75, height = 1, outNormal = null) {
       let collided = false;
       const obstacles = this.getNearObstacles(pos.x, pos.z);
       const posY = pos.y;
@@ -35313,21 +37248,53 @@ void main() {
           }
         }
         if (obs.shape === "box") {
-          const minX = obs.x - obs.halfW - radius;
-          const maxX = obs.x + obs.halfW + radius;
-          const minZ = obs.z - obs.halfD - radius;
-          const maxZ = obs.z + obs.halfD + radius;
-          if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ) {
+          const dx = pos.x - obs.x;
+          const dz = pos.z - obs.z;
+          const rotY = obs.rotY || 0;
+          const cos = Math.cos(-rotY);
+          const sin = Math.sin(-rotY);
+          const localX = dx * cos - dz * sin;
+          const localZ = dx * sin + dz * cos;
+          const clampedX = MathUtils.clamp(localX, -obs.halfW, obs.halfW);
+          const clampedZ = MathUtils.clamp(localZ, -obs.halfD, obs.halfD);
+          const diffX = localX - clampedX;
+          const diffZ = localZ - clampedZ;
+          const distSq = diffX * diffX + diffZ * diffZ;
+          if (distSq < radius * radius) {
             collided = true;
-            const dLeft = Math.abs(pos.x - minX);
-            const dRight = Math.abs(maxX - pos.x);
-            const dBack = Math.abs(pos.z - minZ);
-            const dFront = Math.abs(maxZ - pos.z);
-            const minPush = Math.min(dLeft, dRight, dBack, dFront);
-            if (minPush === dLeft) pos.x = minX;
-            else if (minPush === dRight) pos.x = maxX;
-            else if (minPush === dBack) pos.z = minZ;
-            else pos.z = maxZ;
+            let pushLocalX = 0;
+            let pushLocalZ = 0;
+            let nxLocal = 0;
+            let nzLocal = 0;
+            if (distSq > 1e-5) {
+              const dist = Math.sqrt(distSq);
+              const overlap = radius - dist;
+              nxLocal = diffX / dist;
+              nzLocal = diffZ / dist;
+              pushLocalX = nxLocal * overlap;
+              pushLocalZ = nzLocal * overlap;
+            } else {
+              const penX = obs.halfW - Math.abs(localX) + radius;
+              const penZ = obs.halfD - Math.abs(localZ) + radius;
+              if (penX < penZ) {
+                nxLocal = localX >= 0 ? 1 : -1;
+                pushLocalX = nxLocal * penX;
+              } else {
+                nzLocal = localZ >= 0 ? 1 : -1;
+                pushLocalZ = nzLocal * penZ;
+              }
+            }
+            const cosW = Math.cos(rotY);
+            const sinW = Math.sin(rotY);
+            pos.x += pushLocalX * cosW - pushLocalZ * sinW;
+            pos.z += pushLocalX * sinW + pushLocalZ * cosW;
+            if (outNormal) {
+              outNormal.set(
+                nxLocal * cosW - nzLocal * sinW,
+                0,
+                nxLocal * sinW + nzLocal * cosW
+              ).normalize();
+            }
           }
         } else {
           const dx = pos.x - obs.x;
@@ -35337,8 +37304,11 @@ void main() {
           if (dist < minDist && dist > 1e-4) {
             collided = true;
             const overlap = minDist - dist;
-            pos.x += dx / dist * overlap;
-            pos.z += dz / dist * overlap;
+            const nx = dx / dist;
+            const nz = dz / dist;
+            pos.x += nx * overlap;
+            pos.z += nz * overlap;
+            if (outNormal) outNormal.set(nx, 0, nz);
           }
         }
       }
@@ -35349,6 +37319,9 @@ void main() {
         const factor = maxWorldRadius / distFromOrigin;
         pos.x *= factor;
         pos.z *= factor;
+        if (outNormal) {
+          outNormal.set(-pos.x / distFromOrigin, 0, -pos.z / distFromOrigin);
+        }
       }
       return collided;
     }
@@ -35385,10 +37358,12 @@ void main() {
       }
       this.ballPitBalls.forEach((b) => {
         b.mesh.position.y = b.localOrigin.y + Math.sin(this.waterTime * 3 + b.localOrigin.x) * 0.035;
+        b.mesh.position.x = MathUtils.lerp(b.mesh.position.x, b.localOrigin.x, delta * 1.5);
+        b.mesh.position.z = MathUtils.lerp(b.mesh.position.z, b.localOrigin.z, delta * 1.5);
       });
       if (this.toyBoat) {
         this.toyBoat.position.y = Math.sin(this.waterTime * 1.8) * 0.12;
-        this.toyBoat.rotation.z = Math.sin(this.waterTime * 1.4) * 0.08;
+        this.toyBoat.rotation.z = Math.sin(this.waterTime * 1.4) * 0.06;
         this.toyBoat.rotation.y += delta * 0.15;
       }
       if (this.carousel) {
@@ -35409,7 +37384,7 @@ void main() {
         if (this.discoTimer <= 0) {
           this.discoPartyActive = false;
           if (this.discoTiles) {
-            this.discoTiles.forEach((tile) => tile.material.emissiveIntensity = 0.2);
+            this.discoTiles.forEach((tile) => tile.material.emissiveIntensity = 0.25);
           }
         }
       }
@@ -35437,6 +37412,7 @@ void main() {
           delta * 3.5
         );
       }
+      const hitNormal = new Vector3();
       this.balls.forEach((ball) => {
         if (ball.carriedBy) return;
         const subSteps = 2;
@@ -35444,10 +37420,16 @@ void main() {
         for (let step = 0; step < subSteps; step++) {
           ball.velocity.y -= 9.8 * subDelta;
           ball.mesh.position.addScaledVector(ball.velocity, subDelta);
-          const hitObstacle = this.resolveObstacleCollisions(ball.mesh.position, ball.radius, ball.radius * 2);
+          const hitObstacle = this.resolveObstacleCollisions(ball.mesh.position, ball.radius, ball.radius * 2, hitNormal);
           if (hitObstacle) {
-            ball.velocity.x *= -0.72;
-            ball.velocity.z *= -0.72;
+            const velDot = ball.velocity.x * hitNormal.x + ball.velocity.z * hitNormal.z;
+            if (velDot < 0) {
+              ball.velocity.x -= (1 + ball.bounciness) * velDot * hitNormal.x;
+              ball.velocity.z -= (1 + ball.bounciness) * velDot * hitNormal.z;
+            } else {
+              ball.velocity.x *= -0.75;
+              ball.velocity.z *= -0.75;
+            }
           }
           const groundY = this.getHeightAt(ball.mesh.position.x, ball.mesh.position.z) + ball.radius;
           if (ball.mesh.position.y <= groundY) {
@@ -35471,7 +37453,7 @@ void main() {
           const gz = this.soccerGoal.position.z;
           const bx = ball.mesh.position.x;
           const bz = ball.mesh.position.z;
-          if (Math.abs(bx - gx) < 2 && Math.abs(bz - gz) < 3.2 && ball.mesh.position.y < 3.2) {
+          if (bx < gx + 0.3 && bx > gx - this.soccerGoal.depth && Math.abs(bz - gz) < this.soccerGoal.width * 0.46 && ball.mesh.position.y < this.soccerGoal.height) {
             this.handleGoalScored(ball);
           }
         }
@@ -35481,15 +37463,38 @@ void main() {
           const ty = this.targetBoard.position.y;
           const distXZ = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.z - tz);
           const distY = Math.abs(ball.mesh.position.y - ty);
-          if (distXZ < this.targetBoard.radius && distY < 2.4) {
+          if (distXZ < this.targetBoard.radius && distY < 2.2) {
             const hitRadius = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.y - ty);
             let pts = 10;
-            if (hitRadius < 0.7) pts = 50;
-            else if (hitRadius < 1.4) pts = 25;
+            if (hitRadius < 0.65) pts = 50;
+            else if (hitRadius < 1.35) pts = 25;
             this.handleTargetHit(pts, ball);
           }
         }
       });
+      for (let i = 0; i < this.balls.length; i++) {
+        for (let j = i + 1; j < this.balls.length; j++) {
+          const b1 = this.balls[i];
+          const b2 = this.balls[j];
+          if (b1.carriedBy || b2.carriedBy) continue;
+          const diff = new Vector3().subVectors(b2.mesh.position, b1.mesh.position);
+          const dist = diff.length();
+          const minDist = b1.radius + b2.radius;
+          if (dist < minDist && dist > 1e-3) {
+            const normal = diff.divideScalar(dist);
+            const overlap = minDist - dist;
+            b1.mesh.position.addScaledVector(normal, -overlap * 0.5);
+            b2.mesh.position.addScaledVector(normal, overlap * 0.5);
+            const relVel = new Vector3().subVectors(b2.velocity, b1.velocity);
+            const sepVel = relVel.dot(normal);
+            if (sepVel < 0) {
+              const impulse = -(1 + 0.8) * sepVel / (1 / b1.mass + 1 / b2.mass);
+              b1.velocity.addScaledVector(normal, -impulse / b1.mass);
+              b2.velocity.addScaledVector(normal, impulse / b2.mass);
+            }
+          }
+        }
+      }
       for (let i = this.snacks.length - 1; i >= 0; i--) {
         const snack = this.snacks[i];
         snack.age += delta;
@@ -35526,9 +37531,8 @@ void main() {
       const lakeDx = rPos.x - -80;
       const lakeDz = rPos.z - -80;
       const distToLake = Math.hypot(lakeDx, lakeDz);
-      const isOnPier = Math.abs(rPos.x - -44) < 4.2 && Math.abs(rPos.z - -80) < 13;
-      const isOnBridge = this.woodenBridge && Math.abs(rPos.x - this.woodenBridge.position.x) < 3.2 && Math.abs(rPos.z - this.woodenBridge.position.z) < 9.5;
-      if (distToLake < 58 && !isOnPier && !isOnBridge) {
+      const surfaceY = this.getHeightAt(rPos.x, rPos.z);
+      if (distToLake < 58 && surfaceY < -0.1) {
         robot.isInWater = true;
         rPos.y = -0.52;
         if (!robot.wasInWater) {
@@ -35576,6 +37580,8 @@ void main() {
         if (sDist < 5.4) {
           const relX = rPos.x - this.seesaw.position.x;
           this.seesaw.targetTilt = MathUtils.clamp(-relX * 0.055, -0.25, 0.25);
+        } else {
+          this.seesaw.targetTilt = MathUtils.lerp(this.seesaw.targetTilt, 0, 0.05);
         }
       }
       if (this.trampoline) {
@@ -35593,7 +37599,7 @@ void main() {
       }
       if (this.carousel) {
         const dist = Math.hypot(rPos.x - this.carousel.position.x, rPos.z - this.carousel.position.z);
-        if (dist < 3.2) {
+        if (dist < 3.6 && dist > 0.6) {
           const a = Math.atan2(rPos.z - this.carousel.position.z, rPos.x - this.carousel.position.x);
           const newA = a + 0.02;
           rPos.x = this.carousel.position.x + Math.cos(newA) * dist;
@@ -35611,8 +37617,8 @@ void main() {
             const dz = b.mesh.position.z - relZ;
             const d = Math.hypot(dx, dz);
             if (d < 1.4 && d > 0.01) {
-              b.mesh.position.x += dx / d * 0.15;
-              b.mesh.position.z += dz / d * 0.15;
+              b.mesh.position.x = MathUtils.clamp(b.mesh.position.x + dx / d * 0.18, -3.1, 3.1);
+              b.mesh.position.z = MathUtils.clamp(b.mesh.position.z + dz / d * 0.18, -3.1, 3.1);
             }
           });
           if (!robot.lastBallPitTime || Date.now() - robot.lastBallPitTime > 3500) {
@@ -35626,7 +37632,7 @@ void main() {
       }
       if (this.slide) {
         const distToTop = Math.hypot(rPos.x - this.slide.topPos.x, rPos.z - this.slide.topPos.z);
-        if (distToTop < 1.8 && !robot.isSliding) {
+        if (distToTop < 2 && !robot.isSliding) {
           robot.isSliding = true;
           this.logActivity(`\u{1F3A2} \xA1${robot.name} se subi\xF3 al tobog\xE1n y se desliza a toda velocidad!`);
           roboAudio.playYip(1.3);
@@ -35742,8 +37748,56 @@ void main() {
       this.baseBodyY = 0.95;
       this.stepTimer = 0;
     }
+    // Frame-rate independent smooth damping helper
+    damp(current, target, lambda, delta) {
+      return MathUtils.damp(current, target, lambda, delta);
+    }
+    // Ensures unused axes smoothly return to neutral between different animations
+    dampPoseToNeutral(delta, speed = 8, options = {}) {
+      const { body, neck, tail, earL, earR, legs } = this.nodes;
+      if (!options.keepBodyPos) {
+        body.position.y = this.damp(body.position.y, this.baseBodyY, speed, delta);
+      }
+      if (!options.keepBodyRot) {
+        body.rotation.x = this.damp(body.rotation.x, 0, speed, delta);
+        body.rotation.y = this.damp(body.rotation.y, 0, speed, delta);
+        body.rotation.z = this.damp(body.rotation.z, this.robot.bankAngle || 0, speed, delta);
+      }
+      if (!options.keepBodyScale) {
+        body.scale.x = this.damp(body.scale.x, 1, speed, delta);
+        body.scale.y = this.damp(body.scale.y, 1, speed, delta);
+        body.scale.z = this.damp(body.scale.z, 1, speed, delta);
+      }
+      if (!options.keepNeck && neck && !this.robot.hasTarget) {
+        neck.rotation.x = this.damp(neck.rotation.x, 0, speed, delta);
+        neck.rotation.y = this.damp(neck.rotation.y, 0, speed, delta);
+        neck.rotation.z = this.damp(neck.rotation.z, 0, speed, delta);
+      }
+      if (!options.keepTail && tail) {
+        tail.rotation.x = this.damp(tail.rotation.x, 0.55, speed, delta);
+        tail.rotation.y = this.damp(tail.rotation.y, 0, speed, delta);
+        tail.rotation.z = this.damp(tail.rotation.z, 0, speed, delta);
+      }
+      if (!options.keepEars && earL && earR) {
+        earL.rotation.x = this.damp(earL.rotation.x, 0, speed, delta);
+        earR.rotation.x = this.damp(earR.rotation.x, 0, speed, delta);
+      }
+      if (!options.keepLegs && legs) {
+        Object.values(legs).forEach((leg) => {
+          leg.hip.rotation.x = this.damp(leg.hip.rotation.x, 0, speed, delta);
+          leg.hip.rotation.y = this.damp(leg.hip.rotation.y, 0, speed, delta);
+          leg.hip.rotation.z = this.damp(leg.hip.rotation.z, 0, speed, delta);
+          leg.knee.rotation.x = this.damp(leg.knee.rotation.x, 0, speed, delta);
+          if (leg.paw) leg.paw.rotation.x = this.damp(leg.paw.rotation.x, 0, speed, delta);
+        });
+      }
+    }
     play(animName, duration = 0) {
       if (this.currentAnim === animName && !duration) return;
+      if (this.nodes.body) {
+        this.nodes.body.rotation.x = this.nodes.body.rotation.x % (Math.PI * 2);
+        this.nodes.body.rotation.z = this.nodes.body.rotation.z % (Math.PI * 2);
+      }
       this.currentAnim = animName;
       this.animTime = 0;
       if (duration > 0) {
@@ -35753,7 +37807,6 @@ void main() {
         this.actionDuration = 0;
       }
     }
-    // Execute a sequence of pre-recorded or learned movements
     playSequence(actionNames, onComplete = null) {
       this.actionQueue = [...actionNames];
       this.onSequenceComplete = onComplete;
@@ -35816,7 +37869,7 @@ void main() {
           this.animateWalk(delta, 1);
           break;
         case "run":
-          this.animateWalk(delta, 2.2);
+          this.animateWalk(delta, 2.1);
           break;
         case "sit":
           this.animateSit(delta);
@@ -35908,390 +37961,414 @@ void main() {
       }
     }
     animateIdle(delta) {
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepTail: true, keepEars: true });
       const t = this.animTime;
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const earL = this.nodes.earL;
-      const earR = this.nodes.earR;
-      const legs = this.nodes.legs;
-      body.position.y = MathUtils.lerp(body.position.y, this.baseBodyY + Math.sin(t * 2.2) * 0.03, delta * 6);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, 0, delta * 6);
-      body.rotation.z = MathUtils.lerp(body.rotation.z, 0, delta * 6);
-      earL.rotation.x = Math.sin(t * 1.5) * 0.08;
-      earR.rotation.x = Math.sin(t * 1.5 + 0.5) * 0.08;
-      tail.rotation.y = Math.sin(t * 3.5) * 0.35;
-      tail.rotation.z = Math.sin(t * 2) * 0.15;
-      Object.values(legs).forEach((leg) => {
-        leg.hip.rotation.x = MathUtils.lerp(leg.hip.rotation.x, 0, delta * 6);
-        leg.hip.rotation.z = MathUtils.lerp(leg.hip.rotation.z, 0, delta * 6);
-        leg.knee.rotation.x = MathUtils.lerp(leg.knee.rotation.x, 0, delta * 6);
-      });
+      const { body, neck, tail, earL, earR } = this.nodes;
+      const breath = Math.sin(t * 2.4);
+      body.position.y = this.damp(body.position.y, this.baseBodyY + breath * 0.028, 8, delta);
+      body.rotation.x = this.damp(body.rotation.x, breath * 0.018, 6, delta);
+      if (!this.robot.hasTarget && neck) {
+        neck.rotation.x = this.damp(neck.rotation.x, -breath * 0.03 + Math.sin(t * 1.1) * 0.04, 6, delta);
+        neck.rotation.y = this.damp(neck.rotation.y, Math.sin(t * 0.7) * 0.06, 5, delta);
+      }
+      const earTwitch = Math.pow(Math.max(0, Math.sin(t * 1.7)), 6) * 0.22;
+      earL.rotation.x = this.damp(earL.rotation.x, Math.sin(t * 1.5) * 0.06 + earTwitch, 10, delta);
+      earR.rotation.x = this.damp(earR.rotation.x, Math.sin(t * 1.5 + 0.8) * 0.06, 10, delta);
+      tail.rotation.x = this.damp(tail.rotation.x, 0.55 + Math.cos(t * 2.2) * 0.08, 8, delta);
+      tail.rotation.y = this.damp(tail.rotation.y, Math.sin(t * 3.6) * 0.38, 10, delta);
+      tail.rotation.z = this.damp(tail.rotation.z, Math.cos(t * 1.8) * 0.12, 8, delta);
     }
     animateWalk(delta, speedMultiplier = 1) {
-      const t = this.animTime * 6.5 * speedMultiplier;
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      const bob = Math.abs(Math.sin(t)) * 0.08;
-      body.position.y = this.baseBodyY + bob;
-      body.rotation.z = Math.sin(t) * 0.04;
-      body.rotation.y = Math.cos(t) * 0.03;
-      const swingFL = Math.sin(t) * 0.55 * speedMultiplier;
-      const swingBR = Math.sin(t) * 0.55 * speedMultiplier;
-      const swingFR = Math.sin(t + Math.PI) * 0.55 * speedMultiplier;
-      const swingBL = Math.sin(t + Math.PI) * 0.55 * speedMultiplier;
-      legs.FL.hip.rotation.x = swingFL;
-      legs.FL.knee.rotation.x = Math.max(0, -swingFL * 0.7);
-      legs.BR.hip.rotation.x = swingBR;
-      legs.BR.knee.rotation.x = Math.max(0, swingBR * 0.7);
-      legs.FR.hip.rotation.x = swingFR;
-      legs.FR.knee.rotation.x = Math.max(0, -swingFR * 0.7);
-      legs.BL.hip.rotation.x = swingBL;
-      legs.BL.knee.rotation.x = Math.max(0, swingBL * 0.7);
-      tail.rotation.y = Math.sin(t * 1.8) * 0.75;
-      this.stepTimer += delta * 6.5 * speedMultiplier;
+      this.dampPoseToNeutral(delta, 10, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepTail: true });
+      const isRun = speedMultiplier > 1.5;
+      const freq = isRun ? 10.5 : 6.8;
+      const t = this.animTime * freq;
+      const { body, neck, tail, legs } = this.nodes;
+      const phaseFL = 0;
+      const phaseBR = isRun ? 0.35 : 0.15;
+      const phaseFR = Math.PI;
+      const phaseBL = isRun ? Math.PI + 0.35 : Math.PI + 0.15;
+      const strideAmp = isRun ? 0.78 : 0.48;
+      const kneeLiftAmp = isRun ? 0.85 : 0.55;
+      const applyLegKinematics = (leg, phase, isFront) => {
+        const cycle = t + phase;
+        const hipTarget = Math.sin(cycle) * strideAmp;
+        const swingLift = Math.max(0, Math.cos(cycle));
+        const kneeTarget = isFront ? swingLift * kneeLiftAmp : -swingLift * kneeLiftAmp * 0.85;
+        const pawTarget = -swingLift * 0.35 + Math.sin(cycle) * 0.15;
+        leg.hip.rotation.x = this.damp(leg.hip.rotation.x, hipTarget, 18, delta);
+        leg.hip.rotation.z = this.damp(leg.hip.rotation.z, 0, 12, delta);
+        leg.knee.rotation.x = this.damp(leg.knee.rotation.x, kneeTarget, 18, delta);
+        if (leg.paw) {
+          leg.paw.rotation.x = this.damp(leg.paw.rotation.x, pawTarget, 18, delta);
+        }
+      };
+      applyLegKinematics(legs.FL, phaseFL, true);
+      applyLegKinematics(legs.BR, phaseBR, false);
+      applyLegKinematics(legs.FR, phaseFR, true);
+      applyLegKinematics(legs.BL, phaseBL, false);
+      const bob = Math.abs(Math.sin(t)) * (isRun ? 0.13 : 0.065);
+      body.position.y = this.damp(body.position.y, this.baseBodyY + bob, 16, delta);
+      body.rotation.x = this.damp(body.rotation.x, isRun ? Math.cos(t) * 0.09 : Math.cos(t * 2) * 0.025, 14, delta);
+      body.rotation.z = this.damp(body.rotation.z, (this.robot.bankAngle || 0) + Math.sin(t) * 0.035, 12, delta);
+      body.rotation.y = this.damp(body.rotation.y, Math.cos(t) * 0.025, 12, delta);
+      if (!this.robot.hasTarget && neck) {
+        neck.rotation.x = this.damp(neck.rotation.x, -Math.sin(t * 2) * 0.06 + (isRun ? 0.12 : 0), 14, delta);
+      }
+      tail.rotation.x = this.damp(tail.rotation.x, isRun ? 0.25 : 0.65, 10, delta);
+      tail.rotation.y = Math.sin(t * 1.5) * (isRun ? 0.55 : 0.75);
+      this.stepTimer += delta * freq;
       if (this.stepTimer >= Math.PI) {
-        this.stepTimer = 0;
+        this.stepTimer -= Math.PI;
         if (this.robot.isPlayer) roboAudio.playStep();
       }
     }
     animateSit(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 0.58, delta * 6);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, -0.42, delta * 6);
-      legs.FL.hip.rotation.x = MathUtils.lerp(legs.FL.hip.rotation.x, 0.38, delta * 6);
-      legs.FR.hip.rotation.x = MathUtils.lerp(legs.FR.hip.rotation.x, 0.38, delta * 6);
-      legs.FL.knee.rotation.x = MathUtils.lerp(legs.FL.knee.rotation.x, 0, delta * 6);
-      legs.FR.knee.rotation.x = MathUtils.lerp(legs.FR.knee.rotation.x, 0, delta * 6);
-      legs.BL.hip.rotation.x = MathUtils.lerp(legs.BL.hip.rotation.x, -1.2, delta * 6);
-      legs.BR.hip.rotation.x = MathUtils.lerp(legs.BR.hip.rotation.x, -1.2, delta * 6);
-      legs.BL.knee.rotation.x = MathUtils.lerp(legs.BL.knee.rotation.x, 1.4, delta * 6);
-      legs.BR.knee.rotation.x = MathUtils.lerp(legs.BR.knee.rotation.x, 1.4, delta * 6);
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, 0.45, delta * 6);
-      tail.rotation.y = Math.sin(this.animTime * 5) * 0.5;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.58, 7, delta);
+      body.rotation.x = this.damp(body.rotation.x, -0.44, 7, delta);
+      body.rotation.z = this.damp(body.rotation.z, 0, 7, delta);
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.42, 7, delta);
+      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.42, 7, delta);
+      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0, 7, delta);
+      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0, 7, delta);
+      if (legs.FL.paw) legs.FL.paw.rotation.x = this.damp(legs.FL.paw.rotation.x, 0.05, 7, delta);
+      if (legs.FR.paw) legs.FR.paw.rotation.x = this.damp(legs.FR.paw.rotation.x, 0.05, 7, delta);
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.22, 7, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.22, 7, delta);
+      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.45, 7, delta);
+      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.45, 7, delta);
+      if (legs.BL.paw) legs.BL.paw.rotation.x = this.damp(legs.BL.paw.rotation.x, 0.2, 7, delta);
+      if (legs.BR.paw) legs.BR.paw.rotation.x = this.damp(legs.BR.paw.rotation.x, 0.2, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.42 + Math.sin(this.animTime * 2.2) * 0.04, 7, delta);
+      neck.rotation.z = this.damp(neck.rotation.z, Math.sin(this.animTime * 1.5) * 0.05, 6, delta);
+      tail.rotation.y = Math.sin(this.animTime * 5.5) * 0.55;
     }
     animateLieDown(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 0.32, delta * 5);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, 0, delta * 5);
-      legs.FL.hip.rotation.x = MathUtils.lerp(legs.FL.hip.rotation.x, 1.1, delta * 5);
-      legs.FR.hip.rotation.x = MathUtils.lerp(legs.FR.hip.rotation.x, 1.1, delta * 5);
-      legs.BL.hip.rotation.x = MathUtils.lerp(legs.BL.hip.rotation.x, -1.1, delta * 5);
-      legs.BR.hip.rotation.x = MathUtils.lerp(legs.BR.hip.rotation.x, -1.1, delta * 5);
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, -0.2, delta * 5);
-      tail.rotation.y = Math.sin(this.animTime * 1.5) * 0.2;
+      this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.32 + Math.sin(this.animTime * 1.8) * 0.015, 6, delta);
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, -1.15, 6, delta);
+      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, -1.15, 6, delta);
+      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0.25, 6, delta);
+      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0.25, 6, delta);
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.25, 6, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.25, 6, delta);
+      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.4, 6, delta);
+      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.4, 6, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.15 + Math.sin(this.animTime * 1.8) * 0.03, 5, delta);
+      tail.rotation.y = Math.sin(this.animTime * 2) * 0.25;
     }
     animateJump(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const tail = this.nodes.tail;
+      const { body, legs, tail, neck } = this.nodes;
       const progress = Math.min(1, this.actionTimer / (this.actionDuration || 1.2));
-      const jumpHeight = Math.sin(progress * Math.PI) * 1.8;
-      body.position.y = this.baseBodyY + jumpHeight;
-      if (progress < 0.2) {
-        body.rotation.x = 0.2;
-        legs.FL.hip.rotation.x = 0.6;
-        legs.FR.hip.rotation.x = 0.6;
-      } else if (progress < 0.7) {
-        body.rotation.x = -0.3;
-        legs.FL.hip.rotation.x = -0.5;
-        legs.FR.hip.rotation.x = -0.5;
-        legs.BL.hip.rotation.x = 0.6;
-        legs.BR.hip.rotation.x = 0.6;
-      } else {
-        body.rotation.x = 0.1;
-        legs.FL.hip.rotation.x = 0;
-        legs.FR.hip.rotation.x = 0;
+      if (this.actionTimer < 0.05 && this.robot.isPlayer) {
+        roboAudio.playJump(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
-      tail.rotation.y = Math.sin(this.animTime * 12) * 0.9;
+      if (progress < 0.18) {
+        body.position.y = this.damp(body.position.y, this.baseBodyY - 0.22, 18, delta);
+        body.scale.set(1.06, 0.92, 1.04);
+        body.rotation.x = this.damp(body.rotation.x, 0.22, 15, delta);
+        legs.FL.hip.rotation.x = 0.65;
+        legs.FR.hip.rotation.x = 0.65;
+        legs.BL.hip.rotation.x = -0.65;
+        legs.BR.hip.rotation.x = -0.65;
+      } else if (progress < 0.82) {
+        const airP = (progress - 0.18) / 0.64;
+        const jumpHeight = Math.sin(airP * Math.PI) * 1.85;
+        body.position.y = this.baseBodyY + jumpHeight;
+        body.scale.set(0.96, 1.06, 1.02);
+        body.rotation.x = MathUtils.lerp(-0.38, 0.28, airP);
+        neck.rotation.x = -0.2;
+        legs.FL.hip.rotation.x = -0.55;
+        legs.FR.hip.rotation.x = -0.55;
+        legs.FL.knee.rotation.x = 0.45;
+        legs.FR.knee.rotation.x = 0.45;
+        legs.BL.hip.rotation.x = 0.7;
+        legs.BR.hip.rotation.x = 0.7;
+      } else {
+        body.position.y = this.damp(body.position.y, this.baseBodyY - 0.08, 16, delta);
+        body.scale.set(1.04, 0.95, 1.02);
+        body.rotation.x = this.damp(body.rotation.x, 0, 12, delta);
+        this.dampPoseToNeutral(delta, 12, { keepBodyPos: true, keepBodyScale: true });
+      }
+      tail.rotation.y = Math.sin(this.animTime * 14) * 0.9;
     }
     animateWagTail(delta) {
-      const tail = this.nodes.tail;
-      const body = this.nodes.body;
-      const earL = this.nodes.earL;
-      const earR = this.nodes.earR;
-      body.position.y = this.baseBodyY + Math.sin(this.animTime * 8) * 0.04;
-      tail.rotation.y = Math.sin(this.animTime * 16) * 1.1;
-      earL.rotation.z = 0.35 + Math.sin(this.animTime * 8) * 0.1;
-      earR.rotation.z = -0.35 - Math.sin(this.animTime * 8) * 0.1;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepTail: true, keepEars: true });
+      const { tail, body, earL, earR } = this.nodes;
+      body.position.y = this.baseBodyY + Math.abs(Math.sin(this.animTime * 9)) * 0.045;
+      body.rotation.y = Math.sin(this.animTime * 16) * 0.06;
+      tail.rotation.y = Math.sin(this.animTime * 18) * 1.15;
+      tail.rotation.x = 0.75;
+      earL.rotation.z = 0.35 + Math.sin(this.animTime * 9) * 0.12;
+      earR.rotation.z = -0.35 - Math.sin(this.animTime * 9) * 0.12;
     }
     animateBark(delta) {
-      const neck = this.nodes.neck;
-      const body = this.nodes.body;
-      const progress = this.actionTimer % 0.5 / 0.5;
-      neck.rotation.x = Math.sin(progress * Math.PI) * 0.35;
-      body.position.y = this.baseBodyY + Math.sin(progress * Math.PI) * 0.08;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
-        roboAudio.playBark(1.1);
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepNeck: true, keepBodyRot: true });
+      const { neck, body, earL, earR } = this.nodes;
+      const progress = this.actionTimer % 0.45 / 0.45;
+      const pulse = Math.sin(progress * Math.PI);
+      neck.rotation.x = pulse * 0.38;
+      body.position.y = this.baseBodyY + pulse * 0.09;
+      body.rotation.x = -pulse * 0.12;
+      earL.rotation.x = -pulse * 0.25;
+      earR.rotation.x = -pulse * 0.25;
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+        roboAudio.playBark(this.robot.profile ? this.robot.profile.voicePitch : 1.1);
       }
     }
     animateSniff(delta) {
-      const neck = this.nodes.neck;
-      const body = this.nodes.body;
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, -0.4, delta * 6);
-      neck.rotation.y = Math.sin(this.animTime * 4) * 0.45;
-      body.position.y = MathUtils.lerp(body.position.y, this.baseBodyY - 0.12, delta * 6);
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true });
+      const { neck, body, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.14, 7, delta);
+      body.rotation.x = this.damp(body.rotation.x, 0.18, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.42 + Math.sin(this.animTime * 14) * 0.04, 8, delta);
+      neck.rotation.y = Math.sin(this.animTime * 4.2) * 0.45;
+      tail.rotation.y = Math.sin(this.animTime * 6) * 0.35;
     }
     animateScratch(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      body.rotation.z = MathUtils.lerp(body.rotation.z, -0.3, delta * 6);
-      body.position.y = MathUtils.lerp(body.position.y, 0.65, delta * 6);
-      const scratchFreq = Math.sin(this.animTime * 18) * 0.6;
-      legs.BL.hip.rotation.x = 1 + scratchFreq;
-      legs.BL.hip.rotation.z = 0.5;
-      legs.BL.knee.rotation.x = -0.8;
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true });
+      const { body, legs, neck } = this.nodes;
+      body.rotation.z = this.damp(body.rotation.z, -0.32, 7, delta);
+      body.position.y = this.damp(body.position.y, 0.66, 7, delta);
+      neck.rotation.z = this.damp(neck.rotation.z, 0.28, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.2, 7, delta);
+      const scratchFreq = Math.sin(this.animTime * 20) * 0.55;
+      legs.BL.hip.rotation.x = 1.05 + scratchFreq;
+      legs.BL.hip.rotation.z = 0.45;
+      legs.BL.knee.rotation.x = -0.75 + scratchFreq * 0.4;
     }
     animateBackflip(delta) {
-      const body = this.nodes.body;
+      const { body, legs } = this.nodes;
       const progress = Math.min(1, this.actionTimer / (this.actionDuration || 1.6));
-      const jumpHeight = Math.sin(progress * Math.PI) * 2.2;
+      const jumpHeight = Math.sin(progress * Math.PI) * 2.35;
       body.position.y = this.baseBodyY + jumpHeight;
-      body.rotation.x = progress * Math.PI * 2;
-      if (progress > 0.95 && this.robot.isPlayer) {
+      const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      body.rotation.x = eased * Math.PI * 2;
+      const tuck = Math.sin(progress * Math.PI);
+      Object.values(legs).forEach((leg) => {
+        leg.hip.rotation.x = tuck * 0.6;
+        leg.knee.rotation.x = tuck * 0.8;
+      });
+      if (progress > 0.94 && this.robot.isPlayer && !this._flipSoundPlayed) {
+        this._flipSoundPlayed = true;
         roboAudio.playTrickSuccess();
+      } else if (progress < 0.1) {
+        this._flipSoundPlayed = false;
       }
     }
     animateSpin(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const tail = this.nodes.tail;
-      this.robot.group.rotation.y += delta * 6;
-      body.position.y = this.baseBodyY + Math.sin(this.animTime * 8) * 0.05;
-      tail.rotation.y = Math.sin(this.animTime * 14) * 0.9;
-      legs.FL.hip.rotation.x = Math.sin(this.animTime * 10) * 0.4;
-      legs.FR.hip.rotation.x = Math.sin(this.animTime * 10 + Math.PI) * 0.4;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepLegs: true, keepTail: true });
+      const { body, legs, tail } = this.nodes;
+      this.robot.group.rotation.y += delta * 6.5;
+      body.position.y = this.baseBodyY + Math.abs(Math.sin(this.animTime * 10)) * 0.06;
+      tail.rotation.y = Math.sin(this.animTime * 15) * 0.95;
+      legs.FL.hip.rotation.x = Math.sin(this.animTime * 12) * 0.45;
+      legs.FR.hip.rotation.x = Math.sin(this.animTime * 12 + Math.PI) * 0.45;
+      legs.BL.hip.rotation.x = Math.cos(this.animTime * 12) * 0.45;
+      legs.BR.hip.rotation.x = Math.cos(this.animTime * 12 + Math.PI) * 0.45;
     }
     animateRoll(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const tail = this.nodes.tail;
+      const { body, legs, tail } = this.nodes;
       const progress = Math.min(1, this.actionTimer / (this.actionDuration || 1.8));
-      body.position.y = MathUtils.lerp(body.position.y, 0.45 + Math.sin(progress * Math.PI) * 0.35, delta * 8);
+      body.position.y = this.damp(body.position.y, 0.45 + Math.sin(progress * Math.PI) * 0.32, 10, delta);
       body.rotation.z = progress * Math.PI * 2;
-      legs.FL.hip.rotation.x = 0.5;
-      legs.FR.hip.rotation.x = 0.5;
-      legs.BL.hip.rotation.x = 0.8;
-      legs.BR.hip.rotation.x = 0.8;
+      legs.FL.hip.rotation.x = 0.55;
+      legs.FR.hip.rotation.x = 0.55;
+      legs.BL.hip.rotation.x = 0.75;
+      legs.BR.hip.rotation.x = 0.75;
       tail.rotation.y = Math.sin(this.animTime * 12) * 0.8;
     }
     animateWave(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 1.15, delta * 6);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, -0.65, delta * 6);
-      legs.FL.hip.rotation.x = MathUtils.lerp(legs.FL.hip.rotation.x, 0.5, delta * 6);
-      legs.FR.hip.rotation.x = -1.2 + Math.sin(this.animTime * 10) * 0.35;
-      legs.FR.knee.rotation.x = 0.8 + Math.sin(this.animTime * 10) * 0.3;
-      legs.BL.hip.rotation.x = MathUtils.lerp(legs.BL.hip.rotation.x, -1.1, delta * 6);
-      legs.BR.hip.rotation.x = MathUtils.lerp(legs.BR.hip.rotation.x, -1.1, delta * 6);
-      neck.rotation.x = 0.4;
-      neck.rotation.y = Math.sin(this.animTime * 3) * 0.2;
-      tail.rotation.y = Math.sin(this.animTime * 10) * 0.8;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 1.15, 7, delta);
+      body.rotation.x = this.damp(body.rotation.x, -0.68, 7, delta);
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.5, 7, delta);
+      legs.FR.hip.rotation.x = -1.25 + Math.sin(this.animTime * 10) * 0.35;
+      legs.FR.hip.rotation.z = -0.2 + Math.cos(this.animTime * 10) * 0.2;
+      legs.FR.knee.rotation.x = 0.75 + Math.sin(this.animTime * 10) * 0.3;
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.1, 7, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.1, 7, delta);
+      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.3, 7, delta);
+      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.3, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.45, 7, delta);
+      neck.rotation.y = Math.sin(this.animTime * 3.5) * 0.2;
+      tail.rotation.y = Math.sin(this.animTime * 11) * 0.85;
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
         roboAudio.playWaveSound(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
     animateRecharge(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 0.28, delta * 4);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, 0, delta * 4);
-      body.rotation.z = MathUtils.lerp(body.rotation.z, 0, delta * 4);
-      legs.FL.hip.rotation.x = MathUtils.lerp(legs.FL.hip.rotation.x, 1.25, delta * 4);
-      legs.FR.hip.rotation.x = MathUtils.lerp(legs.FR.hip.rotation.x, 1.25, delta * 4);
-      legs.BL.hip.rotation.x = MathUtils.lerp(legs.BL.hip.rotation.x, -1.25, delta * 4);
-      legs.BR.hip.rotation.x = MathUtils.lerp(legs.BR.hip.rotation.x, -1.25, delta * 4);
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, -0.4, delta * 4);
-      tail.rotation.y = 0;
+      this.dampPoseToNeutral(delta, 5, { keepBodyPos: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.28 + Math.sin(this.animTime * 1.4) * 0.012, 5, delta);
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 1.25, 5, delta);
+      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 1.25, 5, delta);
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.25, 5, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.25, 5, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.38, 5, delta);
+      tail.rotation.y = this.damp(tail.rotation.y, 0, 5, delta);
     }
     animateDig(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 0.72, delta * 6);
-      body.rotation.x = 0.35;
-      neck.rotation.x = -0.45;
-      const digL = Math.sin(this.animTime * 18) * 0.7;
-      const digR = Math.sin(this.animTime * 18 + Math.PI) * 0.7;
-      legs.FL.hip.rotation.x = 0.5 + digL;
-      legs.FR.hip.rotation.x = 0.5 + digR;
-      tail.rotation.x = 0.8;
-      tail.rotation.y = Math.sin(this.animTime * 14) * 0.9;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.72, 8, delta);
+      body.rotation.x = this.damp(body.rotation.x, 0.36, 8, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.45, 8, delta);
+      const digL = Math.sin(this.animTime * 19);
+      const digR = Math.sin(this.animTime * 19 + Math.PI);
+      legs.FL.hip.rotation.x = 0.45 + digL * 0.65;
+      legs.FL.knee.rotation.x = Math.max(0, -digL * 0.8);
+      legs.FR.hip.rotation.x = 0.45 + digR * 0.65;
+      legs.FR.knee.rotation.x = Math.max(0, -digR * 0.8);
+      tail.rotation.x = 0.85;
+      tail.rotation.y = Math.sin(this.animTime * 15) * 0.9;
     }
     animateHowl(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = MathUtils.lerp(body.position.y, 0.62, delta * 5);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, -0.38, delta * 5);
-      legs.BL.hip.rotation.x = -1.1;
-      legs.BR.hip.rotation.x = -1.1;
-      legs.FL.hip.rotation.x = 0.35;
-      legs.FR.hip.rotation.x = 0.35;
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, 0.82, delta * 6);
+      this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, neck, tail, legs } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.62, 6, delta);
+      body.rotation.x = this.damp(body.rotation.x, -0.38, 6, delta);
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.15, 6, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.15, 6, delta);
+      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.35, 6, delta);
+      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.35, 6, delta);
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.35, 6, delta);
+      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.35, 6, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.85, 7, delta);
       neck.rotation.y = Math.sin(this.animTime * 2.5) * 0.08;
       tail.rotation.y = Math.sin(this.animTime * 6) * 0.3;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
         roboAudio.playHowl(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
     animateDance(delta) {
-      const t = this.animTime * 9;
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const t = this.animTime * 9.2;
+      const { body, neck, tail, legs } = this.nodes;
       body.position.y = this.baseBodyY + Math.abs(Math.sin(t)) * 0.22;
-      body.rotation.z = Math.sin(t * 0.5) * 0.25;
-      neck.rotation.z = -Math.sin(t * 0.5) * 0.2;
-      neck.rotation.x = Math.sin(t) * 0.15;
+      body.rotation.z = Math.sin(t * 0.5) * 0.24;
+      body.rotation.y = Math.cos(t * 0.5) * 0.15;
+      neck.rotation.z = -Math.sin(t * 0.5) * 0.22;
+      neck.rotation.x = Math.sin(t) * 0.16;
       legs.FL.hip.rotation.x = Math.sin(t) * 0.6;
+      legs.FL.knee.rotation.x = Math.max(0, Math.cos(t) * 0.6);
       legs.BR.hip.rotation.x = -Math.sin(t) * 0.6;
       legs.FR.hip.rotation.x = -Math.sin(t) * 0.6;
+      legs.FR.knee.rotation.x = Math.max(0, -Math.cos(t) * 0.6);
       legs.BL.hip.rotation.x = Math.sin(t) * 0.6;
       tail.rotation.y = Math.sin(t * 2) * 1.2;
     }
     animateSneak(delta) {
-      const t = this.animTime * 3.5;
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = 0.55 + Math.sin(t * 2) * 0.03;
-      body.rotation.x = 0.15;
-      neck.rotation.x = -0.25;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true });
+      const t = this.animTime * 3.8;
+      const { body, neck, tail, legs } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.55 + Math.sin(t * 2) * 0.025, 8, delta);
+      body.rotation.x = this.damp(body.rotation.x, 0.14, 8, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.24, 8, delta);
       legs.FL.hip.rotation.x = Math.sin(t) * 0.35;
       legs.BR.hip.rotation.x = Math.sin(t) * 0.35;
       legs.FR.hip.rotation.x = Math.sin(t + Math.PI) * 0.35;
       legs.BL.hip.rotation.x = Math.sin(t + Math.PI) * 0.35;
       tail.rotation.y = Math.sin(t) * 0.3;
     }
-    // Authentic Canine Play-Bow (Universal invitation to play!)
     animatePlayBow(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = MathUtils.lerp(body.position.y, 0.52, delta * 7);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, 0.45, delta * 7);
-      legs.FL.hip.rotation.x = MathUtils.lerp(legs.FL.hip.rotation.x, 0.95, delta * 7);
-      legs.FR.hip.rotation.x = MathUtils.lerp(legs.FR.hip.rotation.x, 0.95, delta * 7);
-      legs.FL.knee.rotation.x = MathUtils.lerp(legs.FL.knee.rotation.x, -0.6, delta * 7);
-      legs.FR.knee.rotation.x = MathUtils.lerp(legs.FR.knee.rotation.x, -0.6, delta * 7);
-      legs.BL.hip.rotation.x = MathUtils.lerp(legs.BL.hip.rotation.x, -0.2, delta * 7);
-      legs.BR.hip.rotation.x = MathUtils.lerp(legs.BR.hip.rotation.x, -0.2, delta * 7);
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, -0.4, delta * 7);
-      tail.rotation.x = 0.8;
+      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, neck, tail, legs } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.52, 8, delta);
+      body.rotation.x = this.damp(body.rotation.x, 0.46, 8, delta);
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.95, 8, delta);
+      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.95, 8, delta);
+      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, -0.6, 8, delta);
+      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, -0.6, 8, delta);
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -0.2, 8, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -0.2, 8, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.42, 8, delta);
+      tail.rotation.x = 0.85;
       tail.rotation.y = Math.sin(this.animTime * 18) * 1.1;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
         roboAudio.playYip(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
-    // Inquisitive Head Tilt (Cognitive attention & listening)
     animateHeadTilt(delta) {
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const earL = this.nodes.earL;
-      const earR = this.nodes.earR;
+      this.dampPoseToNeutral(delta, 7, { keepNeck: true, keepEars: true, keepTail: true });
+      const { neck, tail, earL, earR } = this.nodes;
       const tiltCycle = Math.sin(this.animTime * 3.5);
-      neck.rotation.z = MathUtils.lerp(neck.rotation.z, tiltCycle * 0.42, delta * 6);
-      neck.rotation.x = MathUtils.lerp(neck.rotation.x, 0.18, delta * 5);
+      neck.rotation.z = this.damp(neck.rotation.z, tiltCycle * 0.44, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.18, 6, delta);
       earL.rotation.z = 0.25 + (tiltCycle > 0 ? 0.35 : -0.15);
       earR.rotation.z = -0.25 + (tiltCycle < 0 ? -0.35 : 0.15);
       tail.rotation.y = Math.sin(this.animTime * 5) * 0.4;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
         roboAudio.playWhine(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
-    // Belly Rub Posture (Total trust, loyalty and affection)
     animateBellyRub(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 0.32, delta * 6);
-      body.rotation.z = MathUtils.lerp(body.rotation.z, Math.PI * 0.9, delta * 6);
-      const pawPaddle = Math.sin(this.animTime * 6) * 0.35;
-      legs.FL.hip.rotation.x = 0.8 + pawPaddle;
-      legs.FR.hip.rotation.x = 0.8 - pawPaddle;
+      this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.34, 6, delta);
+      body.rotation.z = this.damp(body.rotation.z, Math.PI * 0.92, 6, delta);
+      const pawPaddle = Math.sin(this.animTime * 6.5) * 0.35;
+      legs.FL.hip.rotation.x = 0.75 + pawPaddle;
+      legs.FR.hip.rotation.x = 0.75 - pawPaddle;
+      legs.FL.knee.rotation.x = 0.45;
+      legs.FR.knee.rotation.x = 0.45;
       legs.BL.hip.rotation.x = -0.5 + pawPaddle;
       legs.BR.hip.rotation.x = -0.5 - pawPaddle;
       neck.rotation.x = 0.2;
       tail.rotation.y = Math.sin(this.animTime * 14) * 0.7;
     }
-    // Begging Posture (Standing on hind legs with front paws up)
     animateBeg(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, 1.25, delta * 6);
-      body.rotation.x = MathUtils.lerp(body.rotation.x, -0.75, delta * 6);
-      const begBob = Math.sin(this.animTime * 8) * 0.2;
-      legs.FL.hip.rotation.x = MathUtils.lerp(legs.FL.hip.rotation.x, -0.65 + begBob, delta * 7);
-      legs.FR.hip.rotation.x = MathUtils.lerp(legs.FR.hip.rotation.x, -0.65 + begBob, delta * 7);
-      legs.FL.knee.rotation.x = MathUtils.lerp(legs.FL.knee.rotation.x, 0.9, delta * 7);
-      legs.FR.knee.rotation.x = MathUtils.lerp(legs.FR.knee.rotation.x, 0.9, delta * 7);
-      legs.BL.hip.rotation.x = MathUtils.lerp(legs.BL.hip.rotation.x, -1.2, delta * 6);
-      legs.BR.hip.rotation.x = MathUtils.lerp(legs.BR.hip.rotation.x, -1.2, delta * 6);
-      neck.rotation.x = 0.5;
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, 1.24, 7, delta);
+      body.rotation.x = this.damp(body.rotation.x, -0.76, 7, delta);
+      const begBob = Math.sin(this.animTime * 8.5) * 0.22;
+      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, -0.65 + begBob, 8, delta);
+      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, -0.65 + begBob, 8, delta);
+      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0.92, 8, delta);
+      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0.92, 8, delta);
+      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.2, 7, delta);
+      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.2, 7, delta);
+      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.35, 7, delta);
+      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.35, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.52, 7, delta);
       tail.rotation.y = Math.sin(this.animTime * 12) * 0.8;
     }
-    // Centrifugal Body Shake-Off (Arousal reset & drying)
     animateShakeOff(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const earL = this.nodes.earL;
-      const earR = this.nodes.earR;
-      const shakeFreq = Math.sin(this.animTime * 32);
-      body.rotation.z = shakeFreq * 0.35;
-      neck.rotation.z = -shakeFreq * 0.45;
-      tail.rotation.y = -shakeFreq * 0.8;
-      earL.rotation.z = 0.25 + shakeFreq * 0.5;
-      earR.rotation.z = -0.25 + shakeFreq * 0.5;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
-        roboAudio.playPlayfulGrumble ? roboAudio.playPlayfulGrumble(1.2) : roboAudio.playBoop(0.8);
+      this.dampPoseToNeutral(delta, 8, { keepBodyRot: true, keepNeck: true, keepTail: true, keepEars: true });
+      const { body, neck, tail, earL, earR } = this.nodes;
+      const envelope = Math.sin(Math.min(1, this.actionTimer / (this.actionDuration || 1.8)) * Math.PI);
+      const shakeFreq = Math.sin(this.animTime * 34) * envelope;
+      body.rotation.z = shakeFreq * 0.36;
+      neck.rotation.z = -shakeFreq * 0.48;
+      tail.rotation.y = -shakeFreq * 0.85;
+      earL.rotation.z = 0.25 + shakeFreq * 0.55;
+      earR.rotation.z = -0.25 + shakeFreq * 0.55;
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+        roboAudio.playPlayfulGrumble(1.2);
       }
     }
-    // Nuzzle / Affectionate Boop
     animateNuzzle(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, this.baseBodyY - 0.08, delta * 6);
-      body.rotation.z = 0.12;
-      neck.rotation.x = 0.25;
-      neck.rotation.y = Math.sin(this.animTime * 3) * 0.25;
-      tail.rotation.y = Math.sin(this.animTime * 8) * 0.7;
-      if (this.actionTimer < 0.1 && this.robot.isPlayer) {
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true, keepTail: true });
+      const { body, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.08, 7, delta);
+      body.rotation.z = this.damp(body.rotation.z, Math.sin(this.animTime * 3) * 0.14, 7, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.26, 7, delta);
+      neck.rotation.y = Math.sin(this.animTime * 3.2) * 0.26;
+      tail.rotation.y = Math.sin(this.animTime * 9) * 0.75;
+      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
         roboAudio.playBoop(1.4);
       }
     }
-    // Picked up by the user's hand (Legs paddling adorably in the air)
     animatePickedUp(delta) {
-      const body = this.nodes.body;
-      const legs = this.nodes.legs;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      body.position.y = MathUtils.lerp(body.position.y, this.baseBodyY + 0.15, delta * 6);
+      const { body, legs, neck, tail } = this.nodes;
+      body.position.y = this.damp(body.position.y, this.baseBodyY + 0.15, 7, delta);
       body.rotation.z = Math.sin(this.animTime * 4) * 0.08;
-      body.rotation.x = Math.sin(this.animTime * 3) * 0.05;
+      body.rotation.x = Math.sin(this.animTime * 3) * 0.06;
       const paddleSpeed = 12;
       const paddleAmp = 0.55;
       legs.FL.hip.rotation.x = Math.sin(this.animTime * paddleSpeed) * paddleAmp;
@@ -36305,12 +38382,9 @@ void main() {
       neck.rotation.x = 0.15 + Math.sin(this.animTime * 5) * 0.1;
       tail.rotation.y = Math.sin(this.animTime * 14) * 0.85;
     }
-    // Chase its own tail (Spinning rapidly on itself trying to bite tail)
     animateChaseTail(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
+      const { body, neck, tail, legs } = this.nodes;
+      this.robot.group.rotation.y += delta * 8.5;
       body.rotation.y = Math.sin(this.animTime * 24) * 0.2;
       body.rotation.z = -0.15;
       body.position.y = this.baseBodyY;
@@ -36323,13 +38397,9 @@ void main() {
       legs.BL.hip.rotation.x = -Math.sin(legFreq) * 0.6;
       legs.BR.hip.rotation.x = Math.sin(legFreq) * 0.6;
     }
-    // Dizzy Wobble (Seated with spinning head wobble)
     animateDizzy(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = MathUtils.lerp(body.position.y, 0.55, delta * 8);
+      const { body, neck, tail, legs } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.55, 8, delta);
       legs.BL.hip.rotation.x = -1.1;
       legs.BR.hip.rotation.x = -1.1;
       legs.FL.hip.rotation.x = 0.2;
@@ -36340,49 +38410,36 @@ void main() {
       body.rotation.z = Math.sin(this.animTime * 5) * 0.12;
       tail.rotation.y = Math.sin(this.animTime * 2) * 0.2;
     }
-    // Swimming in water (Low profile with rhythmic doggy paddle)
     animateSwimming(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = MathUtils.lerp(body.position.y, 0.45, delta * 6);
-      body.rotation.x = 0.12;
+      const { body, neck, tail, legs } = this.nodes;
+      body.position.y = this.damp(body.position.y, 0.45 + Math.sin(this.animTime * 4) * 0.04, 6, delta);
+      body.rotation.x = this.damp(body.rotation.x, 0.14, 6, delta);
       body.rotation.z = Math.sin(this.animTime * 6) * 0.08;
-      neck.rotation.x = -0.35;
+      neck.rotation.x = this.damp(neck.rotation.x, -0.36, 6, delta);
       neck.rotation.y = Math.sin(this.animTime * 3) * 0.1;
-      const paddleSpeed = 8;
+      const paddleSpeed = 8.5;
       legs.FL.hip.rotation.x = Math.sin(this.animTime * paddleSpeed) * 0.65;
+      legs.FL.knee.rotation.x = 0.5 + Math.cos(this.animTime * paddleSpeed) * 0.4;
       legs.FR.hip.rotation.x = -Math.sin(this.animTime * paddleSpeed) * 0.65;
+      legs.FR.knee.rotation.x = 0.5 - Math.cos(this.animTime * paddleSpeed) * 0.4;
       legs.BL.hip.rotation.x = -Math.cos(this.animTime * paddleSpeed) * 0.5;
       legs.BR.hip.rotation.x = Math.cos(this.animTime * paddleSpeed) * 0.5;
-      tail.rotation.y = Math.sin(this.animTime * 10) * 0.6;
+      tail.rotation.y = Math.sin(this.animTime * 10) * 0.65;
     }
-    // Perimeter Lookout (Standing alert, scanning left and right)
     animatePatrolLook(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = this.baseBodyY;
-      legs.FL.hip.rotation.x = 0;
-      legs.FR.hip.rotation.x = 0;
-      legs.BL.hip.rotation.x = 0;
-      legs.BR.hip.rotation.x = 0;
+      this.dampPoseToNeutral(delta, 7, { keepNeck: true, keepTail: true });
+      const { neck, tail } = this.nodes;
       const scanCycle = Math.sin(this.animTime * 2);
-      neck.rotation.y = MathUtils.lerp(neck.rotation.y, scanCycle * 0.75, delta * 5);
-      neck.rotation.x = -0.15;
+      neck.rotation.y = this.damp(neck.rotation.y, scanCycle * 0.75, 5, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, -0.15, 5, delta);
       tail.rotation.y = Math.sin(this.animTime * 4) * 0.25;
     }
-    // Scent Track (Head low to ground, slow deliberate walk)
     animateScentTrack(delta) {
-      const body = this.nodes.body;
-      const neck = this.nodes.neck;
-      const tail = this.nodes.tail;
-      const legs = this.nodes.legs;
-      body.position.y = MathUtils.lerp(body.position.y, this.baseBodyY - 0.14, delta * 6);
-      body.rotation.x = 0.18;
-      neck.rotation.x = 0.48;
+      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true, keepLegs: true });
+      const { body, neck, tail, legs } = this.nodes;
+      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.14, 6, delta);
+      body.rotation.x = this.damp(body.rotation.x, 0.18, 6, delta);
+      neck.rotation.x = this.damp(neck.rotation.x, 0.48, 6, delta);
       neck.rotation.y = Math.sin(this.animTime * 4) * 0.22;
       const t = this.animTime * 4.2;
       legs.FL.hip.rotation.x = Math.sin(t) * 0.4;
@@ -36394,6 +38451,10 @@ void main() {
   };
 
   // public/js/other_robots.js
+  function lerpAngle(current, target, t) {
+    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    return current + diff * Math.min(1, t);
+  }
   var RobotPackManager = class {
     constructor(scene, world, onActivityCallback = null) {
       this.scene = scene;
@@ -36418,7 +38479,7 @@ void main() {
         Luna: new Vector3(18, 0, -15),
         Rusty: new Vector3(55, 0, 48)
       };
-      robotNames.forEach((name, idx) => {
+      robotNames.forEach((name) => {
         const isInitialPlayer = name === "Sparky";
         const startPos = startPositions[name];
         const dog = new ChibiRobotDog(name, {
@@ -36427,14 +38488,19 @@ void main() {
         dog.animController = new AnimationController(dog);
         dog.group.position.copy(startPos);
         dog.group.position.y = this.world.getHeightAt(startPos.x, startPos.z);
+        dog.velocityY = 0;
         this.scene.add(dog.group);
         this.allRobots[name] = dog;
         dog.aiState = {
           state: "WANDER",
           targetPos: new Vector3(),
+          targetBall: null,
+          targetSnack: null,
           stateTimer: 2 + Math.random() * 4,
           speed: 3.4 * (dog.profile.speedMultiplier || 1),
           lastInteractedDog: null,
+          playerGreetCooldown: 0,
+          dogGreetCooldown: 0,
           tagRole: null,
           // 'CHASER' | 'PREY'
           tagTarget: null,
@@ -36457,6 +38523,7 @@ void main() {
       if (this.currentControlledRobot) {
         this.currentControlledRobot.setAsPlayer(false);
         this.currentControlledRobot.aiState.state = "WANDER";
+        this.currentControlledRobot.aiState.playerGreetCooldown = 6;
         this.pickNewTarget(this.currentControlledRobot);
         if (!this.pack.includes(this.currentControlledRobot)) {
           this.pack.push(this.currentControlledRobot);
@@ -36477,7 +38544,6 @@ void main() {
       if (!playerRobot) return;
       const pPos = playerRobot.group.position;
       const pRotY = playerRobot.group.rotation.y;
-      const fwd = new Vector3(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), pRotY);
       this.logActivity(`\u{1F4E3} \xA1La manada escuch\xF3 tu llamado y se re\xFAne a tu alrededor!`);
       roboAudio.playHappyJingle();
       const count = this.pack.length;
@@ -36494,60 +38560,61 @@ void main() {
     }
     // Social Game 1: "La Traes" (Tag Chaser vs Prey)
     startTagGame(initiator) {
-      if (!initiator || this.pack.length === 0) return;
-      const preyDog = this.pack[Math.floor(Math.random() * this.pack.length)];
-      if (!preyDog) return;
-      this.logActivity(`\u{1F3C3} \xA1Comienza el juego de "La Traes"! ${initiator.name} persigue a ${preyDog.name}!`);
+      if (this.pack.length === 0) return;
+      const candidates = this.pack.filter((d) => d !== initiator);
+      const chaserDog = initiator && this.pack.includes(initiator) ? initiator : candidates[0];
+      const preyDog = candidates.find((d) => d !== chaserDog) || this.pack[0];
+      if (!chaserDog || !preyDog) return;
+      this.logActivity(`\u{1F3C3} \xA1Comienza el juego de "La Traes"! \xA1${chaserDog.name} persigue a ${preyDog.name}!`);
       roboAudio.playYip(1.4);
-      initiator.aiState = initiator.aiState || {};
-      initiator.aiState.state = "PLAY_TAG";
-      initiator.aiState.tagRole = "CHASER";
-      initiator.aiState.tagTarget = preyDog;
-      initiator.aiState.speed = 7 * (initiator.profile.speedMultiplier || 1);
-      initiator.animController.play("run");
+      chaserDog.aiState.state = "PLAY_TAG";
+      chaserDog.aiState.tagRole = "CHASER";
+      chaserDog.aiState.tagTarget = preyDog;
+      chaserDog.aiState.speed = 7 * (chaserDog.profile.speedMultiplier || 1);
+      chaserDog.aiState.stateTimer = 16;
+      chaserDog.animController.play("run");
       preyDog.aiState.state = "PLAY_TAG";
       preyDog.aiState.tagRole = "PREY";
-      preyDog.aiState.tagTarget = initiator;
+      preyDog.aiState.tagTarget = chaserDog;
       preyDog.aiState.speed = 6.8 * (preyDog.profile.speedMultiplier || 1);
       preyDog.aiState.stateTimer = 16;
       preyDog.animController.play("run");
     }
     // Social Game 2: Speed Race to Landmark
     startSpeedRace(initiator) {
-      if (!initiator) return;
       const destinations = [
         { name: "la Porter\xEDa de F\xFAtbol", pos: new Vector3(25, 0, 40) },
         { name: "el Muelle del Lago", pos: new Vector3(-44, 0, -75) },
         { name: "la Piscina de Pelotas", pos: new Vector3(-32, 0, 48) }
       ];
       const target = destinations[Math.floor(Math.random() * destinations.length)];
-      const racers = [initiator, ...this.pack.slice(0, 2)];
-      this.logActivity(`\u{1F3C1} \xA1RETRO DE VELOCIDAD hacia ${target.name}! \xA13... 2... 1... \xA1\xA1YA!! \u{1F415}\u26A1`);
+      const racers = this.pack.slice(0, 3);
+      this.logActivity(`\u{1F3C1} \xA1RETO DE VELOCIDAD hacia ${target.name}! \xA13... 2... 1... \xA1\xA1YA!! \u{1F415}\u26A1`);
       roboAudio.playBark(1.2);
       racers.forEach((r, idx) => {
-        r.aiState = r.aiState || {};
+        const offsetPos = target.pos.clone();
+        offsetPos.x += (idx - 1) * 1.4;
         r.aiState.state = "SPEED_RACE";
-        r.aiState.targetPos = target.pos.clone();
-        r.aiState.speed = (6 + Math.random() * 2.5) * (r.profile.speedMultiplier || 1);
+        r.aiState.targetPos.copy(offsetPos);
+        r.aiState.speed = (6 + Math.random() * 2.2) * (r.profile.speedMultiplier || 1);
         r.aiState.stateTimer = 18;
         r.animController.play("run");
       });
+      return target.pos.clone();
     }
     // Social Game 3: Pack Gossip / Small Circle Meeting
     startPackGossip(initiator) {
       const center = initiator ? initiator.group.position.clone() : new Vector3(0, 0, 0);
       this.logActivity(`\u{1F4AC} \xA1Reuni\xF3n secreta de la manada en c\xEDrculo para saludarse y charlar!`);
       roboAudio.playHappyJingle();
-      const all = [initiator, ...this.pack].filter(Boolean);
-      const count = all.length;
-      all.forEach((dog, idx) => {
-        const angle = idx / count * Math.PI * 2;
-        const targetX = center.x + Math.cos(angle) * 2.4;
-        const targetZ = center.z + Math.sin(angle) * 2.4;
-        dog.aiState = dog.aiState || {};
+      const count = this.pack.length;
+      this.pack.forEach((dog, idx) => {
+        const angle = idx / Math.max(1, count) * Math.PI * 2;
+        const targetX = center.x + Math.cos(angle) * 2.6;
+        const targetZ = center.z + Math.sin(angle) * 2.6;
         dog.aiState.state = "PACK_GOSSIP";
-        dog.aiState.targetPos = new Vector3(targetX, 0, targetZ);
-        dog.aiState.speed = 4.2;
+        dog.aiState.targetPos.set(targetX, 0, targetZ);
+        dog.aiState.speed = 4.4;
         dog.aiState.stateTimer = 12;
         dog.animController.play("walk");
       });
@@ -36555,6 +38622,8 @@ void main() {
     pickNewTarget(dog) {
       const ai = dog.aiState;
       const profile = dog.profile;
+      ai.targetBall = null;
+      ai.targetSnack = null;
       dog.energy = Math.max(10, (dog.energy || 100) - 1.5);
       dog.hydration = Math.max(15, (dog.hydration || 90) - 2);
       if (dog.hydration < 35 && Math.random() < 0.75) {
@@ -36577,24 +38646,27 @@ void main() {
       }
       if (this.world.snacks && this.world.snacks.length > 0 && Math.random() < 0.65) {
         const snack = this.world.snacks[0];
+        ai.targetSnack = snack;
         ai.targetPos.copy(snack.group.position);
         ai.state = "CHASE_SNACK";
         dog.animController.play("run");
         ai.speed = 5.6 * profile.speedMultiplier;
         ai.stateTimer = 8;
-        this.logActivity(`\u{1F36A} ${dog.name} oli\xF3 una galleta y corre a com\xE9rsela!`);
+        this.logActivity(`\u{1F36A} \xA1${dog.name} oli\xF3 una galleta y corre a com\xE9rsela!`);
         return;
       }
       const choice = Math.random();
       if (profile.name === "Bolt") {
-        if (this.world.balls.length > 0 && choice < 0.6) {
-          const ball = this.world.balls[Math.floor(Math.random() * this.world.balls.length)];
+        const availableBalls = (this.world.balls || []).filter((b) => !b.carriedBy);
+        if (availableBalls.length > 0 && choice < 0.6) {
+          const ball = availableBalls[Math.floor(Math.random() * availableBalls.length)];
+          ai.targetBall = ball;
           ai.targetPos.copy(ball.mesh.position);
           ai.state = "CHASE_BALL";
           dog.animController.play("run");
           ai.speed = 6.4 * profile.speedMultiplier;
           ai.stateTimer = 9;
-          this.logActivity(`\u26A1 ${dog.name} corre a toda velocidad hacia la pelota!`);
+          this.logActivity(`\u26A1 \xA1${dog.name} corre a toda velocidad hacia la pelota!`);
         } else {
           ai.targetPos.set(22, 0, -50);
           ai.state = "GO_TUNNEL";
@@ -36649,15 +38721,10 @@ void main() {
       } else {
         const destinations = [
           new Vector3(-32, 0, 48),
-          // Ball pit
           new Vector3(-18, 0, -32),
-          // Slide
           new Vector3(22, 0, -50),
-          // Tunnel
           new Vector3(38, 0, 22),
-          // Trampoline
           new Vector3(50, 0, 40)
-          // Soccer field
         ];
         const dest = destinations[Math.floor(Math.random() * destinations.length)];
         ai.targetPos.copy(dest);
@@ -36667,13 +38734,51 @@ void main() {
         ai.stateTimer = 8;
       }
     }
+    // Proactive obstacle feeler so autonomous dogs steer smoothly around trees & walls
+    computeAvoidanceDir(pos, desiredDir) {
+      if (!this.world || !this.world.getNearObstacles) return desiredDir;
+      const lookAhead = 2.4;
+      const probeX = pos.x + desiredDir.x * lookAhead;
+      const probeZ = pos.z + desiredDir.z * lookAhead;
+      const obstacles = this.world.getNearObstacles(probeX, probeZ);
+      for (let i = 0; i < obstacles.length; i++) {
+        const obs = obstacles[i];
+        if (obs.yMin !== void 0 && obs.yMax !== void 0) {
+          if (pos.y + 1.1 < obs.yMin || pos.y > obs.yMax) continue;
+        }
+        const dx = probeX - obs.x;
+        const dz = probeZ - obs.z;
+        const r = (obs.radius || Math.max(obs.halfW || 1, obs.halfD || 1)) + 1.1;
+        const dist = Math.hypot(dx, dz);
+        if (dist < r && dist > 1e-3) {
+          const steer = new Vector3(dx / dist, 0, dz / dist);
+          return desiredDir.clone().addScaledVector(steer, 1.35).normalize();
+        }
+      }
+      return desiredDir;
+    }
     update(delta, playerRobot = null) {
       this.pack.forEach((dog) => {
         dog.update(delta);
         dog.animController.update(delta);
-        if (dog.isPickedUp) return;
+        if (dog.isPickedUp || dog.isSliding) return;
         const ai = dog.aiState;
         ai.stateTimer -= delta;
+        if (ai.playerGreetCooldown > 0) ai.playerGreetCooldown = Math.max(0, ai.playerGreetCooldown - delta);
+        if (ai.dogGreetCooldown > 0) ai.dogGreetCooldown = Math.max(0, ai.dogGreetCooldown - delta);
+        if (ai.state === "CHASE_BALL" && ai.targetBall) {
+          if (ai.targetBall.carriedBy) {
+            this.pickNewTarget(dog);
+            return;
+          }
+          ai.targetPos.copy(ai.targetBall.mesh.position);
+        } else if (ai.state === "CHASE_SNACK") {
+          if (!ai.targetSnack || !this.world.snacks.includes(ai.targetSnack)) {
+            this.pickNewTarget(dog);
+            return;
+          }
+          ai.targetPos.copy(ai.targetSnack.group.position);
+        }
         if (ai.state === "PLAY_TAG") {
           if (!ai.tagTarget) {
             this.pickNewTarget(dog);
@@ -36682,23 +38787,25 @@ void main() {
           if (ai.tagRole === "CHASER") {
             ai.targetPos.copy(ai.tagTarget.group.position);
             const d = dog.group.position.distanceTo(ai.tagTarget.group.position);
-            if (d < 1.45) {
+            if (d < 1.5) {
               roboAudio.playBoop(1.5);
               this.logActivity(`\u26A1 \xA1${dog.name} toc\xF3 a ${ai.tagTarget.name}! \xA1Ahora la trae ${ai.tagTarget.name}! \u{1F43E}`);
               const prevTarget = ai.tagTarget;
               ai.tagRole = "PREY";
               ai.tagTarget = prevTarget;
-              ai.stateTimer = 1.5;
+              ai.stateTimer = 8;
               if (prevTarget.aiState) {
                 prevTarget.aiState.tagRole = "CHASER";
                 prevTarget.aiState.tagTarget = dog;
+                prevTarget.aiState.stateTimer = 8;
                 prevTarget.animController.play("jump", 1);
               }
             }
           } else if (ai.tagRole === "PREY") {
             const fleeDir = new Vector3().subVectors(dog.group.position, ai.tagTarget.group.position);
             fleeDir.y = 0;
-            fleeDir.normalize();
+            if (fleeDir.lengthSq() > 1e-3) fleeDir.normalize();
+            else fleeDir.set(1, 0, 0);
             ai.targetPos.copy(dog.group.position).addScaledVector(fleeDir, 8);
           }
           if (ai.stateTimer <= 0) {
@@ -36708,16 +38815,16 @@ void main() {
           }
         }
         if (ai.state === "SPEED_RACE") {
-          const d = dog.group.position.distanceTo(ai.targetPos);
+          const d = Math.hypot(dog.group.position.x - ai.targetPos.x, dog.group.position.z - ai.targetPos.z);
           if (d < 2.8) {
             this.logActivity(`\u{1F3C6} \xA1\xA1${dog.name} GAN\xD3 LA CARRERA!! \xA1Es el perrito m\xE1s veloz del parque! \u{1F947}`);
             roboAudio.playGoalFanfare();
             dog.animController.play("backflip", 2);
             dog.setEmotion(EMOTIONS.PROUD);
-            this.pack.forEach((d2) => {
-              if (d2.aiState && d2.aiState.state === "SPEED_RACE") {
-                d2.aiState.state = "PAUSE";
-                d2.aiState.stateTimer = 3;
+            this.pack.forEach((dOther) => {
+              if (dOther.aiState && dOther.aiState.state === "SPEED_RACE") {
+                dOther.aiState.state = "PAUSE";
+                dOther.aiState.stateTimer = 3;
               }
             });
             return;
@@ -36727,7 +38834,7 @@ void main() {
           const d = Math.hypot(dog.group.position.x - ai.targetPos.x, dog.group.position.z - ai.targetPos.z);
           if (d < 1.8) {
             dog.animController.play("wagTail");
-            if (Math.random() < 0.08) {
+            if (Math.random() < 0.04) {
               dog.animController.play(Math.random() < 0.5 ? "headTilt" : "playBow", 1.8);
               roboAudio.playBoop(dog.profile.voicePitch || 1);
             }
@@ -36737,11 +38844,12 @@ void main() {
             return;
           }
         }
-        if (playerRobot && playerRobot !== dog) {
+        if (playerRobot && playerRobot !== dog && ai.playerGreetCooldown <= 0) {
           const distToPlayer = dog.group.position.distanceTo(playerRobot.group.position);
-          if (distToPlayer < 4.2 && ai.state !== "INTERACT_PLAYER") {
+          if (distToPlayer < 4 && !["INTERACT_PLAYER", "PLAY_TAG", "SPEED_RACE", "ASSEMBLE_PACK"].includes(ai.state)) {
             ai.state = "INTERACT_PLAYER";
-            ai.stateTimer = 3.5;
+            ai.stateTimer = 3.2;
+            ai.playerGreetCooldown = 18;
             dog.lookAt(playerRobot.group.position);
             const socialEmotions = [EMOTIONS.HAPPY, EMOTIONS.LOVING, EMOTIONS.EXCITED, EMOTIONS.PROUD];
             dog.setEmotion(socialEmotions[Math.floor(Math.random() * socialEmotions.length)]);
@@ -36755,32 +38863,36 @@ void main() {
               Rusty: `\u{1F938} Rusty: "\xA1M\xEDrame, ${playerRobot.name}! \xA1Mira qu\xE9 truco acabo de inventar!"`,
               Sparky: `\u{1F43E} Sparky: "\xA1Hola compa\xF1ero! El d\xEDa est\xE1 perfecto para explorar juntos."`
             };
-            this.logActivity(greetings[dog.name] || `\u{1F43E} ${dog.name} salud\xF3 alegremente a ${playerRobot.name}!`);
+            this.logActivity(greetings[dog.name] || `\u{1F43E} \xA1${dog.name} salud\xF3 alegremente a ${playerRobot.name}!`);
           }
         }
-        this.pack.forEach((otherDog) => {
-          if (otherDog === dog) return;
-          const distBetween = dog.group.position.distanceTo(otherDog.group.position);
-          if (distBetween < 3.5 && ai.state !== "INTERACT_DOG" && ai.lastInteractedDog !== otherDog) {
-            ai.state = "INTERACT_DOG";
-            ai.stateTimer = 3.2;
-            ai.lastInteractedDog = otherDog;
-            dog.lookAt(otherDog.group.position);
-            otherDog.lookAt(dog.group.position);
-            if (Math.random() < 0.45) {
-              dog.setEmotion(EMOTIONS.EXCITED);
-              dog.animController.play("playBow", 2.5);
-              otherDog.animController.play("wagTail", 2.5);
-              roboAudio.playYip(dog.profile.voicePitch || 1);
-              this.logActivity(`\u{1F436} \xA1${dog.name} hizo una reverencia de juego (play-bow) ante ${otherDog.name}!`);
-            } else {
-              dog.setEmotion(EMOTIONS.HAPPY);
-              dog.animController.play(Math.random() < 0.5 ? "sniff" : "nuzzle", 2.2);
-              roboAudio.playBoop(dog.profile.voicePitch || 1);
-              this.logActivity(`\u{1F43E} ${dog.name} y ${otherDog.name} se saludaron con un boop de hocicos.`);
+        if (ai.dogGreetCooldown <= 0) {
+          this.pack.forEach((otherDog) => {
+            if (otherDog === dog) return;
+            const distBetween = dog.group.position.distanceTo(otherDog.group.position);
+            if (distBetween < 3.4 && ai.state !== "INTERACT_DOG" && ai.lastInteractedDog !== otherDog && otherDog.aiState.dogGreetCooldown <= 0) {
+              ai.state = "INTERACT_DOG";
+              ai.stateTimer = 3;
+              ai.dogGreetCooldown = 16;
+              ai.lastInteractedDog = otherDog;
+              otherDog.aiState.dogGreetCooldown = 16;
+              dog.lookAt(otherDog.group.position);
+              otherDog.lookAt(dog.group.position);
+              if (Math.random() < 0.45) {
+                dog.setEmotion(EMOTIONS.EXCITED);
+                dog.animController.play("playBow", 2.5);
+                otherDog.animController.play("wagTail", 2.5);
+                roboAudio.playYip(dog.profile.voicePitch || 1);
+                this.logActivity(`\u{1F436} \xA1${dog.name} hizo una reverencia de juego (play-bow) ante ${otherDog.name}!`);
+              } else {
+                dog.setEmotion(EMOTIONS.HAPPY);
+                dog.animController.play(Math.random() < 0.5 ? "sniff" : "nuzzle", 2.2);
+                roboAudio.playBoop(dog.profile.voicePitch || 1);
+                this.logActivity(`\u{1F43E} ${dog.name} y ${otherDog.name} se saludaron con un boop de hocicos.`);
+              }
             }
-          }
-        });
+          });
+        }
         if (ai.state === "INTERACT_PLAYER") {
           if (playerRobot) dog.lookAt(playerRobot.group.position);
           if (ai.stateTimer <= 0) {
@@ -36800,6 +38912,7 @@ void main() {
           if (distToStation < 2.5) {
             ai.state = "RECHARGING";
             ai.stateTimer = 6;
+            dog.energy = 100;
             dog.setEmotion(EMOTIONS.SLEEPY);
             dog.animController.play("lieDown");
             roboAudio.playBoop(dog.profile.voicePitch || 1);
@@ -36814,15 +38927,15 @@ void main() {
         }
         const curPos = dog.group.position;
         const distToTarget = Math.hypot(curPos.x - ai.targetPos.x, curPos.z - ai.targetPos.z);
-        if (ai.state === "ASSEMBLE_PACK" && distToTarget < 2) {
+        if (ai.state === "ASSEMBLE_PACK" && distToTarget < 1.8) {
           if (playerRobot) dog.lookAt(playerRobot.group.position);
           dog.setEmotion(EMOTIONS.LOVING);
           dog.animController.play("playBow", 2.5);
           roboAudio.playBoop(dog.profile.voicePitch || 1);
           ai.state = "PAUSE";
           ai.stateTimer = 4;
-        } else if (distToTarget < 2.2 || ai.stateTimer <= 0) {
-          if (Math.random() < 0.35) {
+        } else if (distToTarget < 2 || ai.stateTimer <= 0) {
+          if (Math.random() < 0.35 && ai.state !== "PAUSE") {
             const tricks = ["sniff", "sit", "wagTail", "bark", "spin", "backflip", "dance"];
             const trick = tricks[Math.floor(Math.random() * tricks.length)];
             dog.animController.play(trick, 2.5);
@@ -36849,21 +38962,22 @@ void main() {
           "PACK_GOSSIP"
         ];
         if (activeMoveStates.includes(ai.state)) {
-          const dir = new Vector3().subVectors(ai.targetPos, curPos);
-          dir.y = 0;
-          dir.normalize();
+          const rawDir = new Vector3().subVectors(ai.targetPos, curPos);
+          rawDir.y = 0;
+          if (rawDir.lengthSq() > 1e-4) rawDir.normalize();
+          const dir = this.computeAvoidanceDir(curPos, rawDir);
           const targetAngle = Math.atan2(dir.x, dir.z);
-          dog.group.rotation.y = MathUtils.lerp(dog.group.rotation.y, targetAngle, delta * 5);
+          dog.group.rotation.y = lerpAngle(dog.group.rotation.y, targetAngle, delta * 6);
           if (ai.lastPos) {
-            const moved = curPos.distanceTo(ai.lastPos);
+            const moved = Math.hypot(curPos.x - ai.lastPos.x, curPos.z - ai.lastPos.z);
             ai.lastPos.copy(curPos);
-            if (moved < 0.04 && distToTarget > 2) {
+            if (moved < 0.035 && distToTarget > 2) {
               ai.stuckTimer = (ai.stuckTimer || 0) + delta;
-              if (ai.stuckTimer > 0.8) {
-                const tan = new Vector3(-dir.z, 0, dir.x).normalize();
-                curPos.addScaledVector(tan, delta * 3.6);
+              if (ai.stuckTimer > 0.65) {
+                const tan = new Vector3(-rawDir.z, 0, rawDir.x).normalize();
+                curPos.addScaledVector(tan, delta * 3.8);
               }
-              if (ai.stuckTimer > 2) {
+              if (ai.stuckTimer > 1.8) {
                 ai.stuckTimer = 0;
                 this.pickNewTarget(dog);
               }
@@ -36873,28 +38987,57 @@ void main() {
           }
           curPos.addScaledVector(dir, ai.speed * delta);
           if (this.world && this.world.resolveObstacleCollisions) {
-            this.world.resolveObstacleCollisions(curPos, 0.75);
+            this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
           }
-          curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
+          const groundY = this.world.getHeightAt(curPos.x, curPos.z);
+          if (!dog.isInWater) {
+            if (curPos.y > groundY + 0.05 || dog.velocityY && dog.velocityY > 0) {
+              dog.velocityY = (dog.velocityY || 0) - 18 * delta;
+              curPos.y += dog.velocityY * delta;
+              if (curPos.y <= groundY) {
+                curPos.y = groundY;
+                dog.velocityY = 0;
+              }
+            } else {
+              curPos.y = groundY;
+              dog.velocityY = 0;
+            }
+          }
+          const prevY = curPos.y;
           this.world.handleRobotInteractions(dog);
+          if (curPos.y > prevY + 0.5 && !dog.isInWater) {
+            dog.velocityY = (curPos.y - prevY) * 3.2;
+            curPos.y = prevY + 0.15;
+          }
         }
-        if (playerRobot) {
-          const distToPlayer = dog.group.position.distanceTo(playerRobot.group.position);
+        if (playerRobot && Math.abs(dog.group.position.y - playerRobot.group.position.y) < 1.2) {
+          const dx = dog.group.position.x - playerRobot.group.position.x;
+          const dz = dog.group.position.z - playerRobot.group.position.z;
+          const distToPlayer = Math.hypot(dx, dz);
           if (distToPlayer < 1.4 && distToPlayer > 1e-3) {
-            const overlap = 1.4 - distToPlayer;
-            const push = new Vector3().subVectors(dog.group.position, playerRobot.group.position).normalize();
-            dog.group.position.addScaledVector(push, overlap * 0.5);
-            playerRobot.group.position.addScaledVector(push, -overlap * 0.5);
+            const overlap = (1.4 - distToPlayer) * 0.5;
+            const nx = dx / distToPlayer;
+            const nz = dz / distToPlayer;
+            dog.group.position.x += nx * overlap;
+            dog.group.position.z += nz * overlap;
+            playerRobot.group.position.x -= nx * overlap;
+            playerRobot.group.position.z -= nz * overlap;
           }
         }
         this.pack.forEach((otherDog) => {
           if (otherDog === dog) return;
-          const distBetween = dog.group.position.distanceTo(otherDog.group.position);
+          if (Math.abs(dog.group.position.y - otherDog.group.position.y) >= 1.2) return;
+          const dx = dog.group.position.x - otherDog.group.position.x;
+          const dz = dog.group.position.z - otherDog.group.position.z;
+          const distBetween = Math.hypot(dx, dz);
           if (distBetween < 1.35 && distBetween > 1e-3) {
-            const overlap = 1.35 - distBetween;
-            const push = new Vector3().subVectors(dog.group.position, otherDog.group.position).normalize();
-            dog.group.position.addScaledVector(push, overlap * 0.5);
-            otherDog.group.position.addScaledVector(push, -overlap * 0.5);
+            const overlap = (1.35 - distBetween) * 0.5;
+            const nx = dx / distBetween;
+            const nz = dz / distBetween;
+            dog.group.position.x += nx * overlap;
+            dog.group.position.z += nz * overlap;
+            otherDog.group.position.x -= nx * overlap;
+            otherDog.group.position.z -= nz * overlap;
           }
         });
       });
@@ -36907,16 +39050,25 @@ void main() {
       this.robot = robot;
       this.scene = scene;
       this.world = world;
-      this.eyeCamera = new PerspectiveCamera(75, 230 / 130, 0.05, 300);
-      this.eyeCamera.rotation.y = Math.PI;
-      this.eyeCamera.position.set(0, 0.58, 0.96);
-      if (this.robot && this.robot.nodes && this.robot.nodes.head) {
-        this.robot.nodes.head.add(this.eyeCamera);
-      }
+      this.eyeCamera = new PerspectiveCamera(75, 230 / 130, 0.08, 300);
+      this.attachToRobot(this.robot);
       this.pipCanvas = null;
       this.pipRenderer = null;
-      this.visionAngle = Math.PI * 0.55;
-      this.visionRange = 40;
+      this.visionAngle = Math.PI * 0.58;
+      this.visionRange = 42;
+      this._tempWorldPos = new Vector3();
+      this._tempRobotDir = new Vector3();
+      this._tempToItem = new Vector3();
+      this._tempCross = new Vector3();
+    }
+    attachToRobot(newRobot) {
+      if (!newRobot) return;
+      this.robot = newRobot;
+      if (this.robot.nodes && this.robot.nodes.head) {
+        this.robot.nodes.head.add(this.eyeCamera);
+        this.eyeCamera.position.set(0, 0.58, 1.02);
+        this.eyeCamera.rotation.set(0, Math.PI, 0);
+      }
     }
     initPIP(canvasElement) {
       this.pipCanvas = canvasElement;
@@ -36950,6 +39102,7 @@ void main() {
         }
       }
       try {
+        this.eyeCamera.updateWorldMatrix(true, false);
         this.pipRenderer.render(this.scene, this.eyeCamera);
       } catch (e) {
       }
@@ -36973,37 +39126,81 @@ void main() {
         sociability_level: Math.round(this.robot.sociability || 85)
       };
     }
+    // FIXED: Selects the most specific (smallest radius) matching Point of Interest
+    // so sub-attractions inside the Playground (Trampoline, Carousel, Disco, Seesaw) are properly reported!
     getCurrentLocationName(pos) {
       if (!this.world || !this.world.pointsOfInterest) return "Gran Prado Verde";
+      let bestPoi = null;
+      let smallestRadius = Infinity;
       for (const poi of this.world.pointsOfInterest) {
         const d = Math.hypot(pos.x - poi.position.x, pos.z - poi.position.z);
-        if (d <= poi.radius) {
-          return poi.name;
+        if (d <= poi.radius && poi.radius < smallestRadius) {
+          smallestRadius = poi.radius;
+          bestPoi = poi;
         }
       }
-      return "Gran Prado Verde";
+      return bestPoi ? bestPoi.name : "Gran Prado Verde";
     }
-    // Semantic Vision Snapshot: Finds what is in front of the robot dog
-    // Token cost: ~40 to 80 tokens max!
+    // Semantic Vision Snapshot: Uses true World Positions and scans Toys, Snacks, Treasures, Robots & POIs
     getVisualSnapshot(otherRobots = []) {
       const robotPos = this.robot.group.position;
-      const robotDir = new Vector3(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.robot.group.rotation.y);
+      this._tempRobotDir.set(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.robot.group.rotation.y);
       const visibleItems = [];
       if (this.world && this.world.interactiveObjects) {
         this.world.interactiveObjects.forEach((item) => {
-          const itemPos = item.object.position;
-          const toItem = new Vector3().subVectors(itemPos, robotPos);
-          const dist = toItem.length();
-          if (dist <= this.visionRange) {
-            toItem.normalize();
-            const dot = robotDir.dot(toItem);
+          if (!item.object) return;
+          item.object.getWorldPosition(this._tempWorldPos);
+          this._tempToItem.subVectors(this._tempWorldPos, robotPos);
+          const dist = this._tempToItem.length();
+          if (dist <= this.visionRange && dist > 0.4) {
+            this._tempToItem.normalize();
+            const dot = this._tempRobotDir.dot(this._tempToItem);
             const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
             if (angle <= this.visionAngle / 2) {
-              const relativeAngle = this.getRelativeDirection(robotDir, toItem);
               visibleItems.push({
                 type: item.name,
                 distance: `${dist.toFixed(1)}m`,
-                direction: relativeAngle
+                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
+              });
+            }
+          }
+        });
+      }
+      if (this.world && this.world.snacks) {
+        this.world.snacks.forEach((snack) => {
+          if (!snack.group) return;
+          snack.group.getWorldPosition(this._tempWorldPos);
+          this._tempToItem.subVectors(this._tempWorldPos, robotPos);
+          const dist = this._tempToItem.length();
+          if (dist <= this.visionRange) {
+            this._tempToItem.normalize();
+            const dot = this._tempRobotDir.dot(this._tempToItem);
+            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
+            if (angle <= this.visionAngle / 2) {
+              visibleItems.push({
+                type: "Galleta Energ\xE9tica",
+                distance: `${dist.toFixed(1)}m`,
+                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
+              });
+            }
+          }
+        });
+      }
+      if (this.world && this.world.treasureSpots) {
+        this.world.treasureSpots.forEach((spot) => {
+          if (spot.dug) return;
+          this._tempWorldPos.set(spot.x, robotPos.y, spot.z);
+          this._tempToItem.subVectors(this._tempWorldPos, robotPos);
+          const dist = this._tempToItem.length();
+          if (dist <= this.visionRange * 0.8) {
+            this._tempToItem.normalize();
+            const dot = this._tempRobotDir.dot(this._tempToItem);
+            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
+            if (angle <= this.visionAngle / 2) {
+              visibleItems.push({
+                type: `Mont\xEDculo de Tesoro (${spot.name})`,
+                distance: `${dist.toFixed(1)}m`,
+                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
               });
             }
           }
@@ -37013,20 +39210,19 @@ void main() {
         otherRobots.forEach((bot) => {
           if (bot === this.robot) return;
           const botPos = bot.group.position;
-          const toBot = new Vector3().subVectors(botPos, robotPos);
-          const dist = toBot.length();
+          this._tempToItem.subVectors(botPos, robotPos);
+          const dist = this._tempToItem.length();
           if (dist <= this.visionRange) {
-            toBot.normalize();
-            const dot = robotDir.dot(toBot);
+            this._tempToItem.normalize();
+            const dot = this._tempRobotDir.dot(this._tempToItem);
             const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
             if (angle <= this.visionAngle / 2) {
-              const relativeAngle = this.getRelativeDirection(robotDir, toBot);
               visibleItems.push({
                 type: `Amigo robot ${bot.name}`,
                 emotion: bot.currentEmotion ? bot.currentEmotion.name : "Feliz",
                 action: bot.animController ? bot.animController.currentAnim : "idle",
                 distance: `${dist.toFixed(1)}m`,
-                direction: relativeAngle
+                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
               });
             }
           }
@@ -37034,35 +39230,39 @@ void main() {
       }
       if (this.world && this.world.pointsOfInterest) {
         this.world.pointsOfInterest.forEach((poi) => {
-          const toPoi = new Vector3().subVectors(poi.position, robotPos);
-          const dist = toPoi.length();
-          if (dist <= this.visionRange * 1.5) {
-            toPoi.normalize();
-            const dot = robotDir.dot(toPoi);
+          this._tempToItem.subVectors(poi.position, robotPos);
+          const dist = this._tempToItem.length();
+          if (dist <= this.visionRange * 1.5 && dist > 2) {
+            this._tempToItem.normalize();
+            const dot = this._tempRobotDir.dot(this._tempToItem);
             const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
             if (angle <= this.visionAngle / 2) {
               visibleItems.push({
                 landmark: poi.name,
                 distance: `${dist.toFixed(1)}m`,
-                direction: this.getRelativeDirection(robotDir, toPoi)
+                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
               });
             }
           }
         });
       }
       visibleItems.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-      return visibleItems.slice(0, 4);
+      return visibleItems.slice(0, 5);
     }
     getRelativeDirection(forward, toTarget) {
-      const cross = new Vector3().crossVectors(forward, toTarget);
+      this._tempCross.crossVectors(forward, toTarget);
       if (Math.abs(forward.dot(toTarget)) > 0.85) {
         return forward.dot(toTarget) > 0 ? "Al frente" : "Atr\xE1s";
       }
-      return cross.y > 0 ? "A la izquierda" : "A la derecha";
+      return this._tempCross.y > 0 ? "A la izquierda" : "A la derecha";
     }
   };
 
   // public/js/brain_llm.js
+  function lerpAngle2(current, target, t) {
+    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    return current + diff * Math.min(1, t);
+  }
   var RobotBrain = class {
     constructor(robot, vision, world, packManager, particleSystem) {
       this.robot = robot;
@@ -37098,15 +39298,48 @@ void main() {
       this.isThinking = false;
       this.lastThought = "Iniciando mis sensores en el prado verde...";
       this.onChatResponse = null;
+      this.activeIntervals = [];
+      this.activeTimeouts = [];
       this.isVoiceEnabled = true;
       this.memoryData = null;
       this.loadMemoryFromDisk();
     }
+    registerInterval(fn, ms) {
+      const id = setInterval(fn, ms);
+      this.activeIntervals.push(id);
+      return id;
+    }
+    registerTimeout(fn, ms) {
+      const id = setTimeout(() => {
+        this.activeTimeouts = this.activeTimeouts.filter((t) => t !== id);
+        fn();
+      }, ms);
+      this.activeTimeouts.push(id);
+      return id;
+    }
+    clearActiveTimers() {
+      this.activeIntervals.forEach((id) => clearInterval(id));
+      this.activeIntervals = [];
+      this.activeTimeouts.forEach((id) => clearTimeout(id));
+      this.activeTimeouts = [];
+    }
+    cancelNavigation() {
+      this.clearActiveTimers();
+      if (this.isNavigating) {
+        this.isNavigating = false;
+        this.navTarget = null;
+        this.onArrivalCallback = null;
+        if (this.robot && this.robot.clearMission) {
+          this.robot.clearMission();
+        }
+      }
+    }
+    // FIXED: Proper regex for stripping [tags] and emojis without eating normal characters
     speakThought(text, pitch = 1) {
       if (!this.isVoiceEnabled || !("speechSynthesis" in window) || !text) return;
       try {
         window.speechSynthesis.cancel();
-        const clean = text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\[.*?\]]/gu, "").trim();
+        const clean = String(text).replace(/\[.*?\]/g, "").replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, "").trim();
         if (!clean) return;
         const utter = new SpeechSynthesisUtterance(clean);
         utter.lang = "es-ES";
@@ -37121,11 +39354,7 @@ void main() {
       }
     }
     setRobot(newRobot) {
-      if (this.isNavigating) {
-        this.isNavigating = false;
-        this.navTarget = null;
-        this.onArrivalCallback = null;
-      }
+      this.cancelNavigation();
       this.robot = newRobot;
       this.lastThought = newRobot.getRandomPersonalThought();
       const thoughtEl = document.getElementById("thought-bubble-text");
@@ -37260,20 +39489,20 @@ void main() {
         }
       }
     }
+    // FIXED: Zero-latency physical dispatch without duplicating chat messages or restarting running actions
     async think(customUserPrompt = null) {
       if (this.isThinking) return;
       this.isThinking = true;
+      let dispatchedAction = null;
       if (customUserPrompt) {
         const immediateDecision = this.extractIntentFromText(null, customUserPrompt);
         if (immediateDecision && immediateDecision.action) {
+          dispatchedAction = immediateDecision.action;
           this.executeAction(immediateDecision.action, immediateDecision.interaction);
           if (immediateDecision.emotion && EMOTIONS[immediateDecision.emotion]) {
             this.robot.setEmotion(EMOTIONS[immediateDecision.emotion]);
           }
           roboAudio.playBoop(this.robot.profile ? this.robot.profile.voicePitch : 1);
-          if (this.onChatResponse) {
-            this.onChatResponse(this.robot.name, immediateDecision.thought, immediateDecision.action);
-          }
         }
       }
       const thinkStatusEl = document.getElementById("think-status");
@@ -37311,7 +39540,7 @@ void main() {
       } else {
         decision = this.heuristicDecision(sensoryContext);
       }
-      this.applyDecision(decision);
+      this.applyDecision(decision, dispatchedAction);
       this.isThinking = false;
       if (thinkStatusEl) {
         thinkStatusEl.textContent = "Listo";
@@ -37334,9 +39563,9 @@ Lugares interactivos en el mundo:
 - "manada": Tus amigos perros robots (Sparky, Bolt, Pixel, Luna, Rusty).
 
 Acciones y comportamientos caninos que puedes ejecutar:
-- Conducta canina natural: playBow (reverencia de juego), headTilt (ladear cabeza con curiosidad), bellyRub (ponerse panza arriba pidiendo mimos), beg (pedir de dos patitas), shakeOff (sacudirse de cabeza a cola), nuzzle (apoyar hocico cari\xF1oso), fetch_ball (buscar pelota, cogerla con el hocico y tra\xE9rsela al humano), praise_burst (reaccionar con alegr\xEDa desbordante ante elogios), chorus_howl (aullar en coro con la manada), scent_track (rastrear olores por el suelo con la nariz).
+- Conducta canina natural: playBow, headTilt, bellyRub, beg, shakeOff, nuzzle, fetch_ball, praise_burst, chorus_howl, scent_track.
 - Movimientos: walk, run, sit, lieDown, jump, wagTail, bark, sniff, scratch, backflip, spin, roll, wave, recharge, dig, howl, dance, sneak.
-- Navegaci\xF3n: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_soccer_goal, go_disco, go_snack, go_doghouse, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
+- Navegaci\xF3n: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_soccer_goal, go_disco, go_snack, go_doghouse, go_fountain, go_bridge, go_seesaw, go_ballpit, go_slide, go_tunnel, go_target, go_pinata, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
 - Emociones: HAPPY, CURIOUS, LOVING, EXCITED, SLEEPY, ALERT, MISCHIEVOUS, PROUD, SCARED, HUNGRY, PARTY, CONFUSED.
 
 Responde SIEMPRE con un objeto JSON v\xE1lido con este formato exacto:
@@ -37375,7 +39604,7 @@ ${systemPrompt}`;
       return this.parseLLMResponse(content, sensoryContext.user_command);
     }
     cleanThought(raw) {
-      if (!raw) return "\xA1Entendido!";
+      if (!raw) return "\xA1Guau guau! \xA1Entendido!";
       let s = String(raw).trim();
       const tMatch = s.match(/(?:^|[{,\s])["']?thought["']?\s*:\s*["']?([^"',}\n]+)["']?/i);
       if (tMatch) {
@@ -37426,9 +39655,9 @@ ${systemPrompt}`;
       return this.extractIntentFromText(content, userCommand);
     }
     extractIntentFromText(text, userCommand) {
-      const combined = `${userCommand || ""} ${text}`.toLowerCase();
+      const combined = `${userCommand || ""} ${text || ""}`.toLowerCase();
       const p = this.robot.profile;
-      let thought = text ? this.cleanThought(text) : `\xA1Entendido!`;
+      let thought = text ? this.cleanThought(text) : `\xA1Guau! \xA1Enseguida lo hago!`;
       let emotion = "HAPPY";
       let action = "wagTail";
       let interaction = null;
@@ -37545,87 +39774,116 @@ ${systemPrompt}`;
       else if (/amor|te quiero|lindo|hermoso|cariñ/i.test(combined)) emotion = "LOVING";
       else if (/explor|qu[eé] ves|busca|mira|observ/i.test(combined)) emotion = "CURIOUS";
       else if (/r[aá]pido|corre|vamos|salta|gol|f[uú]tbol/i.test(combined)) emotion = "EXCITED";
-      if (/lago|agua|orilla|bote|nadar|lake/i.test(combined)) {
+      if (/lago|orilla|bote|nadar|lake/i.test(combined) && action === "wagTail") {
         action = "go_lake";
         interaction = "drink_water";
-      } else if (/trampol[ií]n|cama el[aá]stica|rebot/i.test(combined)) {
+        thought = "\xA1Voy corriendo hacia el Lago de Cristal!";
+      } else if (/trampol[ií]n|cama el[aá]stica|rebot/i.test(combined) && action === "wagTail") {
         action = "go_trampoline";
         interaction = "bounce_trampoline";
         emotion = "EXCITED";
+        thought = "\xA1Vamos al trampol\xEDn a saltar hasta las nubes!";
       } else if (/carrusel|rueda|giratorio|carousel/i.test(combined)) {
         action = "go_carousel";
         interaction = "ride_carousel";
-      } else if (/pelota|bal[oó]n|f[uú]tbol|porter[ií]a|arco|patea/i.test(combined)) {
+        thought = "\xA1Al carrusel giratorio a dar vueltas!";
+      } else if (/pelota|bal[oó]n|f[uú]tbol|porter[ií]a|arco|patea/i.test(combined) && action === "wagTail") {
         action = "go_ball";
         interaction = "kick_ball";
         emotion = "EXCITED";
+        thought = "\xA1A jugar al f\xFAtbol! \xA1Voy por el bal\xF3n para meter gol!";
       } else if (/disco|fiesta|pista de baile|perrea/i.test(combined)) {
         action = "go_disco";
         interaction = "dance_disco";
         emotion = "PARTY";
+        thought = "\xA1Activando modo fiesta en la pista de baile disco!";
       } else if (/galleta|snack|comer|comida|hambre/i.test(combined)) {
         action = "go_snack";
         interaction = "eat_snack";
         emotion = "HUNGRY";
+        thought = "\xA1Qu\xE9 rico! \xA1Voy por una ciborgalleta energ\xE9tica!";
       } else if (/parque|juegos|playground/i.test(combined)) {
         action = "go_playground";
+        thought = "\xA1Rumbo al centro del parque de juegos!";
       } else if (/casita|doghouse|estaci[oó]n|recarg/i.test(combined)) {
         action = "go_doghouse";
         interaction = "recharge";
         emotion = "SLEEPY";
+        thought = "Voy a mi casita cibern\xE9tica para recargar bater\xEDas.";
       } else if (/fuente|agua fresca|sed|bebe agua|hidrat/i.test(combined)) {
         action = "go_fountain";
         interaction = "drink_water";
         emotion = "HAPPY";
+        thought = "\xA1Voy a la fuente cibern\xE9tica a beber agua fresca!";
       } else if (/puente|cruza el puente|bridge/i.test(combined)) {
         action = "go_bridge";
         interaction = "cross_bridge";
         emotion = "CURIOUS";
+        thought = "\xA1Vamos a cruzar el puente arqueado de madera!";
       } else if (/sube y baja|balanc[ií]n|seesaw/i.test(combined)) {
         action = "go_seesaw";
         interaction = "ride_seesaw";
         emotion = "EXCITED";
+        thought = "\xA1Al balanc\xEDn cibern\xE9tico a balancearnos!";
       } else if (/piscina|alberca|pelotitas|ballpit/i.test(combined)) {
         action = "go_ballpit";
         emotion = "EXCITED";
-      } else if (/tobog[aá]n|resbaladilla|slide/i.test(combined)) {
+        thought = "\xA1A zambullirme en la piscina de pelotas de colores!";
+      } else if (/tobog[aá]n|resbaladilla|slide/i.test(combined) && action === "wagTail") {
         action = "go_slide";
         emotion = "EXCITED";
+        thought = "\xA1Voy al tobog\xE1n de agilidad!";
       } else if (/t[uú]nel|valla|obst[aá]culo|circuito/i.test(combined)) {
         action = "go_tunnel";
         emotion = "CURIOUS";
+        thought = "\xA1A cruzar a toda velocidad el t\xFAnel de agilidad!";
       } else if (/diana|tiro al blanco|punter[ií]a|target/i.test(combined)) {
         action = "go_target";
         emotion = "PROUD";
+        thought = "\xA1Vamos a la diana de tiro a probar mi punter\xEDa!";
       } else if (/pi[ñn]ata|golpea la pi[ñn]ata/i.test(combined)) {
         action = "go_pinata";
         emotion = "EXCITED";
-      } else if (/bolt/i.test(combined)) action = "go_robot_Bolt";
-      else if (/pixel/i.test(combined)) action = "go_robot_Pixel";
-      else if (/luna/i.test(combined)) action = "go_robot_Luna";
-      else if (/rusty/i.test(combined)) action = "go_robot_Rusty";
-      else if (/sparky/i.test(combined)) action = "go_robot_Sparky";
-      else if (/todos|manada|vengan|reun[ií]on|pack/i.test(combined)) action = "call_pack";
-      else if (/rueda|maroma|roll|ru[eé]date/i.test(combined)) action = "roll";
-      else if (/saluda|la pata|ch[oó]calas|wave|hola/i.test(combined)) action = "wave";
-      else if (/a[uú]lla|aullido|howl/i.test(combined)) action = "howl";
-      else if (/cava|entierra|rasca/i.test(combined)) action = "dig";
-      else if (/baila|dance|meneate/i.test(combined)) {
-        action = "dance";
-        emotion = "PARTY";
-      } else if (/sigilo|esp[ií]a|agachado|sneak/i.test(combined)) action = "sneak";
-      else if (/voltereta|mortal|backflip/i.test(combined)) {
-        action = "backflip";
-        emotion = "PROUD";
-      } else if (/gira|vuelta|spin/i.test(combined)) action = "spin";
-      else if (/salta|brinca|jump/i.test(combined)) action = "jump";
-      else if (/ladra|guau|bark/i.test(combined)) action = "bark";
-      else if (/si[eé]ntate|sentado|sit/i.test(combined)) action = "sit";
-      else if (/acu[eé]state|échate|t[uú]mbate|dormir/i.test(combined)) {
-        action = "lieDown";
-        emotion = "SLEEPY";
-      } else if (/olfatea|huele|sniff/i.test(combined)) action = "sniff";
-      else if (/cola|feliz|wag/i.test(combined)) action = "wagTail";
+        thought = "\xA1A saltar bajo la pi\xF1ata para que suelte galletas!";
+      } else if (/bolt/i.test(combined)) {
+        action = "go_robot_Bolt";
+        thought = "\xA1Voy a buscar a mi veloz amigo Bolt!";
+      } else if (/pixel/i.test(combined)) {
+        action = "go_robot_Pixel";
+        thought = "\xA1Voy a saludar a Pixel!";
+      } else if (/luna/i.test(combined)) {
+        action = "go_robot_Luna";
+        thought = "\xA1Voy corriendo a ver a mi amiga Luna!";
+      } else if (/rusty/i.test(combined)) {
+        action = "go_robot_Rusty";
+        thought = "\xA1Vamos a ver qu\xE9 acrobacias hace Rusty!";
+      } else if (/sparky/i.test(combined)) {
+        action = "go_robot_Sparky";
+        thought = "\xA1Voy con Sparky!";
+      } else if (/todos|manada|vengan|reuni[oó]n|pack/i.test(combined)) {
+        action = "call_pack";
+        thought = "\xA1Auuu\xFA! \xA1Llamando a toda la manada!";
+      } else if (action === "wagTail") {
+        if (/rueda|maroma|roll|ru[eé]date/i.test(combined)) action = "roll";
+        else if (/saluda|la pata|ch[oó]calas|wave|hola/i.test(combined)) action = "wave";
+        else if (/a[uú]lla|aullido|howl/i.test(combined)) action = "howl";
+        else if (/cava|entierra|rasca/i.test(combined)) action = "dig";
+        else if (/baila|dance|meneate/i.test(combined)) {
+          action = "dance";
+          emotion = "PARTY";
+        } else if (/sigilo|esp[ií]a|agachado|sneak/i.test(combined)) action = "sneak";
+        else if (/voltereta|mortal|backflip/i.test(combined)) {
+          action = "backflip";
+          emotion = "PROUD";
+        } else if (/gira|vuelta|spin/i.test(combined)) action = "spin";
+        else if (/salta|brinca|jump/i.test(combined)) action = "jump";
+        else if (/ladra|guau|bark/i.test(combined)) action = "bark";
+        else if (/si[eé]ntate|sentado|sit/i.test(combined)) action = "sit";
+        else if (/acu[eé]state|échate|t[uú]mbate|dormir/i.test(combined)) {
+          action = "lieDown";
+          emotion = "SLEEPY";
+        } else if (/olfatea|huele|sniff/i.test(combined)) action = "sniff";
+      }
       if (/aprende|inventa|nuevo truco|coreograf[ií]a/i.test(combined)) {
         const trickTitles = [
           `Tornado Cibern\xE9tico de ${p.name}`,
@@ -37704,7 +39962,7 @@ ${systemPrompt}`;
         remember
       };
     }
-    applyDecision(dec) {
+    applyDecision(dec, alreadyDispatchedAction = null) {
       if (!dec) return;
       if (dec.emotion && EMOTIONS[dec.emotion]) {
         this.robot.setEmotion(EMOTIONS[dec.emotion]);
@@ -37728,7 +39986,6 @@ ${systemPrompt}`;
         this.addLearnedTrick(dec.invent_movement.name, `Inventado por ${this.robot.name}`, dec.invent_movement.sequence);
         roboAudio.playTrickSuccess();
         this.executeMovementSequence(dec.invent_movement.sequence);
-        return;
       }
       if (dec.remember) {
         this.addJournalEntry(dec.emotion || "Curioso", dec.remember);
@@ -37741,25 +39998,29 @@ ${systemPrompt}`;
       if (dec.thought) {
         this.speakThought(dec.thought, this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
-      this.executeAction(dec.action, dec.interaction);
+      if (dec.action && dec.action !== alreadyDispatchedAction) {
+        this.executeAction(dec.action, dec.interaction);
+      }
     }
     executeAction(action, interaction = null) {
       if (!action) return;
+      this.clearActiveTimers();
+      const activeBot = this.robot;
       if (action === "call_pack") {
         if (this.packManager && this.packManager.callPackToPlayer) {
-          this.packManager.callPackToPlayer(this.robot);
+          this.packManager.callPackToPlayer(activeBot);
           roboAudio.playHowl();
-          this.robot.animController.play("howl", 2.5);
+          activeBot.animController.play("howl", 2.5);
           this.addJournalEntry("Orgulloso", "\xA1Llam\xE9 a toda mi manada y nos reunimos en formaci\xF3n!");
           return;
         }
       }
       if (action === "praise_burst") {
-        this.robot.praise();
+        activeBot.praise();
         if (this.particleSystem) {
-          this.particleSystem.spawnBurst(this.robot.group.position, "LOVING");
+          this.particleSystem.spawnBurst(activeBot.group.position, "LOVING");
         }
-        this.robot.animController.play(Math.random() < 0.5 ? "bellyRub" : "playBow", 3);
+        activeBot.animController.play(Math.random() < 0.5 ? "bellyRub" : "playBow", 3);
         this.addJournalEntry("Cari\xF1oso", "\xA1Mi humano me elogi\xF3! Sent\xED una oleada de amor y lealtad perruna.");
         return;
       }
@@ -37769,25 +40030,25 @@ ${systemPrompt}`;
           ball = this.world.balls[0];
         }
         if (!ball) return;
-        const humanPos = this.robot.group.position.clone();
-        this.robot.setEmotion(EMOTIONS.EXCITED);
+        const humanPos = activeBot.group.position.clone();
+        activeBot.setEmotion(EMOTIONS.EXCITED);
         roboAudio.playYip(1.3);
         this.navigateToward(ball.mesh.position, 7.2, "run", () => {
-          this.robot.grabObject(ball.mesh);
-          ball.carriedBy = this.robot;
+          activeBot.grabObject(ball.mesh);
+          ball.carriedBy = activeBot;
           roboAudio.playGrumble ? roboAudio.playGrumble(1.1) : roboAudio.playBoop(1.4);
           this.addJournalEntry("Juguet\xF3n", "\xA1Atrap\xE9 la pelota en mi hocico! Llev\xE1ndosela a mi humano.");
           this.navigateToward(humanPos, 6.6, "run", () => {
-            const droppedMesh = this.robot.dropObject();
+            const droppedMesh = activeBot.dropObject();
             ball.carriedBy = null;
             if (droppedMesh) {
               this.world.scene.add(droppedMesh);
-              droppedMesh.position.copy(this.robot.group.position);
+              droppedMesh.position.copy(activeBot.group.position);
               droppedMesh.position.y = this.world.getHeightAt(droppedMesh.position.x, droppedMesh.position.z) + ball.radius;
               ball.velocity.set(0, 0, 0);
             }
-            this.robot.animController.play("playBow", 2.8);
-            this.robot.setEmotion(EMOTIONS.HAPPY);
+            activeBot.animController.play("playBow", 2.8);
+            activeBot.setEmotion(EMOTIONS.HAPPY);
             roboAudio.playHappyJingle();
             this.addJournalEntry("Feliz", "\xA1Te traje la pelota y la dej\xE9 a tus pies! \xA1L\xE1nzamela otra vez!");
           });
@@ -37796,14 +40057,14 @@ ${systemPrompt}`;
       }
       if (action === "chorus_howl") {
         roboAudio.playHowl();
-        this.robot.animController.play("howl", 3);
-        this.robot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.animController.play("howl", 3);
+        activeBot.setEmotion(EMOTIONS.EXCITED);
         if (this.packManager && this.packManager.pack) {
           this.packManager.pack.forEach((otherBot, idx) => {
-            setTimeout(() => {
+            this.registerTimeout(() => {
               otherBot.animController.play("howl", 2.8);
               otherBot.setEmotion(EMOTIONS.EXCITED);
-              otherBot.lookAt(this.robot.group.position);
+              otherBot.lookAt(activeBot.group.position);
             }, 350 + idx * 300);
           });
         }
@@ -37811,12 +40072,12 @@ ${systemPrompt}`;
         return;
       }
       if (action === "scent_track") {
-        this.robot.animController.play("sniff", 3);
-        this.robot.setEmotion(EMOTIONS.CURIOUS);
+        activeBot.animController.play("sniff", 3);
+        activeBot.setEmotion(EMOTIONS.CURIOUS);
         roboAudio.playBoop(1.1);
         let nearestPos = null;
         let minDist = Infinity;
-        const rPos = this.robot.group.position;
+        const rPos = activeBot.group.position;
         const candidates = [];
         if (this.world.snacks) this.world.snacks.forEach((s) => candidates.push(s.group.position));
         if (this.world.balls) this.world.balls.forEach((b) => candidates.push(b.mesh.position));
@@ -37829,8 +40090,8 @@ ${systemPrompt}`;
         });
         if (nearestPos) {
           this.navigateToward(nearestPos, 3.8, "walk", () => {
-            this.robot.animController.play("wagTail", 2);
-            this.robot.setEmotion(EMOTIONS.HAPPY);
+            activeBot.animController.play("wagTail", 2);
+            activeBot.setEmotion(EMOTIONS.HAPPY);
             roboAudio.playHappyJingle();
             this.addJournalEntry("Curioso", "\xA1Mi olfato cibern\xE9tico sigui\xF3 el rastro y encontr\xE9 un objeto en el prado!");
           });
@@ -37847,35 +40108,35 @@ ${systemPrompt}`;
         let wpIdx = 0;
         const visitNext = () => {
           if (wpIdx >= waypoints.length) {
-            this.robot.animController.play("wagTail", 2);
-            this.robot.setEmotion(EMOTIONS.PROUD);
+            activeBot.animController.play("wagTail", 2);
+            activeBot.setEmotion(EMOTIONS.PROUD);
             this.addJournalEntry("Alerta", "\xA1Ronda de patrullaje perimetral completada sin novedades!");
             return;
           }
           const wp = waypoints[wpIdx++];
           this.navigateToward(wp, 4.2, "walk", () => {
-            this.robot.animController.play("patrolLook", 2.8);
-            this.robot.setEmotion(EMOTIONS.ALERT);
+            activeBot.animController.play("patrolLook", 2.8);
+            activeBot.setEmotion(EMOTIONS.ALERT);
             roboAudio.playBoop(1.2);
-            setTimeout(visitNext, 2900);
+            this.registerTimeout(visitNext, 2900);
           });
         };
         visitNext();
         return;
       }
       if (action === "chase_tail") {
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.robot.animController.play("chaseTail", 3.8);
+        activeBot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.animController.play("chaseTail", 3.8);
         roboAudio.playYip(1.4);
         let spinTime = 0;
-        const spinInterval = setInterval(() => {
+        const spinInterval = this.registerInterval(() => {
           spinTime += 0.05;
-          this.robot.group.rotation.y += 0.42;
+          activeBot.group.rotation.y += 0.42;
           if (spinTime >= 3.6) {
             clearInterval(spinInterval);
-            this.robot.setEmotion(EMOTIONS.CONFUSED);
-            this.robot.animController.play("dizzy", 2.5);
-            if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, "CONFUSED");
+            activeBot.setEmotion(EMOTIONS.CONFUSED);
+            activeBot.animController.play("dizzy", 2.5);
+            if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "CONFUSED");
             roboAudio.playConfused();
             this.addJournalEntry("Juguet\xF3n", "\xA1Gir\xE9 tanto persigui\xE9ndome la cola que me mare\xE9 y ca\xED sentado!");
           }
@@ -37888,8 +40149,8 @@ ${systemPrompt}`;
           const rings = this.world.slalomRings;
           const jumpThroughNext = () => {
             if (rIdx >= rings.length) {
-              this.robot.setEmotion(EMOTIONS.PROUD);
-              this.robot.animController.play("backflip", 1.6);
+              activeBot.setEmotion(EMOTIONS.PROUD);
+              activeBot.animController.play("backflip", 1.6);
               roboAudio.playGoalFanfare();
               this.addJournalEntry("Orgulloso", "\xA1Complet\xE9 el circuito de aros de agilidad con saltos perfectos!");
               return;
@@ -37897,13 +40158,13 @@ ${systemPrompt}`;
             const ring = rings[rIdx++];
             this.navigateToward(ring.entryPos, 6.2, "run", () => {
               roboAudio.playTrampoline();
-              this.robot.animController.play("jump", 1.2);
+              activeBot.animController.play("jump", 1.2);
               let p = 0;
-              const leapInterval = setInterval(() => {
+              const leapInterval = this.registerInterval(() => {
                 p += 0.08;
-                this.robot.group.position.lerpVectors(ring.entryPos, ring.exitPos, p);
+                activeBot.group.position.lerpVectors(ring.entryPos, ring.exitPos, p);
                 const leapH = 1.6 * (4 * p * (1 - p));
-                this.robot.group.position.y = ring.entryPos.y + leapH;
+                activeBot.group.position.y = ring.entryPos.y + leapH;
                 if (p >= 1) {
                   clearInterval(leapInterval);
                   jumpThroughNext();
@@ -37924,12 +40185,12 @@ ${systemPrompt}`;
           const approachPos = new Vector3().subVectors(ballPos, kickDir.clone().multiplyScalar(2));
           approachPos.y = this.world.getHeightAt(approachPos.x, approachPos.z);
           this.navigateToward(approachPos, 7, "run", () => {
-            this.robot.lookAt(goalPos);
-            this.robot.animController.play("jump", 1.2);
+            activeBot.lookAt(goalPos);
+            activeBot.animController.play("jump", 1.2);
             roboAudio.playBark(1.3);
             ball.velocity.copy(kickDir.multiplyScalar(26));
             ball.velocity.y = 8.5;
-            this.robot.setEmotion(EMOTIONS.PROUD);
+            activeBot.setEmotion(EMOTIONS.PROUD);
             this.addJournalEntry("Orgulloso", "\xA1Aline\xE9 el tiro y remat\xE9 el bal\xF3n directo al centro de la porter\xEDa!");
           });
         }
@@ -37941,13 +40202,14 @@ ${systemPrompt}`;
           let bounces = 0;
           const doBounce = () => {
             bounces++;
-            const force = 2 + bounces * 0.8;
-            this.robot.group.position.y += force;
+            const force = 5.5 + bounces * 1.8;
+            activeBot.velocityY = force;
+            activeBot.group.position.y += 0.25;
             roboAudio.playTrampoline();
-            this.robot.animController.play("backflip", 1.5);
-            this.robot.setEmotion(EMOTIONS.EXCITED);
+            activeBot.animController.play("backflip", 1.5);
+            activeBot.setEmotion(EMOTIONS.EXCITED);
             if (bounces < 3) {
-              setTimeout(doBounce, 1300);
+              this.registerTimeout(doBounce, 1300);
             } else {
               this.addJournalEntry("Juguet\xF3n", "\xA1Hice 3 rebotes consecutivos cada vez m\xE1s altos con piruetas 360\xB0!");
             }
@@ -37960,25 +40222,27 @@ ${systemPrompt}`;
         const slidePos = new Vector3(-18, 0, -32);
         this.navigateToward(slidePos, 5.8, "run", () => {
           if (this.world.slide) {
-            this.robot.group.position.copy(this.world.slide.topPos);
-            this.robot.lookAt(new Vector3(0, 0, 0));
-            this.robot.animController.play("headTilt", 1.2);
-            setTimeout(() => {
-              this.world.logActivity(`\u{1F3A2} \xA1${this.robot.name} se lanz\xF3 por el tobog\xE1n a gran velocidad!`);
+            activeBot.isSliding = true;
+            activeBot.group.position.copy(this.world.slide.topPos);
+            activeBot.lookAt(new Vector3(-18, 0, -20));
+            activeBot.animController.play("headTilt", 1.2);
+            this.registerTimeout(() => {
+              this.world.logActivity(`\u{1F3A2} \xA1${activeBot.name} se lanz\xF3 por el tobog\xE1n a gran velocidad!`);
               let p = 0;
-              this.robot.animController.play("roll", 2);
-              const iv = setInterval(() => {
+              activeBot.animController.play("roll", 2);
+              const iv = this.registerInterval(() => {
                 p += 0.08;
-                this.robot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, p);
-                this.robot.group.position.y = MathUtils.lerp(this.world.slide.topPos.y, this.world.slide.endPos.y, p);
+                activeBot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, p);
+                activeBot.group.position.y = MathUtils.lerp(this.world.slide.topPos.y, this.world.slide.endPos.y, p);
                 if (p >= 1) {
                   clearInterval(iv);
-                  this.robot.animController.play("backflip", 1.5);
+                  activeBot.isSliding = false;
+                  activeBot.animController.play("backflip", 1.5);
                   roboAudio.playHappyJingle();
                   this.addJournalEntry("Juguet\xF3n", "\xA1Me deslic\xE9 por el tobog\xE1n y aterric\xE9 en la colchoneta con estilo!");
                 }
               }, 35);
-            }, 1100);
+            }, 950);
           }
         });
         return;
@@ -37989,17 +40253,17 @@ ${systemPrompt}`;
           const swimPos = new Vector3(-66, -0.52, -66);
           this.navigateToward(swimPos, 3.2, "swimming", () => {
             roboAudio.playSplash();
-            this.robot.isInWater = true;
-            this.robot.animController.play("swimming");
-            this.robot.setEmotion(EMOTIONS.HAPPY);
+            activeBot.isInWater = true;
+            activeBot.animController.play("swimming");
+            activeBot.setEmotion(EMOTIONS.HAPPY);
             this.addJournalEntry("Feliz", "\xA1Nadando en el Lago de Cristal moviendo las patitas bajo la superficie!");
-            setTimeout(() => {
+            this.registerTimeout(() => {
               this.navigateToward(beachPos, 3.5, "swimming", () => {
-                this.robot.isInWater = false;
-                this.robot.wasInWater = false;
-                this.robot.animController.play("shakeOff", 2);
+                activeBot.isInWater = false;
+                activeBot.wasInWater = false;
+                activeBot.animController.play("shakeOff", 2);
                 roboAudio.playSplash();
-                if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, "HAPPY");
+                if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "HAPPY");
                 this.addJournalEntry("Feliz", "\xA1Sal\xED del agua a tierra firme y me sacud\xED con fuerza para secarme!");
               });
             }, 3500);
@@ -38009,26 +40273,33 @@ ${systemPrompt}`;
       }
       if (action === "play_tag") {
         if (this.packManager && this.packManager.startTagGame) {
-          this.packManager.startTagGame(this.robot);
+          this.packManager.startTagGame(activeBot);
           return;
         }
       }
       if (action === "speed_race") {
         if (this.packManager && this.packManager.startSpeedRace) {
-          this.packManager.startSpeedRace(this.robot);
+          const raceDest = this.packManager.startSpeedRace(activeBot);
+          if (raceDest) {
+            this.navigateToward(raceDest, 7.2, "run", () => {
+              activeBot.animController.play("backflip", 1.8);
+              activeBot.setEmotion(EMOTIONS.PROUD);
+            });
+          }
           return;
         }
       }
       if (action === "pack_gossip") {
         if (this.packManager && this.packManager.startPackGossip) {
-          this.packManager.startPackGossip(this.robot);
+          this.packManager.startPackGossip(activeBot);
+          activeBot.animController.play("wagTail", 3);
           return;
         }
       }
       if (action === "dig_treasure") {
         let nearestSpot = null;
         let minD = Infinity;
-        const rPos = this.robot.group.position;
+        const rPos = activeBot.group.position;
         if (this.world.treasureSpots) {
           this.world.treasureSpots.forEach((s) => {
             if (!s.dug) {
@@ -38042,16 +40313,16 @@ ${systemPrompt}`;
         }
         const targetP = nearestSpot ? new Vector3(nearestSpot.x, 0, nearestSpot.z) : new Vector3(rPos.x + 2, 0, rPos.z + 2);
         this.navigateToward(targetP, 4.8, "run", () => {
-          this.robot.animController.play("dig", 3.2);
-          this.robot.setEmotion(EMOTIONS.CURIOUS);
+          activeBot.animController.play("dig", 3.2);
+          activeBot.setEmotion(EMOTIONS.CURIOUS);
           roboAudio.playBoop(1.2);
-          if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, "CURIOUS");
-          setTimeout(() => {
+          if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "CURIOUS");
+          this.registerTimeout(() => {
             if (nearestSpot && this.world.revealDugTreasure) {
-              this.world.revealDugTreasure(this.robot, nearestSpot);
+              this.world.revealDugTreasure(activeBot, nearestSpot);
             }
-            this.robot.animController.play("wagTail", 2);
-            this.robot.setEmotion(EMOTIONS.PROUD);
+            activeBot.animController.play("wagTail", 2);
+            activeBot.setEmotion(EMOTIONS.PROUD);
           }, 3200);
         });
         return;
@@ -38059,7 +40330,7 @@ ${systemPrompt}`;
       if (action === "hunt_butterfly") {
         let targetBfly = null;
         let minD = Infinity;
-        const rPos = this.robot.group.position;
+        const rPos = activeBot.group.position;
         if (this.world.butterflies && this.world.butterflies.length > 0) {
           this.world.butterflies.forEach((b) => {
             const d = rPos.distanceTo(b.sprite.position);
@@ -38072,10 +40343,11 @@ ${systemPrompt}`;
         if (targetBfly) {
           const dest = new Vector3(targetBfly.sprite.position.x, 0, targetBfly.sprite.position.z);
           this.navigateToward(dest, 3.2, "sneak", () => {
-            this.robot.animController.play("jump", 1.4);
-            this.robot.group.position.y += 1.8;
+            activeBot.animController.play("jump", 1.4);
+            activeBot.velocityY = 6.5;
+            activeBot.group.position.y += 0.2;
             roboAudio.playYip(1.5);
-            this.robot.setEmotion(EMOTIONS.EXCITED);
+            activeBot.setEmotion(EMOTIONS.EXCITED);
             this.addJournalEntry("Curioso", "\xA1Me acerqu\xE9 en sigilo y salt\xE9 alto intentando atrapar la mariposa!");
           });
         }
@@ -38085,15 +40357,15 @@ ${systemPrompt}`;
         const shadePos = new Vector3(-22, 0, 18);
         this.navigateToward(shadePos, 4, "walk", () => {
           let rotAngle = 0;
-          const circleIv = setInterval(() => {
+          const circleIv = this.registerInterval(() => {
             rotAngle += 0.25;
-            this.robot.group.rotation.y += 0.25;
+            activeBot.group.rotation.y += 0.25;
             if (rotAngle >= Math.PI * 4) {
               clearInterval(circleIv);
-              this.robot.animController.play("lieDown", 6);
-              this.robot.setEmotion(EMOTIONS.SLEEPY);
-              if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, "SLEEPY");
-              this.robot.energy = 100;
+              activeBot.animController.play("lieDown", 6);
+              activeBot.setEmotion(EMOTIONS.SLEEPY);
+              if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "SLEEPY");
+              activeBot.energy = 100;
               this.addJournalEntry("Somnoliento", "Di dos vueltas sobre m\xED mismo y me ech\xE9 a dormir una rica siesta bajo la sombra del pino.");
             }
           }, 50);
@@ -38101,11 +40373,11 @@ ${systemPrompt}`;
         return;
       }
       if (action === "beg_pets") {
-        const curPos = this.robot.group.position;
-        this.robot.lookAt(new Vector3(curPos.x + 1, curPos.y + 1, curPos.z + 2));
-        this.robot.animController.play("bellyRub", 4);
-        this.robot.setEmotion(EMOTIONS.LOVING);
-        if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, "LOVING");
+        const curPos = activeBot.group.position;
+        activeBot.lookAt(new Vector3(curPos.x + 1, curPos.y + 1, curPos.z + 2));
+        activeBot.animController.play("bellyRub", 4);
+        activeBot.setEmotion(EMOTIONS.LOVING);
+        if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "LOVING");
         roboAudio.playBoop(1.4);
         this.addJournalEntry("Cari\xF1oso", "\xA1Me puse panza arriba con las patitas al aire esperando tus caricias!");
         return;
@@ -38141,29 +40413,34 @@ ${systemPrompt}`;
         "scentTrack"
       ];
       if (directAnims.includes(action)) {
-        if (this.robot.animController) {
-          this.robot.animController.play(action, 2.5);
+        if (activeBot.animController) {
+          if (action === "jump") {
+            activeBot.velocityY = 7;
+            activeBot.group.position.y += 0.15;
+          }
+          activeBot.animController.play(action, 2.5);
         }
         return;
       }
       if (action === "go_playground") {
         this.navigateToward(new Vector3(50, 0, 40), 5.5, "run", () => {
-          this.robot.setEmotion(EMOTIONS.EXCITED);
-          this.robot.animController.play("wagTail", 2);
+          activeBot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.animController.play("wagTail", 2);
         });
       } else if (action === "go_trampoline") {
         const trampPos = new Vector3(38, 0, 22);
         this.navigateToward(trampPos, 5.8, "run", () => {
-          this.world.launchTrampoline(this.robot);
-          this.robot.setEmotion(EMOTIONS.EXCITED);
-          this.robot.animController.play("backflip", 1.8);
+          this.world.launchTrampoline(activeBot);
+          activeBot.velocityY = 8.5;
+          activeBot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.animController.play("backflip", 1.8);
           this.addJournalEntry("Juguet\xF3n", "\xA1Rebot\xE9 s\xFAper alto en el trampol\xEDn cibern\xE9tico!");
         });
       } else if (action === "go_carousel") {
         const carouselPos = new Vector3(62, 0, 26);
         this.navigateToward(carouselPos, 4.8, "walk", () => {
-          this.robot.setEmotion(EMOTIONS.HAPPY);
-          this.robot.animController.play("spin", 3);
+          activeBot.setEmotion(EMOTIONS.HAPPY);
+          activeBot.animController.play("spin", 3);
           this.addJournalEntry("Feliz", "Me sub\xED al carrusel a dar alegres vueltas.");
         });
       } else if (action === "go_ball") {
@@ -38179,8 +40456,8 @@ ${systemPrompt}`;
             ball.velocity.copy(kickDir.multiplyScalar(22));
             ball.velocity.y = 7;
             roboAudio.playBark(1.2);
-            this.robot.animController.play("jump", 1.2);
-            this.robot.setEmotion(EMOTIONS.PROUD);
+            activeBot.animController.play("jump", 1.2);
+            activeBot.setEmotion(EMOTIONS.PROUD);
             this.addJournalEntry("Orgulloso", "\xA1Pate\xE9 la pelota de f\xFAtbol con toda la potencia hacia la porter\xEDa!");
           }
         });
@@ -38188,8 +40465,8 @@ ${systemPrompt}`;
         const discoPos = new Vector3(52, 0, 56);
         this.navigateToward(discoPos, 5.4, "run", () => {
           this.world.triggerDiscoParty();
-          this.robot.setEmotion(EMOTIONS.PARTY);
-          this.robot.animController.play("dance", 3.5);
+          activeBot.setEmotion(EMOTIONS.PARTY);
+          activeBot.animController.play("dance", 3.5);
           this.addJournalEntry("Fiestero", "\xA1Llegu\xE9 a la pista disco a poner el mejor ambiente!");
         });
       } else if (action === "go_snack") {
@@ -38198,75 +40475,73 @@ ${systemPrompt}`;
           snackPos = this.world.snacks[0].group.position;
         }
         this.navigateToward(snackPos, 5.8, "run", () => {
-          this.robot.energy = 100;
+          activeBot.energy = 100;
           roboAudio.playSnackMunch();
-          this.robot.setEmotion(EMOTIONS.HUNGRY);
-          this.robot.animController.play("sniff", 2);
+          activeBot.setEmotion(EMOTIONS.HUNGRY);
+          activeBot.animController.play("sniff", 2);
           this.addJournalEntry("Glot\xF3n", "\xA1Me com\xED una rica ciborgalleta y recargu\xE9 mi energ\xEDa al 100%!");
         });
       } else if (action === "go_doghouse") {
         const housePos = new Vector3(72, 0, 52);
         this.navigateToward(housePos, 4.2, "walk", () => {
-          this.robot.energy = 100;
-          this.robot.setEmotion(EMOTIONS.SLEEPY);
-          this.robot.animController.play("lieDown", 3);
+          activeBot.energy = 100;
+          activeBot.setEmotion(EMOTIONS.SLEEPY);
+          activeBot.animController.play("lieDown", 3);
           this.addJournalEntry("Somnoliento", "Descansando pl\xE1cidamente en la estaci\xF3n de recarga.");
         });
       } else if (action === "go_fountain") {
         const fPos = new Vector3(12, 0, 10);
         this.navigateToward(fPos, 5, "walk", () => {
-          if (this.robot.quenchThirst) this.robot.quenchThirst(40);
+          if (activeBot.quenchThirst) activeBot.quenchThirst(40);
           roboAudio.playSplash();
-          this.robot.setEmotion(EMOTIONS.HAPPY);
-          this.robot.animController.play("wagTail", 2.5);
+          activeBot.setEmotion(EMOTIONS.HAPPY);
+          activeBot.animController.play("wagTail", 2.5);
           this.addJournalEntry("Feliz", "Beb\xED agua fresca y deliciosa en la fuente cibern\xE9tica.");
         });
       } else if (action === "go_bridge") {
         const bPos = new Vector3(-46, 0, -48);
         this.navigateToward(bPos, 4.8, "walk", () => {
-          this.robot.setEmotion(EMOTIONS.CURIOUS);
-          this.robot.animController.play("headTilt", 2);
+          activeBot.setEmotion(EMOTIONS.CURIOUS);
+          activeBot.animController.play("headTilt", 2);
           this.addJournalEntry("Curioso", "Cruc\xE9 el puente de madera sobre el arroyo del lago.");
         });
       } else if (action === "go_seesaw") {
         const sPos = new Vector3(48, 0, 32);
         this.navigateToward(sPos, 5.2, "run", () => {
-          this.robot.setEmotion(EMOTIONS.EXCITED);
-          this.robot.animController.play("jump", 1.8);
+          activeBot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.animController.play("jump", 1.8);
           this.addJournalEntry("Juguet\xF3n", "Me sub\xED al balanc\xEDn cibern\xE9tico para balancearme con mis amigos.");
         });
       } else if (action === "go_ballpit") {
         const pitPos = new Vector3(-32, 0, 48);
         this.navigateToward(pitPos, 5.6, "run", () => {
-          this.robot.setEmotion(EMOTIONS.EXCITED);
-          this.robot.animController.play("jump", 1.8);
+          activeBot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.animController.play("jump", 1.8);
           this.addJournalEntry("Juguet\xF3n", "\xA1Me zambull\xED de lleno en la piscina de pelotas!");
         });
       } else if (action === "go_slide") {
-        const slidePos = new Vector3(-18, 0, -32);
-        this.navigateToward(slidePos, 5.8, "run", () => {
-          this.robot.setEmotion(EMOTIONS.EXCITED);
-          this.addJournalEntry("Juguet\xF3n", "\xA1Sub\xED al tobog\xE1n y me deslic\xE9 a toda velocidad!");
-        });
+        this.executeAction("slide_down");
       } else if (action === "go_tunnel") {
         const tunnelPos = new Vector3(22, 0, -50);
         this.navigateToward(tunnelPos, 5.4, "run", () => {
-          this.robot.setEmotion(EMOTIONS.CURIOUS);
-          this.robot.animController.play("sneak", 2);
+          activeBot.setEmotion(EMOTIONS.CURIOUS);
+          activeBot.animController.play("sneak", 2);
           this.addJournalEntry("Curioso", "\xA1Pas\xE9 a toda velocidad por el t\xFAnel de agilidad!");
         });
       } else if (action === "go_target") {
         const targetPos = new Vector3(76, 0, 18);
         this.navigateToward(targetPos, 5.6, "run", () => {
-          this.robot.setEmotion(EMOTIONS.PROUD);
-          this.robot.animController.play("bark", 2);
+          activeBot.setEmotion(EMOTIONS.PROUD);
+          activeBot.animController.play("bark", 2);
           this.addJournalEntry("Orgulloso", "\xA1Llegu\xE9 a la diana de tiro al blanco a probar mi punter\xEDa!");
         });
       } else if (action === "go_pinata") {
         const pinataPos = new Vector3(-42, 0, 14);
         this.navigateToward(pinataPos, 6, "run", () => {
-          this.robot.setEmotion(EMOTIONS.EXCITED);
-          this.robot.animController.play("jump", 1.5);
+          activeBot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.velocityY = 6.5;
+          activeBot.group.position.y += 0.35;
+          activeBot.animController.play("jump", 1.5);
           this.addJournalEntry("Juguet\xF3n", "\xA1Salt\xE9 a golpear la pi\xF1ata de galletas!");
         });
       } else if (action.startsWith("go_robot_")) {
@@ -38274,13 +40549,13 @@ ${systemPrompt}`;
         if (this.packManager && this.packManager.allRobots[targetName]) {
           const targetBot = this.packManager.allRobots[targetName];
           this.navigateToward(targetBot.group.position, 5.2, "run", () => {
-            this.robot.lookAt(targetBot.group.position);
-            this.robot.animController.play("wave", 2);
-            this.robot.setEmotion(EMOTIONS.LOVING);
-            targetBot.lookAt(this.robot.group.position);
+            activeBot.lookAt(targetBot.group.position);
+            activeBot.animController.play("wave", 2);
+            activeBot.setEmotion(EMOTIONS.LOVING);
+            targetBot.lookAt(activeBot.group.position);
             targetBot.animController.play("wagTail", 2);
             targetBot.setEmotion(EMOTIONS.HAPPY);
-            roboAudio.playBark(this.robot.profile.voicePitch || 1);
+            roboAudio.playBark(activeBot.profile.voicePitch || 1);
             this.addJournalEntry("Cari\xF1oso", `Fui a saludar a mi amigo ${targetName} y jugamos juntos.`);
           });
         }
@@ -38321,15 +40596,15 @@ ${systemPrompt}`;
       diff.y = 0;
       const dist = diff.length();
       if (this.navLastPos) {
-        const moved = curPos.distanceTo(this.navLastPos);
+        const moved = Math.hypot(curPos.x - this.navLastPos.x, curPos.z - this.navLastPos.z);
         this.navLastPos.copy(curPos);
-        if (moved < 0.05) {
+        if (moved < 0.045) {
           this.navStuckTime += delta;
-          if (this.navStuckTime > 0.8) {
+          if (this.navStuckTime > 0.65) {
             const tangent = new Vector3(-diff.z, 0, diff.x).normalize();
-            curPos.addScaledVector(tangent, delta * 3.8);
+            curPos.addScaledVector(tangent, delta * 4.2);
           }
-          if (this.navStuckTime > 2.5) {
+          if (this.navStuckTime > 2.2) {
             this.isNavigating = false;
             this.robot.clearMission();
             if (this.onArrivalCallback) {
@@ -38355,14 +40630,20 @@ ${systemPrompt}`;
         return;
       }
       diff.normalize();
+      if (this.packManager && this.packManager.computeAvoidanceDir) {
+        const steered = this.packManager.computeAvoidanceDir(curPos, diff);
+        diff.copy(steered);
+      }
       const targetAngle = Math.atan2(diff.x, diff.z);
-      this.robot.group.rotation.y = MathUtils.lerp(this.robot.group.rotation.y, targetAngle, delta * 6);
+      this.robot.group.rotation.y = lerpAngle2(this.robot.group.rotation.y, targetAngle, delta * 7);
       curPos.addScaledVector(diff, this.navSpeed * delta);
       if (this.world) {
         if (this.world.resolveObstacleCollisions) {
-          this.world.resolveObstacleCollisions(curPos, 0.75);
+          this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
         }
-        curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
+        if (!this.robot.isInWater) {
+          curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
+        }
         this.world.handleRobotInteractions(this.robot);
       }
     }
@@ -38382,6 +40663,15 @@ ${systemPrompt}`;
       this.currentUser = null;
       this.onlineUsers = [];
       this.pingInterval = null;
+      this.reconnectTimer = null;
+      this.reconnectAttempts = 0;
+      this.pendingQueue = [];
+      window.addEventListener("online", () => {
+        if (!this.connected && this.currentUser) {
+          this.reconnectAttempts = 0;
+          this.connect();
+        }
+      });
     }
     init(user) {
       this.currentUser = user;
@@ -38389,28 +40679,52 @@ ${systemPrompt}`;
     }
     updateUser(newUser) {
       this.currentUser = { ...this.currentUser, ...newUser };
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        this.socket.send(JSON.stringify({
-          type: "JOIN",
-          username: this.currentUser.username,
-          avatar: this.currentUser.avatar || "\u{1F43E}"
-        }));
-      }
+      this.sendRaw({
+        type: "JOIN",
+        username: this.currentUser.username,
+        avatar: this.currentUser.avatar || "\u{1F43E}"
+      });
     }
-    connect() {
+    cleanupSocket() {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
       if (this.socket) {
+        this.socket.onopen = null;
+        this.socket.onmessage = null;
+        this.socket.onclose = null;
+        this.socket.onerror = null;
         try {
-          this.socket.close();
+          if (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING) {
+            this.socket.close();
+          }
         } catch (e) {
         }
+        this.socket = null;
       }
+    }
+    scheduleReconnect() {
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectAttempts = Math.min(this.reconnectAttempts + 1, 8);
+      const delay = Math.min(12e3, 2500 * Math.pow(1.3, this.reconnectAttempts - 1));
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        this.connect();
+      }, delay);
+    }
+    connect() {
+      this.cleanupSocket();
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
+      const host = window.location.host || "localhost:3000";
       const wsUrl = `${protocol}//${host}`;
       try {
         this.socket = new WebSocket(wsUrl);
         this.socket.onopen = () => {
           this.connected = true;
+          this.reconnectAttempts = 0;
           console.log("\u{1F7E2} [Multiplayer] Conectado exitosamente al WebSocket del servidor.");
           if (this.onStatusChange) this.onStatusChange(true);
           if (this.currentUser) {
@@ -38419,6 +40733,10 @@ ${systemPrompt}`;
               username: this.currentUser.username,
               avatar: this.currentUser.avatar || "\u{1F43E}"
             }));
+          }
+          while (this.pendingQueue.length > 0 && this.socket && this.socket.readyState === WebSocket.OPEN) {
+            const payload = this.pendingQueue.shift();
+            this.socket.send(JSON.stringify(payload));
           }
           clearInterval(this.pingInterval);
           this.pingInterval = setInterval(() => {
@@ -38439,31 +40757,45 @@ ${systemPrompt}`;
           this.connected = false;
           clearInterval(this.pingInterval);
           if (this.onStatusChange) this.onStatusChange(false);
-          console.log("\u{1F534} [Multiplayer] Desconectado. Reintentando en 3s...");
-          setTimeout(() => this.connect(), 3e3);
+          console.log("\u{1F534} [Multiplayer] Desconectado. Reintentando conexi\xF3n...");
+          this.scheduleReconnect();
         };
         this.socket.onerror = (err) => {
-          console.warn("\u26A0\uFE0F [Multiplayer] WebSocket error:", err);
+          console.warn("\u26A0\uFE0F [Multiplayer] WebSocket aviso:", err);
         };
       } catch (e) {
         console.error("Error iniciando WebSocket:", e);
+        this.scheduleReconnect();
       }
     }
+    sendRaw(payload) {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify(payload));
+        return true;
+      }
+      if (this.pendingQueue.length < 25) {
+        this.pendingQueue.push(payload);
+      }
+      return false;
+    }
     handleMessage(msg) {
+      if (!msg || !msg.type) return;
       if (msg.type === "JOIN_ACK") {
-        this.currentUser = { ...this.currentUser, id: msg.user.id };
-        this.onlineUsers = msg.onlineUsers || [];
+        if (msg.user && msg.user.id) {
+          this.currentUser = { ...this.currentUser, id: msg.user.id };
+        }
+        this.onlineUsers = Array.isArray(msg.onlineUsers) ? msg.onlineUsers : [];
         if (this.onUsersListUpdated) this.onUsersListUpdated(this.onlineUsers, this.currentUser);
       } else if (msg.type === "USER_JOINED") {
-        this.onlineUsers = msg.onlineUsers || [];
-        if (this.onUserJoined) this.onUserJoined(msg.user);
+        this.onlineUsers = Array.isArray(msg.onlineUsers) ? msg.onlineUsers : [];
+        if (msg.user && this.onUserJoined) this.onUserJoined(msg.user);
         if (this.onUsersListUpdated) this.onUsersListUpdated(this.onlineUsers, this.currentUser);
       } else if (msg.type === "USER_LEFT") {
-        this.onlineUsers = msg.onlineUsers || [];
-        if (this.onUserLeft) this.onUserLeft(msg.user);
+        this.onlineUsers = Array.isArray(msg.onlineUsers) ? msg.onlineUsers : [];
+        if (msg.user && this.onUserLeft) this.onUserLeft(msg.user);
         if (this.onUsersListUpdated) this.onUsersListUpdated(this.onlineUsers, this.currentUser);
       } else if (msg.type === "CHAT_COMMAND") {
-        if (this.onCommandReceived) {
+        if (this.onCommandReceived && msg.sender && msg.text) {
           this.onCommandReceived(msg.sender, msg.text, msg.targetRobot);
         }
       } else if (msg.type === "ROBOT_ACTION") {
@@ -38478,29 +40810,31 @@ ${systemPrompt}`;
       }
     }
     sendChatCommand(text, targetRobot = null) {
-      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false;
-      this.socket.send(JSON.stringify({
+      if (!text) return false;
+      return this.sendRaw({
         type: "CHAT_COMMAND",
         text,
         targetRobot,
         username: this.currentUser ? this.currentUser.username : "Humano",
         avatar: this.currentUser ? this.currentUser.avatar : "\u{1F43E}"
-      }));
-      return true;
+      });
     }
     sendRobotAction(robotName, action, emotion, thought) {
-      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
-      this.socket.send(JSON.stringify({
+      this.sendRaw({
         type: "ROBOT_ACTION",
         robotName,
         action,
         emotion,
         thought
-      }));
+      });
     }
   };
 
   // public/js/main.js
+  function lerpAngle3(current, target, t) {
+    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    return current + diff * Math.min(1, t);
+  }
   var App = class {
     constructor() {
       this.container = document.getElementById("canvas-container");
@@ -38515,6 +40849,7 @@ ${systemPrompt}`;
       this.isFreeWillActive = false;
       this.freeWillTimer = 0;
       this.joystickInput = null;
+      this.touchControlsInitialized = false;
       this.isHandToolActive = false;
       this.grabbedRobot = null;
       this.chatFilterDog = "ALL";
@@ -38522,7 +40857,9 @@ ${systemPrompt}`;
       this.timeOfDay = "day";
       this.initScene();
       this.initLights();
+      this.initSkyCelestials();
       this.initWorld();
+      this.initWaypointBeacon3D();
       this.initPackAndPlayer();
       this.initVisionAndBrain();
       this.initMinimap();
@@ -38537,9 +40874,9 @@ ${systemPrompt}`;
     initScene() {
       this.scene = new Scene();
       this.scene.background = new Color(8900331);
-      this.scene.fog = new FogExp2(8900331, 32e-4);
+      this.scene.fog = new FogExp2(8900331, 28e-4);
       const aspect2 = window.innerWidth / window.innerHeight || 1.6;
-      this.camera = new PerspectiveCamera(50, aspect2, 0.3, 1e3);
+      this.camera = new PerspectiveCamera(50, aspect2, 0.25, 1e3);
       this.camera.position.set(32 + 18, 16, 32 + 18);
       this.renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
       this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -38579,6 +40916,67 @@ ${systemPrompt}`;
       this.fillLight.position.set(-80, 60, -80);
       this.scene.add(this.fillLight);
     }
+    // 3D Celestial Sun, Glowing Moon & Night Starfield Dome
+    initSkyCelestials() {
+      this.skyGroup = new Group();
+      this.scene.add(this.skyGroup);
+      const sunMat = new MeshBasicMaterial({ color: 16776171, fog: false });
+      this.sunOrb = new Mesh(new SphereGeometry(14, 24, 24), sunMat);
+      this.sunOrb.position.set(150, 185, 110);
+      this.skyGroup.add(this.sunOrb);
+      const moonMat = new MeshBasicMaterial({ color: 14742270, fog: false });
+      this.moonOrb = new Mesh(new SphereGeometry(11, 24, 24), moonMat);
+      this.moonOrb.position.set(-140, 175, -120);
+      this.moonOrb.visible = false;
+      this.skyGroup.add(this.moonOrb);
+      const starCount = 320;
+      const starGeo = new BufferGeometry();
+      const starPos = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * (Math.PI * 0.44);
+        const r = 310;
+        starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        starPos[i * 3 + 1] = Math.max(35, r * Math.cos(phi));
+        starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      }
+      starGeo.setAttribute("position", new BufferAttribute(starPos, 3));
+      const starMat = new PointsMaterial({
+        color: 14742270,
+        size: 1.6,
+        transparent: true,
+        opacity: 0.9,
+        fog: false
+      });
+      this.starField = new Points(starGeo, starMat);
+      this.starField.visible = false;
+      this.skyGroup.add(this.starField);
+    }
+    // 3D Tactical Waypoint Ring shown in the 3D world when navigating via Minimap
+    initWaypointBeacon3D() {
+      this.waypointBeaconGroup = new Group();
+      this.waypointBeaconGroup.visible = false;
+      const ringMat = new MeshBasicMaterial({
+        color: 2293640,
+        side: DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      });
+      const ring = new Mesh(new RingGeometry(0.9, 1.25, 32), ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.12;
+      this.waypointBeaconGroup.add(ring);
+      const beamMat = new MeshBasicMaterial({
+        color: 2293640,
+        transparent: true,
+        opacity: 0.28,
+        side: DoubleSide
+      });
+      const beam = new Mesh(new CylinderGeometry(0.85, 0.85, 4.5, 24, 1, true), beamMat);
+      beam.position.y = 2.25;
+      this.waypointBeaconGroup.add(beam);
+      this.scene.add(this.waypointBeaconGroup);
+    }
     setTimeOfDay(time) {
       this.timeOfDay = time;
       if (time === "day") {
@@ -38588,7 +40986,15 @@ ${systemPrompt}`;
         this.hemiLight.groundColor.setHex(3706428);
         this.sunLight.color.setHex(16775149);
         this.sunLight.intensity = 1.35;
+        this.sunLight.position.set(120, 160, 90);
         this.fillLight.color.setHex(165063);
+        if (this.sunOrb) {
+          this.sunOrb.visible = true;
+          this.sunOrb.material.color.setHex(16776171);
+          this.sunOrb.position.set(150, 185, 110);
+        }
+        if (this.moonOrb) this.moonOrb.visible = false;
+        if (this.starField) this.starField.visible = false;
         this.pushActivity("\u2600\uFE0F Es mediod\xEDa brillante en el prado.");
       } else if (time === "sunset") {
         this.scene.background.setHex(16612884);
@@ -38597,7 +41003,15 @@ ${systemPrompt}`;
         this.hemiLight.groundColor.setHex(8138002);
         this.sunLight.color.setHex(16772565);
         this.sunLight.intensity = 1.1;
+        this.sunLight.position.set(-160, 65, 90);
         this.fillLight.color.setHex(14251782);
+        if (this.sunOrb) {
+          this.sunOrb.visible = true;
+          this.sunOrb.material.color.setHex(16740419);
+          this.sunOrb.position.set(-210, 68, 110);
+        }
+        if (this.moonOrb) this.moonOrb.visible = false;
+        if (this.starField) this.starField.visible = false;
         this.pushActivity("\u{1F305} El atardecer ti\xF1e el cielo de oro y naranja.");
       } else if (time === "night") {
         this.scene.background.setHex(461593);
@@ -38605,9 +41019,13 @@ ${systemPrompt}`;
         this.hemiLight.color.setHex(1976635);
         this.hemiLight.groundColor.setHex(142370);
         this.sunLight.color.setHex(3718648);
-        this.sunLight.intensity = 0.5;
+        this.sunLight.intensity = 0.55;
+        this.sunLight.position.set(-120, 150, -100);
         this.fillLight.color.setHex(6514417);
-        this.pushActivity("\u{1F319} Cae la noche cibern\xE9tica; las luces de ne\xF3n brillan.");
+        if (this.sunOrb) this.sunOrb.visible = false;
+        if (this.moonOrb) this.moonOrb.visible = true;
+        if (this.starField) this.starField.visible = true;
+        this.pushActivity("\u{1F319} Cae la noche cibern\xE9tica; las estrellas y luces de ne\xF3n brillan.");
       }
     }
     initWorld() {
@@ -38632,6 +41050,7 @@ ${systemPrompt}`;
         this.pushActivity(msg);
       });
       this.playerRobot = this.packManager.allRobots["Sparky"];
+      this.playerRobot.velocityY = 0;
     }
     initVisionAndBrain() {
       this.vision = new RobotVisionSystem(this.playerRobot, this.scene, this.world);
@@ -38663,9 +41082,15 @@ ${systemPrompt}`;
           const pPos = this.playerRobot.group.position;
           const worldX = pPos.x + (clickX - centerX) / this.minimapScale;
           const worldZ = pPos.z + (clickY - centerY) / this.minimapScale;
-          this.targetWaypoint = new Vector3(worldX, 0, worldZ);
+          const groundY = this.world.getHeightAt(worldX, worldZ);
+          this.targetWaypoint = new Vector3(worldX, groundY, worldZ);
+          if (this.waypointBeaconGroup) {
+            this.waypointBeaconGroup.position.copy(this.targetWaypoint);
+            this.waypointBeaconGroup.visible = true;
+          }
           this.brain.navigateToward(this.targetWaypoint, 5.8, "run", () => {
             this.targetWaypoint = null;
+            if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
           });
           this.pushActivity(`\u{1F3AF} Navegando hacia punto t\xE1ctico (${Math.round(worldX)}, ${Math.round(worldZ)})`);
           roboAudio.playBoop(1.3);
@@ -38680,6 +41105,7 @@ ${systemPrompt}`;
       document.getElementById("btn-minimap-recenter")?.addEventListener("click", () => {
         this.minimapScale = 0.55;
         this.targetWaypoint = null;
+        if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
       });
     }
     pushActivity(text) {
@@ -38697,12 +41123,9 @@ ${systemPrompt}`;
       const newPlayer = this.packManager.switchToRobot(name);
       if (!newPlayer) return;
       this.playerRobot = newPlayer;
-      this.vision.robot = newPlayer;
-      if (this.vision.eyeCamera && newPlayer.nodes.head) {
-        newPlayer.nodes.head.add(this.vision.eyeCamera);
-        this.vision.eyeCamera.position.set(0, 0.58, 0.96);
-        this.vision.eyeCamera.rotation.set(0, Math.PI, 0);
-      }
+      this.targetWaypoint = null;
+      if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
+      this.vision.attachToRobot(newPlayer);
       this.brain.setRobot(newPlayer);
       const nameEl = document.getElementById("robot-name");
       const titleEl = document.getElementById("robot-title-tag");
@@ -38723,6 +41146,15 @@ ${systemPrompt}`;
         document.getElementById("btn-open-pet-switcher")?.classList.remove("open");
       }
       this.updateHUDStats();
+    }
+    triggerPlayerJump(boost = 7.2) {
+      if (!this.playerRobot) return;
+      const groundY = this.world.getHeightAt(this.playerRobot.group.position.x, this.playerRobot.group.position.z);
+      if (this.playerRobot.group.position.y <= groundY + 0.25) {
+        this.playerRobot.velocityY = boost;
+        this.playerRobot.animController.play("jump", 1.2);
+        roboAudio.playJump();
+      }
     }
     initUI() {
       const nameEl = document.getElementById("robot-name");
@@ -39049,6 +41481,7 @@ ${systemPrompt}`;
         if (minBtn) minBtn.textContent = "\u25A2";
       }
       document.getElementById("btn-clear-chat-log")?.addEventListener("click", () => {
+        this.allChatHistory = [];
         const feed = document.getElementById("chat-history-feed");
         if (feed) {
           feed.innerHTML = `<div class="chat-bubble chat-system"><span class="chat-author">\u{1F916} Sistema:</span> Historial reiniciado.</div>`;
@@ -39244,7 +41677,11 @@ Endpoint: ${cleanEp}`);
       ];
       actions.forEach((action) => {
         document.getElementById(`btn-anim-${action}`)?.addEventListener("click", () => {
-          this.playerRobot.animController.play(action, 2.5);
+          if (action === "jump") {
+            this.triggerPlayerJump(7.2);
+          } else {
+            this.playerRobot.animController.play(action, 2.5);
+          }
         });
       });
       Object.keys(EMOTIONS).forEach((key) => {
@@ -39257,7 +41694,7 @@ Endpoint: ${cleanEp}`);
       document.getElementById("btn-pet-robot")?.addEventListener("click", () => {
         this.playerRobot.petRobot();
         this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-        this.pushActivity(`\u{1F496} Acariciaste a ${this.playerRobot.name}!`);
+        this.pushActivity(`\u{1F496} \xA1Acariciaste a ${this.playerRobot.name}!`);
       });
       const chatInput = document.getElementById("chat-input");
       const chatBtn = document.getElementById("chat-btn");
@@ -39317,7 +41754,10 @@ Endpoint: ${cleanEp}`);
       }
       this.pushActivity(isZen ? "\u{1F441}\uFE0F Modo Zen activado (Inmersi\xF3n 3D completa)." : "\u{1F441}\uFE0F Modo Zen desactivado.");
     }
+    // Guarded with touchControlsInitialized so listeners are never registered twice
     initTouchControls() {
+      if (this.touchControlsInitialized) return;
+      this.touchControlsInitialized = true;
       const joystickZone = document.getElementById("joystick-zone");
       const joystickBase = document.getElementById("joystick-base");
       const joystickStick = document.getElementById("joystick-stick");
@@ -39377,14 +41817,16 @@ Endpoint: ${cleanEp}`);
       window.addEventListener("touchcancel", onTouchEnd);
       document.querySelectorAll(".touch-act-btn").forEach((btn) => {
         const key = btn.dataset.key;
+        let lastTrigger = 0;
         const trigger = () => {
+          const now = Date.now();
+          if (now - lastTrigger < 180) return;
+          lastTrigger = now;
           if (key === "shift") {
             this.keys["shift"] = !this.keys["shift"];
             btn.classList.toggle("pressed", this.keys["shift"]);
           } else if (key === " ") {
-            this.playerRobot.animController.play("jump", 1.2);
-            this.playerRobot.group.position.y += 0.8;
-            roboAudio.playJump();
+            this.triggerPlayerJump(7.2);
           } else if (key === "b") {
             this.playerRobot.animController.play("bark", 1);
             roboAudio.playBark(this.playerRobot.profile ? this.playerRobot.profile.voicePitch : 1);
@@ -39444,15 +41886,15 @@ Endpoint: ${cleanEp}`);
         }
       });
       window.addEventListener("keydown", (e) => {
-        if (e.target && e.target.tagName === "INPUT") return;
+        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
         this.keys[e.key.toLowerCase()] = true;
         roboAudio.ensureContext();
-        if (e.key === " " && this.playerRobot.animController.currentAnim !== "jump") {
-          this.playerRobot.animController.play("jump", 1.2);
+        if (e.key === " ") {
+          this.triggerPlayerJump(7.2);
         } else if (e.key.toLowerCase() === "p") {
           this.playerRobot.petRobot();
           this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-          this.pushActivity(`\u{1F496} Mimos para ${this.playerRobot.name}!`);
+          this.pushActivity(`\u{1F496} \xA1Mimos para ${this.playerRobot.name}!`);
         } else if (e.key.toLowerCase() === "b") {
           this.playerRobot.animController.play("bark", 1);
         } else if (e.key.toLowerCase() === "f") {
@@ -39492,9 +41934,9 @@ Endpoint: ${cleanEp}`);
         pointerDownTime = Date.now();
         pointerDownPos = { x: e.clientX, y: e.clientY };
         const allMeshes = Object.values(this.packManager.allRobots).map((r) => r.group);
-        const intersects = raycaster.intersectObjects(allMeshes, true);
-        if (intersects.length > 0) {
-          let hitGroup = intersects[0].object;
+        const intersects2 = raycaster.intersectObjects(allMeshes, true);
+        if (intersects2.length > 0) {
+          let hitGroup = intersects2[0].object;
           while (hitGroup.parent && !hitGroup.name.startsWith("ChibiRobot_")) {
             hitGroup = hitGroup.parent;
           }
@@ -39528,7 +41970,7 @@ Endpoint: ${cleanEp}`);
           }
         }
       });
-      this.renderer.domElement.addEventListener("pointerup", (e) => {
+      this.renderer.domElement.addEventListener("pointerup", () => {
         if (this.grabbedRobot) {
           this.releaseGrabbedRobot();
           candidateRobot = null;
@@ -39538,20 +41980,22 @@ Endpoint: ${cleanEp}`);
           if (candidateRobot === this.playerRobot) {
             this.playerRobot.petRobot();
             this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-            this.pushActivity(`\u{1F496} Mimos para ${this.playerRobot.name}!`);
+            this.pushActivity(`\u{1F496} \xA1Mimos para ${this.playerRobot.name}!`);
           } else {
             this.switchToRobot(candidateRobot.name);
           }
         }
         candidateRobot = null;
       });
-      this.initTouchControls();
     }
     grabRobot(robot) {
       if (!robot || this.grabbedRobot) return;
       this.grabbedRobot = robot;
       robot.isPickedUp = true;
-      robot.fallVelocityY = 0;
+      robot.velocityY = 0;
+      if (robot === this.playerRobot && this.brain) {
+        this.brain.cancelNavigation();
+      }
       if (robot.animController) robot.animController.play("pickedUp");
       document.body.classList.add("is-grabbing");
       roboAudio.playBoop(1.5);
@@ -39563,7 +42007,7 @@ Endpoint: ${cleanEp}`);
       const released = this.grabbedRobot;
       this.grabbedRobot = null;
       released.isPickedUp = false;
-      released.fallVelocityY = -3.2;
+      released.velocityY = -2.5;
       document.body.classList.remove("is-grabbing");
       this.pushActivity(`\u{1F43E} \xA1Soltaste a ${released.name}! Cayendo suavemente al terreno.`);
     }
@@ -39670,7 +42114,7 @@ Endpoint: ${cleanEp}`);
           const dot = document.querySelector(".online-indicator-dot");
           if (dot) dot.style.background = connected ? "#22c55e" : "#ef4444";
         },
-        onUsersListUpdated: (users, currentUser) => {
+        onUsersListUpdated: (users) => {
           const countEl = document.getElementById("online-users-count");
           if (countEl) countEl.textContent = users.length;
           const listEl = document.getElementById("online-users-list");
@@ -39695,13 +42139,13 @@ Endpoint: ${cleanEp}`);
           this.addChatMessage("Sistema", `\u{1F6AA} ${user.avatar || "\u{1F43E}"} <strong>${user.username}</strong> sali\xF3 de la sesi\xF3n.`, "system");
           this.pushActivity(`\u{1F6AA} ${user.username} sali\xF3 del mundo.`);
         },
-        onCommandReceived: (sender, text, targetRobot) => {
+        onCommandReceived: (sender, text) => {
           if (this.currentUser && sender.username === this.currentUser.username) return;
           this.addChatMessage(`${sender.avatar || "\u{1F464}"} ${sender.username}`, text, "user");
           this.pushActivity(`\u{1F4AC} ${sender.username} orden\xF3: "${text}"`);
           this.brain.think(text);
         },
-        onRobotActionReceived: (robotName, action, emotion, thought, sender) => {
+        onRobotActionReceived: () => {
         }
       });
       if (this.currentUser) {
@@ -39775,8 +42219,7 @@ Endpoint: ${cleanEp}`);
       }, 450);
     }
     handleManualMovement(delta) {
-      if (this.cameraMode === "free") return;
-      if (this.brain && this.brain.isNavigating) return;
+      if (this.cameraMode === "free" || this.playerRobot.isPickedUp || this.playerRobot.isSliding) return;
       let moveX = 0;
       let moveZ = 0;
       let isRunning = !!this.keys["shift"];
@@ -39790,17 +42233,27 @@ Endpoint: ${cleanEp}`);
         if (this.keys["a"] || this.keys["arrowleft"]) moveX -= 1;
         if (this.keys["d"] || this.keys["arrowright"]) moveX += 1;
       }
+      if ((moveX !== 0 || moveZ !== 0) && this.brain && this.brain.isNavigating) {
+        this.brain.cancelNavigation();
+        this.targetWaypoint = null;
+        if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
+      }
+      if (this.brain && this.brain.isNavigating) return;
+      const rPos = this.playerRobot.group.position;
       if (moveX !== 0 || moveZ !== 0) {
         this.freeWillTimer = 3;
         const camYaw = Math.atan2(
-          this.camera.position.x - this.playerRobot.group.position.x,
-          this.camera.position.z - this.playerRobot.group.position.z
+          this.camera.position.x - rPos.x,
+          this.camera.position.z - rPos.z
         );
         const inputAngle = Math.atan2(moveX, -moveZ);
         const targetAngle = camYaw + inputAngle;
-        const angleDiff = targetAngle - this.playerRobot.group.rotation.y;
-        this.playerRobot.bankAngle = MathUtils.clamp(-angleDiff * 0.4, -0.22, 0.22);
-        this.playerRobot.group.rotation.y = MathUtils.lerp(
+        const shortestDiff = Math.atan2(
+          Math.sin(targetAngle - this.playerRobot.group.rotation.y),
+          Math.cos(targetAngle - this.playerRobot.group.rotation.y)
+        );
+        this.playerRobot.bankAngle = MathUtils.clamp(-shortestDiff * 0.35, -0.22, 0.22);
+        this.playerRobot.group.rotation.y = lerpAngle3(
           this.playerRobot.group.rotation.y,
           targetAngle,
           delta * 12
@@ -39809,29 +42262,32 @@ Endpoint: ${cleanEp}`);
         const speed = baseSpeed * (this.playerRobot.profile ? this.playerRobot.profile.speedMultiplier : 1);
         const anim = isRunning ? "run" : "walk";
         const forward = new Vector3(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.playerRobot.group.rotation.y);
-        this.playerRobot.group.position.addScaledVector(forward, speed * delta);
+        rPos.addScaledVector(forward, speed * delta);
         if (this.world && this.world.resolveObstacleCollisions) {
-          this.world.resolveObstacleCollisions(this.playerRobot.group.position, 0.75, 1.2);
+          this.world.resolveObstacleCollisions(rPos, 0.75, 1.2);
         }
         if (this.packManager && this.packManager.pack) {
           this.packManager.pack.forEach((bot) => {
-            const dist = this.playerRobot.group.position.distanceTo(bot.group.position);
+            if (Math.abs(rPos.y - bot.group.position.y) >= 1.2) return;
+            const dx = rPos.x - bot.group.position.x;
+            const dz = rPos.z - bot.group.position.z;
+            const dist = Math.hypot(dx, dz);
             if (dist < 1.4 && dist > 1e-3) {
-              const overlap = 1.4 - dist;
-              const push = new Vector3().subVectors(this.playerRobot.group.position, bot.group.position).normalize();
-              this.playerRobot.group.position.addScaledVector(push, overlap * 0.5);
-              bot.group.position.addScaledVector(push, -overlap * 0.5);
+              const overlap = (1.4 - dist) * 0.5;
+              const nx = dx / dist;
+              const nz = dz / dist;
+              rPos.x += nx * overlap;
+              rPos.z += nz * overlap;
+              bot.group.position.x -= nx * overlap;
+              bot.group.position.z -= nz * overlap;
             }
           });
         }
-        this.playerRobot.group.position.y = this.world.getHeightAt(
-          this.playerRobot.group.position.x,
-          this.playerRobot.group.position.z
-        );
-        this.playerRobot.animController.play(anim);
-        this.world.handleRobotInteractions(this.playerRobot);
+        if (!this.playerRobot.isInWater && this.playerRobot.animController.currentAnim !== "jump" && this.playerRobot.animController.currentAnim !== "backflip") {
+          this.playerRobot.animController.play(anim);
+        }
       } else {
-        this.playerRobot.bankAngle = 0;
+        this.playerRobot.bankAngle = MathUtils.lerp(this.playerRobot.bankAngle || 0, 0, delta * 10);
         if (this.isFreeWillActive) {
           this.freeWillTimer -= delta;
           if (this.freeWillTimer <= 0) {
@@ -39851,6 +42307,29 @@ Endpoint: ${cleanEp}`);
             this.playerRobot.animController.play("idle");
           }
         }
+      }
+      const groundY = this.world.getHeightAt(rPos.x, rPos.z);
+      if (!this.playerRobot.isInWater) {
+        if (rPos.y > groundY + 0.04 || this.playerRobot.velocityY && this.playerRobot.velocityY !== 0) {
+          this.playerRobot.velocityY = (this.playerRobot.velocityY || 0) - 18.5 * delta;
+          rPos.y += this.playerRobot.velocityY * delta;
+          if (rPos.y <= groundY) {
+            rPos.y = groundY;
+            if (this.playerRobot.velocityY < -10) {
+              if (this.particleSystem) this.particleSystem.spawnBurst(rPos, "HAPPY");
+            }
+            this.playerRobot.velocityY = 0;
+          }
+        } else {
+          rPos.y = groundY;
+          this.playerRobot.velocityY = 0;
+        }
+      }
+      const prevY = rPos.y;
+      this.world.handleRobotInteractions(this.playerRobot);
+      if (rPos.y > prevY + 0.5 && !this.playerRobot.isInWater) {
+        this.playerRobot.velocityY = (rPos.y - prevY) * 3.2;
+        rPos.y = prevY + 0.15;
       }
     }
     updateHUDStats() {
@@ -39943,6 +42422,7 @@ Endpoint: ${cleanEp}`);
         this.controls.update();
       } else if (this.cameraMode === "eye") {
         this.controls.enabled = false;
+        this.vision.eyeCamera.updateWorldMatrix(true, false);
         this.vision.eyeCamera.getWorldPosition(this.camera.position);
         this.vision.eyeCamera.getWorldQuaternion(this.camera.quaternion);
       } else if (this.cameraMode === "drone") {
@@ -40054,36 +42534,23 @@ Endpoint: ${cleanEp}`);
       ctx.fillStyle = "#ffffff";
       ctx.font = "10px sans-serif";
       ctx.fillText("\u{1F945}", goalX - 10, goalY + 4);
-      const trampX = centerX + (38 - pPos.x) * scale;
-      const trampY = centerY + (22 - pPos.z) * scale;
-      ctx.fillStyle = "rgba(0, 229, 255, 0.3)";
-      ctx.beginPath();
-      ctx.arc(trampX, trampY, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#00e5ff";
-      ctx.stroke();
-      ctx.fillText("\u{1F3AA}", trampX - 5, trampY + 4);
-      const carX = centerX + (62 - pPos.x) * scale;
-      const carY = centerY + (26 - pPos.z) * scale;
-      ctx.fillStyle = "rgba(250, 204, 21, 0.3)";
-      ctx.beginPath();
-      ctx.arc(carX, carY, 8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#facc15";
-      ctx.stroke();
-      ctx.fillText("\u{1F3A0}", carX - 5, carY + 4);
-      const discoX = centerX + (52 - pPos.x) * scale;
-      const discoY = centerY + (56 - pPos.z) * scale;
-      ctx.fillStyle = "rgba(236, 72, 153, 0.35)";
-      ctx.fillRect(discoX - 7, discoY - 7, 14, 14);
-      ctx.strokeStyle = "#ec4899";
-      ctx.strokeRect(discoX - 7, discoY - 7, 14, 14);
-      ctx.fillText("\u{1FAA9}", discoX - 5, discoY + 4);
-      const houseX = centerX + (72 - pPos.x) * scale;
-      const houseY = centerY + (52 - pPos.z) * scale;
-      ctx.fillStyle = "#3b82f6";
-      ctx.font = "11px sans-serif";
-      ctx.fillText("\u{1F3E0}", houseX - 5, houseY + 4);
+      const drawIcon = (wx, wz, emoji) => {
+        const ix = centerX + (wx - pPos.x) * scale;
+        const iy = centerY + (wz - pPos.z) * scale;
+        ctx.font = "10px sans-serif";
+        ctx.fillText(emoji, ix - 5, iy + 4);
+      };
+      drawIcon(38, 22, "\u{1F3AA}");
+      drawIcon(62, 26, "\u{1F3A0}");
+      drawIcon(52, 56, "\u{1FAA9}");
+      drawIcon(72, 52, "\u{1F3E0}");
+      drawIcon(12, 10, "\u{1F4A7}");
+      drawIcon(-46, -48, "\u{1F309}");
+      drawIcon(-32, 48, "\u{1F7E3}");
+      drawIcon(-18, -32, "\u{1F3A2}");
+      drawIcon(22, -50, "\u{1F300}");
+      drawIcon(76, 18, "\u{1F3AF}");
+      drawIcon(-42, 14, "\u{1FA85}");
       if (this.world && this.world.soccerBall) {
         const sbPos = this.world.soccerBall.mesh.position;
         const bx = centerX + (sbPos.x - pPos.x) * scale;
@@ -40097,7 +42564,7 @@ Endpoint: ${cleanEp}`);
           if (b === this.world.soccerBall) return;
           const bx = centerX + (b.mesh.position.x - pPos.x) * scale;
           const by = centerY + (b.mesh.position.z - pPos.z) * scale;
-          ctx.fillStyle = b.colorHex ? `#${b.colorHex.toString(16)}` : "#00e5ff";
+          ctx.fillStyle = "#00e5ff";
           ctx.beginPath();
           ctx.arc(bx, by, 3, 0, Math.PI * 2);
           ctx.fill();
@@ -40190,12 +42657,18 @@ Endpoint: ${cleanEp}`);
       ctx.fillText("W", 5, centerY + 4);
       ctx.fillText("E", w - 12, centerY + 4);
     }
+    // Prevents inverted projection when robot is behind camera frustum (screenPos.z > 1)
     updateSpeechBubblePos() {
       const bubble = document.getElementById("world-speech-bubble");
       if (!bubble || bubble.classList.contains("hidden") || !this.playerRobot.nodes.overheadAnchor) return;
       const screenPos = new Vector3();
       this.playerRobot.nodes.overheadAnchor.getWorldPosition(screenPos);
       screenPos.project(this.camera);
+      if (screenPos.z > 1) {
+        bubble.style.opacity = "0";
+        return;
+      }
+      bubble.style.opacity = "1";
       const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
       const y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
       bubble.style.left = `${x}px`;
@@ -40209,21 +42682,11 @@ Endpoint: ${cleanEp}`);
         if (this.brain) this.brain.updateNavigation(delta);
         this.playerRobot.update(delta);
         this.playerRobot.animController.update(delta);
-        if (this.packManager && this.packManager.allRobots) {
-          Object.values(this.packManager.allRobots).forEach((dog) => {
-            if (!dog.isPickedUp && dog.fallVelocityY !== void 0 && dog.fallVelocityY !== 0) {
-              dog.group.position.y += dog.fallVelocityY * delta;
-              dog.fallVelocityY -= 22 * delta;
-              const groundY = this.world.getHeightAt(dog.group.position.x, dog.group.position.z);
-              if (dog.group.position.y <= groundY) {
-                dog.group.position.y = groundY;
-                dog.fallVelocityY = 0;
-                if (dog.animController) dog.animController.play("shakeOff", 1.8);
-                if (this.particleSystem) this.particleSystem.spawnBurst(dog.group.position, "LOVING");
-                roboAudio.playBoop(1.4);
-              }
-            }
-          });
+        if (this.waypointBeaconGroup && this.waypointBeaconGroup.visible) {
+          this.waypointBeaconGroup.rotation.y += delta * 2;
+        }
+        if (this.starField && this.starField.visible) {
+          this.starField.rotation.y += delta * 5e-3;
         }
         if (this.packManager) this.packManager.update(delta, this.playerRobot);
         if (this.world) this.world.update(delta);

@@ -1,4 +1,4 @@
-// Robot Camera, Vision System & Body Proprioception (Optimized for ultra-low token usage)
+// Robot Camera, Vision System & Body Proprioception (World-Space Accurate & Specific POI Priority)
 import * as THREE from 'three';
 
 export class RobotVisionSystem {
@@ -8,22 +8,33 @@ export class RobotVisionSystem {
     this.world = world;
 
     // 1. Physical 3D Eye Camera
-    this.eyeCamera = new THREE.PerspectiveCamera(75, 230 / 130, 0.05, 300);
-    // Orient forward (+Z) so it looks ahead in direction of dog's sight!
-    this.eyeCamera.rotation.y = Math.PI;
-    // Position ahead of head box and above snout for a completely unobstructed view
-    this.eyeCamera.position.set(0, 0.58, 0.96);
-    if (this.robot && this.robot.nodes && this.robot.nodes.head) {
-      this.robot.nodes.head.add(this.eyeCamera);
-    }
+    this.eyeCamera = new THREE.PerspectiveCamera(75, 230 / 130, 0.08, 300);
+    this.attachToRobot(this.robot);
 
     // Secondary PIP renderer for HUD
     this.pipCanvas = null;
     this.pipRenderer = null;
 
     // FOV cone configuration for semantic vision
-    this.visionAngle = Math.PI * 0.55; // ~100 degrees cone of sight
-    this.visionRange = 40; // 40 units view distance
+    this.visionAngle = Math.PI * 0.58; // ~105 degrees cone of sight
+    this.visionRange = 42;
+
+    // Reusable vector cache to avoid GC pressure
+    this._tempWorldPos = new THREE.Vector3();
+    this._tempRobotDir = new THREE.Vector3();
+    this._tempToItem = new THREE.Vector3();
+    this._tempCross = new THREE.Vector3();
+  }
+
+  attachToRobot(newRobot) {
+    if (!newRobot) return;
+    this.robot = newRobot;
+    if (this.robot.nodes && this.robot.nodes.head) {
+      this.robot.nodes.head.add(this.eyeCamera);
+      // Positioned slightly forward of snout & sunglasses so robot never clips its own camera
+      this.eyeCamera.position.set(0, 0.58, 1.02);
+      this.eyeCamera.rotation.set(0, Math.PI, 0);
+    }
   }
 
   initPIP(canvasElement) {
@@ -50,7 +61,6 @@ export class RobotVisionSystem {
   renderPIP() {
     if (!this.pipRenderer || !this.pipCanvas) return;
 
-    // Dynamically adjust to canvas bounding dimensions when visible
     const w = this.pipCanvas.clientWidth || this.pipCanvas.width || 230;
     const h = this.pipCanvas.clientHeight || this.pipCanvas.height || 130;
 
@@ -64,10 +74,9 @@ export class RobotVisionSystem {
     }
 
     try {
+      this.eyeCamera.updateWorldMatrix(true, false);
       this.pipRenderer.render(this.scene, this.eyeCamera);
-    } catch (e) {
-      // transient render catch
-    }
+    } catch (e) { }
   }
 
   // Noción del Cuerpo (Proprioception)
@@ -91,106 +100,155 @@ export class RobotVisionSystem {
     };
   }
 
+  // FIXED: Selects the most specific (smallest radius) matching Point of Interest
+  // so sub-attractions inside the Playground (Trampoline, Carousel, Disco, Seesaw) are properly reported!
   getCurrentLocationName(pos) {
     if (!this.world || !this.world.pointsOfInterest) return 'Gran Prado Verde';
+    let bestPoi = null;
+    let smallestRadius = Infinity;
+
     for (const poi of this.world.pointsOfInterest) {
       const d = Math.hypot(pos.x - poi.position.x, pos.z - poi.position.z);
-      if (d <= poi.radius) {
-        return poi.name;
+      if (d <= poi.radius && poi.radius < smallestRadius) {
+        smallestRadius = poi.radius;
+        bestPoi = poi;
       }
     }
-    return 'Gran Prado Verde';
+    return bestPoi ? bestPoi.name : 'Gran Prado Verde';
   }
 
-  // Semantic Vision Snapshot: Finds what is in front of the robot dog
-  // Token cost: ~40 to 80 tokens max!
+  // Semantic Vision Snapshot: Uses true World Positions and scans Toys, Snacks, Treasures, Robots & POIs
   getVisualSnapshot(otherRobots = []) {
     const robotPos = this.robot.group.position;
-    const robotDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.robot.group.rotation.y);
+    this._tempRobotDir.set(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.robot.group.rotation.y);
 
     const visibleItems = [];
 
-    // 1. Scan interactive toys (balls, bones, playground ramps)
+    // 1. Scan interactive toys (balls, bones) using true World Position
     if (this.world && this.world.interactiveObjects) {
       this.world.interactiveObjects.forEach(item => {
-        const itemPos = item.object.position;
-        const toItem = new THREE.Vector3().subVectors(itemPos, robotPos);
-        const dist = toItem.length();
+        if (!item.object) return;
+        item.object.getWorldPosition(this._tempWorldPos);
+        this._tempToItem.subVectors(this._tempWorldPos, robotPos);
+        const dist = this._tempToItem.length();
 
-        if (dist <= this.visionRange) {
-          toItem.normalize();
-          const dot = robotDir.dot(toItem);
+        if (dist <= this.visionRange && dist > 0.4) {
+          this._tempToItem.normalize();
+          const dot = this._tempRobotDir.dot(this._tempToItem);
           const angle = Math.acos(THREE.MathUtils.clamp(dot, -1, 1));
 
           if (angle <= this.visionAngle / 2) {
-            const relativeAngle = this.getRelativeDirection(robotDir, toItem);
             visibleItems.push({
               type: item.name,
               distance: `${dist.toFixed(1)}m`,
-              direction: relativeAngle
+              direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
             });
           }
         }
       });
     }
 
-    // 2. Scan other chibi robot dogs
+    // 2. Scan dropped Cyber Snacks
+    if (this.world && this.world.snacks) {
+      this.world.snacks.forEach(snack => {
+        if (!snack.group) return;
+        snack.group.getWorldPosition(this._tempWorldPos);
+        this._tempToItem.subVectors(this._tempWorldPos, robotPos);
+        const dist = this._tempToItem.length();
+
+        if (dist <= this.visionRange) {
+          this._tempToItem.normalize();
+          const dot = this._tempRobotDir.dot(this._tempToItem);
+          const angle = Math.acos(THREE.MathUtils.clamp(dot, -1, 1));
+          if (angle <= this.visionAngle / 2) {
+            visibleItems.push({
+              type: 'Galleta Energética',
+              distance: `${dist.toFixed(1)}m`,
+              direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
+            });
+          }
+        }
+      });
+    }
+
+    // 3. Scan un-dug Treasure Spots
+    if (this.world && this.world.treasureSpots) {
+      this.world.treasureSpots.forEach(spot => {
+        if (spot.dug) return;
+        this._tempWorldPos.set(spot.x, robotPos.y, spot.z);
+        this._tempToItem.subVectors(this._tempWorldPos, robotPos);
+        const dist = this._tempToItem.length();
+
+        if (dist <= this.visionRange * 0.8) {
+          this._tempToItem.normalize();
+          const dot = this._tempRobotDir.dot(this._tempToItem);
+          const angle = Math.acos(THREE.MathUtils.clamp(dot, -1, 1));
+          if (angle <= this.visionAngle / 2) {
+            visibleItems.push({
+              type: `Montículo de Tesoro (${spot.name})`,
+              distance: `${dist.toFixed(1)}m`,
+              direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
+            });
+          }
+        }
+      });
+    }
+
+    // 4. Scan other chibi robot dogs
     if (Array.isArray(otherRobots)) {
       otherRobots.forEach(bot => {
         if (bot === this.robot) return;
         const botPos = bot.group.position;
-        const toBot = new THREE.Vector3().subVectors(botPos, robotPos);
-        const dist = toBot.length();
+        this._tempToItem.subVectors(botPos, robotPos);
+        const dist = this._tempToItem.length();
 
         if (dist <= this.visionRange) {
-          toBot.normalize();
-          const dot = robotDir.dot(toBot);
+          this._tempToItem.normalize();
+          const dot = this._tempRobotDir.dot(this._tempToItem);
           const angle = Math.acos(THREE.MathUtils.clamp(dot, -1, 1));
 
           if (angle <= this.visionAngle / 2) {
-            const relativeAngle = this.getRelativeDirection(robotDir, toBot);
             visibleItems.push({
               type: `Amigo robot ${bot.name}`,
               emotion: bot.currentEmotion ? bot.currentEmotion.name : 'Feliz',
               action: bot.animController ? bot.animController.currentAnim : 'idle',
               distance: `${dist.toFixed(1)}m`,
-              direction: relativeAngle
+              direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
             });
           }
         }
       });
     }
 
-    // 3. Scan main landmark points of interest
+    // 5. Scan main landmark points of interest
     if (this.world && this.world.pointsOfInterest) {
       this.world.pointsOfInterest.forEach(poi => {
-        const toPoi = new THREE.Vector3().subVectors(poi.position, robotPos);
-        const dist = toPoi.length();
-        if (dist <= this.visionRange * 1.5) {
-          toPoi.normalize();
-          const dot = robotDir.dot(toPoi);
+        this._tempToItem.subVectors(poi.position, robotPos);
+        const dist = this._tempToItem.length();
+        if (dist <= this.visionRange * 1.5 && dist > 2.0) {
+          this._tempToItem.normalize();
+          const dot = this._tempRobotDir.dot(this._tempToItem);
           const angle = Math.acos(THREE.MathUtils.clamp(dot, -1, 1));
           if (angle <= this.visionAngle / 2) {
             visibleItems.push({
               landmark: poi.name,
               distance: `${dist.toFixed(1)}m`,
-              direction: this.getRelativeDirection(robotDir, toPoi)
+              direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
             });
           }
         }
       });
     }
 
-    // Sort closest first, keep top 4 to save tokens!
     visibleItems.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-    return visibleItems.slice(0, 4);
+    return visibleItems.slice(0, 5);
   }
 
   getRelativeDirection(forward, toTarget) {
-    const cross = new THREE.Vector3().crossVectors(forward, toTarget);
+    this._tempCross.crossVectors(forward, toTarget);
     if (Math.abs(forward.dot(toTarget)) > 0.85) {
       return forward.dot(toTarget) > 0 ? 'Al frente' : 'Atrás';
     }
-    return cross.y > 0 ? 'A la izquierda' : 'A la derecha';
+    return this._tempCross.y > 0 ? 'A la izquierda' : 'A la derecha';
   }
 }

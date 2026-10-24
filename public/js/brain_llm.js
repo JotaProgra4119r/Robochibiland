@@ -1,7 +1,12 @@
-// FreeLLMsAPI & Cognitive Engine with Dynamic Multi-Robot Personalities
+// FreeLLMsAPI & Cognitive Engine with Zero-Duplicate Chat Dispatch, Managed Timers & Smart Obstacle Steering
 import { EMOTIONS } from './emotions.js';
 import { roboAudio } from './audio.js';
 import * as THREE from 'three';
+
+function lerpAngle(current, target, t) {
+  const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  return current + diff * Math.min(1, t);
+}
 
 export class RobotBrain {
   constructor(robot, vision, world, packManager, particleSystem) {
@@ -44,24 +49,64 @@ export class RobotBrain {
     this.lastThought = "Iniciando mis sensores en el prado verde...";
     this.onChatResponse = null;
 
-    // Cute Web Speech API synthesis for puppy voice lines
+    // Managed intervals & timeouts so switching robots or starting new actions never leaves orphan timers
+    this.activeIntervals = [];
+    this.activeTimeouts = [];
+
     this.isVoiceEnabled = true;
 
     this.memoryData = null;
     this.loadMemoryFromDisk();
   }
 
+  registerInterval(fn, ms) {
+    const id = setInterval(fn, ms);
+    this.activeIntervals.push(id);
+    return id;
+  }
+
+  registerTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      this.activeTimeouts = this.activeTimeouts.filter(t => t !== id);
+      fn();
+    }, ms);
+    this.activeTimeouts.push(id);
+    return id;
+  }
+
+  clearActiveTimers() {
+    this.activeIntervals.forEach(id => clearInterval(id));
+    this.activeIntervals = [];
+    this.activeTimeouts.forEach(id => clearTimeout(id));
+    this.activeTimeouts = [];
+  }
+
+  cancelNavigation() {
+    this.clearActiveTimers();
+    if (this.isNavigating) {
+      this.isNavigating = false;
+      this.navTarget = null;
+      this.onArrivalCallback = null;
+      if (this.robot && this.robot.clearMission) {
+        this.robot.clearMission();
+      }
+    }
+  }
+
+  // FIXED: Proper regex for stripping [tags] and emojis without eating normal characters
   speakThought(text, pitch = 1.0) {
     if (!this.isVoiceEnabled || !('speechSynthesis' in window) || !text) return;
     try {
       window.speechSynthesis.cancel();
-      // Clean emojis and decorative tags for clean speech
-      const clean = text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\[.*?\]]/gu, '').trim();
+      const clean = String(text)
+        .replace(/\[.*?\]/g, '')
+        .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '')
+        .trim();
       if (!clean) return;
 
       const utter = new SpeechSynthesisUtterance(clean);
       utter.lang = 'es-ES';
-      utter.pitch = THREE.MathUtils.clamp((pitch || 1.0) * 1.3, 0.9, 1.9); // Adorable high-pitched tone
+      utter.pitch = THREE.MathUtils.clamp((pitch || 1.0) * 1.3, 0.9, 1.9);
       utter.rate = 1.12;
       utter.volume = 0.8;
 
@@ -70,15 +115,11 @@ export class RobotBrain {
       if (es) utter.voice = es;
 
       window.speechSynthesis.speak(utter);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   setRobot(newRobot) {
-    if (this.isNavigating) {
-      this.isNavigating = false;
-      this.navTarget = null;
-      this.onArrivalCallback = null;
-    }
+    this.cancelNavigation();
     this.robot = newRobot;
     this.lastThought = newRobot.getRandomPersonalThought();
     const thoughtEl = document.getElementById('thought-bubble-text');
@@ -101,7 +142,7 @@ export class RobotBrain {
         this.updateMemoryUI();
         return;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const localSaved = localStorage.getItem('robo_chibi_memory_local');
     if (localSaved) {
@@ -109,7 +150,7 @@ export class RobotBrain {
         this.memoryData = JSON.parse(localSaved);
         this.updateMemoryUI();
         return;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     this.memoryData = {
@@ -163,7 +204,7 @@ export class RobotBrain {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emotion, thought: `[${author}] ${thought}` })
       });
-    } catch (e) {}
+    } catch (e) { }
     this.updateMemoryUI();
   }
 
@@ -188,7 +229,7 @@ export class RobotBrain {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(trick)
       });
-    } catch (e) {}
+    } catch (e) { }
     this.updateMemoryUI();
   }
 
@@ -223,23 +264,22 @@ export class RobotBrain {
     }
   }
 
+  // FIXED: Zero-latency physical dispatch without duplicating chat messages or restarting running actions
   async think(customUserPrompt = null) {
     if (this.isThinking) return;
     this.isThinking = true;
 
-    // 0ms Zero-Latency Instant Command Dispatch:
-    // If the human typed or gave an order, respond and execute immediately!
+    let dispatchedAction = null;
+
     if (customUserPrompt) {
       const immediateDecision = this.extractIntentFromText(null, customUserPrompt);
       if (immediateDecision && immediateDecision.action) {
+        dispatchedAction = immediateDecision.action;
         this.executeAction(immediateDecision.action, immediateDecision.interaction);
         if (immediateDecision.emotion && EMOTIONS[immediateDecision.emotion]) {
           this.robot.setEmotion(EMOTIONS[immediateDecision.emotion]);
         }
         roboAudio.playBoop(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
-        if (this.onChatResponse) {
-          this.onChatResponse(this.robot.name, immediateDecision.thought, immediateDecision.action);
-        }
       }
     }
 
@@ -286,7 +326,7 @@ export class RobotBrain {
       decision = this.heuristicDecision(sensoryContext);
     }
 
-    this.applyDecision(decision);
+    this.applyDecision(decision, dispatchedAction);
 
     this.isThinking = false;
     if (thinkStatusEl) {
@@ -311,9 +351,9 @@ Lugares interactivos en el mundo:
 - "manada": Tus amigos perros robots (Sparky, Bolt, Pixel, Luna, Rusty).
 
 Acciones y comportamientos caninos que puedes ejecutar:
-- Conducta canina natural: playBow (reverencia de juego), headTilt (ladear cabeza con curiosidad), bellyRub (ponerse panza arriba pidiendo mimos), beg (pedir de dos patitas), shakeOff (sacudirse de cabeza a cola), nuzzle (apoyar hocico cariñoso), fetch_ball (buscar pelota, cogerla con el hocico y traérsela al humano), praise_burst (reaccionar con alegría desbordante ante elogios), chorus_howl (aullar en coro con la manada), scent_track (rastrear olores por el suelo con la nariz).
+- Conducta canina natural: playBow, headTilt, bellyRub, beg, shakeOff, nuzzle, fetch_ball, praise_burst, chorus_howl, scent_track.
 - Movimientos: walk, run, sit, lieDown, jump, wagTail, bark, sniff, scratch, backflip, spin, roll, wave, recharge, dig, howl, dance, sneak.
-- Navegación: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_soccer_goal, go_disco, go_snack, go_doghouse, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
+- Navegación: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_soccer_goal, go_disco, go_snack, go_doghouse, go_fountain, go_bridge, go_seesaw, go_ballpit, go_slide, go_tunnel, go_target, go_pinata, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
 - Emociones: HAPPY, CURIOUS, LOVING, EXCITED, SLEEPY, ALERT, MISCHIEVOUS, PROUD, SCARED, HUNGRY, PARTY, CONFUSED.
 
 Responde SIEMPRE con un objeto JSON válido con este formato exacto:
@@ -359,9 +399,8 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
   }
 
   cleanThought(raw) {
-    if (!raw) return "¡Entendido!";
+    if (!raw) return "¡Guau guau! ¡Entendido!";
     let s = String(raw).trim();
-    // Handle cases where LLM returns: `thought: ..., emotion: ...` or JSON strings
     const tMatch = s.match(/(?:^|[{,\s])["']?thought["']?\s*:\s*["']?([^"',}\n]+)["']?/i);
     if (tMatch) {
       s = tMatch[1].trim();
@@ -378,7 +417,6 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
   parseLLMResponse(content, userCommand) {
     if (!content) return this.heuristicDecision({ user_command: userCommand });
 
-    // 1. Intentar extraer bloque JSON si viene envuelto en markdown
     let jsonStr = '';
     const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
     if (codeBlockMatch) {
@@ -395,13 +433,10 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     if (jsonStr) {
       try {
         parsed = JSON.parse(jsonStr);
-      } catch (e) {
-        // Ignorar fallo de parseo y pasar a extractor semántico
-      }
+      } catch (e) { }
     }
 
     if (parsed && typeof parsed === 'object') {
-      // Validar y asegurar campos
       const decision = {
         thought: this.cleanThought(parsed.thought || content.substring(0, 120)),
         emotion: (parsed.emotion || 'HAPPY').toUpperCase(),
@@ -417,22 +452,20 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return decision;
     }
 
-    // 2. Si no hubo JSON válido, aplicar Extractor Semántico sobre la respuesta y el comando
     return this.extractIntentFromText(content, userCommand);
   }
 
   extractIntentFromText(text, userCommand) {
-    const combined = `${userCommand || ''} ${text}`.toLowerCase();
+    const combined = `${userCommand || ''} ${text || ''}`.toLowerCase();
     const p = this.robot.profile;
 
-    let thought = text ? this.cleanThought(text) : `¡Entendido!`;
+    let thought = text ? this.cleanThought(text) : `¡Guau! ¡Enseguida lo hago!`;
     let emotion = 'HAPPY';
     let action = 'wagTail';
     let interaction = null;
     let invent = null;
     let remember = null;
 
-    // 1. Detección de Elogio / Refuerzo Positivo Canino (Oxytocin Burst)
     if (/buen chico|buena chica|good boy|good girl|hermoso|precioso|te quiero|te amo|lindo perro|crack|campe[oó]n|bien hecho|buen perrito/i.test(combined)) {
       action = 'praise_burst';
       emotion = 'LOVING';
@@ -441,7 +474,6 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return { thought, emotion, action, interaction: null, invent_movement: null, remember };
     }
 
-    // 2. Juego de Buscar y Traer la Pelota (Fetch & Bring Back)
     if (/busca la pelota|trae la pelota|ve por la pelota|juega a la pelota|fetch|ve por el bal[oó]n|tr[aá]emela/i.test(combined)) {
       action = 'fetch_ball';
       emotion = 'EXCITED';
@@ -449,7 +481,6 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return { thought, emotion, action, interaction: null, invent_movement: null, remember: 'Jugamos a traer la pelota.' };
     }
 
-    // 3. Posturas y Comportamientos Caninos Auténticos
     if (/juguemos|a jugar|reverencia|postura de juego|play bow/i.test(combined)) {
       action = 'playBow';
       emotion = 'EXCITED';
@@ -540,7 +571,6 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       thought = '¡Voy corriendo hacia ti para pedirte mimos con la pancita arriba!';
     }
 
-    // Emociones semánticas
     if (/fiesta|disco|bail|m[uú]sica|dj/i.test(combined)) emotion = 'PARTY';
     else if (/travies|broma|p[ií]caro|mischief/i.test(combined)) emotion = 'MISCHIEVOUS';
     else if (/pro|crack|orgull|campe[oó]n|sunglasses/i.test(combined)) emotion = 'PROUD';
@@ -551,87 +581,111 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     else if (/explor|qu[eé] ves|busca|mira|observ/i.test(combined)) emotion = 'CURIOUS';
     else if (/r[aá]pido|corre|vamos|salta|gol|f[uú]tbol/i.test(combined)) emotion = 'EXCITED';
 
-    // Navegación semántica a lugares interactivos
-    if (/lago|agua|orilla|bote|nadar|lake/i.test(combined)) {
+    if (/lago|orilla|bote|nadar|lake/i.test(combined) && action === 'wagTail') {
       action = 'go_lake';
       interaction = 'drink_water';
-    } else if (/trampol[ií]n|cama el[aá]stica|rebot/i.test(combined)) {
+      thought = '¡Voy corriendo hacia el Lago de Cristal!';
+    } else if (/trampol[ií]n|cama el[aá]stica|rebot/i.test(combined) && action === 'wagTail') {
       action = 'go_trampoline';
       interaction = 'bounce_trampoline';
       emotion = 'EXCITED';
+      thought = '¡Vamos al trampolín a saltar hasta las nubes!';
     } else if (/carrusel|rueda|giratorio|carousel/i.test(combined)) {
       action = 'go_carousel';
       interaction = 'ride_carousel';
-    } else if (/pelota|bal[oó]n|f[uú]tbol|porter[ií]a|arco|patea/i.test(combined)) {
+      thought = '¡Al carrusel giratorio a dar vueltas!';
+    } else if (/pelota|bal[oó]n|f[uú]tbol|porter[ií]a|arco|patea/i.test(combined) && action === 'wagTail') {
       action = 'go_ball';
       interaction = 'kick_ball';
       emotion = 'EXCITED';
+      thought = '¡A jugar al fútbol! ¡Voy por el balón para meter gol!';
     } else if (/disco|fiesta|pista de baile|perrea/i.test(combined)) {
       action = 'go_disco';
       interaction = 'dance_disco';
       emotion = 'PARTY';
+      thought = '¡Activando modo fiesta en la pista de baile disco!';
     } else if (/galleta|snack|comer|comida|hambre/i.test(combined)) {
       action = 'go_snack';
       interaction = 'eat_snack';
       emotion = 'HUNGRY';
+      thought = '¡Qué rico! ¡Voy por una ciborgalleta energética!';
     } else if (/parque|juegos|playground/i.test(combined)) {
       action = 'go_playground';
+      thought = '¡Rumbo al centro del parque de juegos!';
     } else if (/casita|doghouse|estaci[oó]n|recarg/i.test(combined)) {
       action = 'go_doghouse';
       interaction = 'recharge';
       emotion = 'SLEEPY';
+      thought = 'Voy a mi casita cibernética para recargar baterías.';
     } else if (/fuente|agua fresca|sed|bebe agua|hidrat/i.test(combined)) {
       action = 'go_fountain';
       interaction = 'drink_water';
       emotion = 'HAPPY';
+      thought = '¡Voy a la fuente cibernética a beber agua fresca!';
     } else if (/puente|cruza el puente|bridge/i.test(combined)) {
       action = 'go_bridge';
       interaction = 'cross_bridge';
       emotion = 'CURIOUS';
+      thought = '¡Vamos a cruzar el puente arqueado de madera!';
     } else if (/sube y baja|balanc[ií]n|seesaw/i.test(combined)) {
       action = 'go_seesaw';
       interaction = 'ride_seesaw';
       emotion = 'EXCITED';
+      thought = '¡Al balancín cibernético a balancearnos!';
     } else if (/piscina|alberca|pelotitas|ballpit/i.test(combined)) {
       action = 'go_ballpit';
       emotion = 'EXCITED';
-    } else if (/tobog[aá]n|resbaladilla|slide/i.test(combined)) {
+      thought = '¡A zambullirme en la piscina de pelotas de colores!';
+    } else if (/tobog[aá]n|resbaladilla|slide/i.test(combined) && action === 'wagTail') {
       action = 'go_slide';
       emotion = 'EXCITED';
+      thought = '¡Voy al tobogán de agilidad!';
     } else if (/t[uú]nel|valla|obst[aá]culo|circuito/i.test(combined)) {
       action = 'go_tunnel';
       emotion = 'CURIOUS';
+      thought = '¡A cruzar a toda velocidad el túnel de agilidad!';
     } else if (/diana|tiro al blanco|punter[ií]a|target/i.test(combined)) {
       action = 'go_target';
       emotion = 'PROUD';
+      thought = '¡Vamos a la diana de tiro a probar mi puntería!';
     } else if (/pi[ñn]ata|golpea la pi[ñn]ata/i.test(combined)) {
       action = 'go_pinata';
       emotion = 'EXCITED';
+      thought = '¡A saltar bajo la piñata para que suelte galletas!';
+    } else if (/bolt/i.test(combined)) {
+      action = 'go_robot_Bolt';
+      thought = '¡Voy a buscar a mi veloz amigo Bolt!';
+    } else if (/pixel/i.test(combined)) {
+      action = 'go_robot_Pixel';
+      thought = '¡Voy a saludar a Pixel!';
+    } else if (/luna/i.test(combined)) {
+      action = 'go_robot_Luna';
+      thought = '¡Voy corriendo a ver a mi amiga Luna!';
+    } else if (/rusty/i.test(combined)) {
+      action = 'go_robot_Rusty';
+      thought = '¡Vamos a ver qué acrobacias hace Rusty!';
+    } else if (/sparky/i.test(combined)) {
+      action = 'go_robot_Sparky';
+      thought = '¡Voy con Sparky!';
+    } else if (/todos|manada|vengan|reuni[oó]n|pack/i.test(combined)) {
+      action = 'call_pack';
+      thought = '¡Auuuú! ¡Llamando a toda la manada!';
+    } else if (action === 'wagTail') {
+      if (/rueda|maroma|roll|ru[eé]date/i.test(combined)) action = 'roll';
+      else if (/saluda|la pata|ch[oó]calas|wave|hola/i.test(combined)) action = 'wave';
+      else if (/a[uú]lla|aullido|howl/i.test(combined)) action = 'howl';
+      else if (/cava|entierra|rasca/i.test(combined)) action = 'dig';
+      else if (/baila|dance|meneate/i.test(combined)) { action = 'dance'; emotion = 'PARTY'; }
+      else if (/sigilo|esp[ií]a|agachado|sneak/i.test(combined)) action = 'sneak';
+      else if (/voltereta|mortal|backflip/i.test(combined)) { action = 'backflip'; emotion = 'PROUD'; }
+      else if (/gira|vuelta|spin/i.test(combined)) action = 'spin';
+      else if (/salta|brinca|jump/i.test(combined)) action = 'jump';
+      else if (/ladra|guau|bark/i.test(combined)) action = 'bark';
+      else if (/si[eé]ntate|sentado|sit/i.test(combined)) action = 'sit';
+      else if (/acu[eé]state|échate|t[uú]mbate|dormir/i.test(combined)) { action = 'lieDown'; emotion = 'SLEEPY'; }
+      else if (/olfatea|huele|sniff/i.test(combined)) action = 'sniff';
     }
-    // Social hacia otros robots
-    else if (/bolt/i.test(combined)) action = 'go_robot_Bolt';
-    else if (/pixel/i.test(combined)) action = 'go_robot_Pixel';
-    else if (/luna/i.test(combined)) action = 'go_robot_Luna';
-    else if (/rusty/i.test(combined)) action = 'go_robot_Rusty';
-    else if (/sparky/i.test(combined)) action = 'go_robot_Sparky';
-    else if (/todos|manada|vengan|reun[ií]on|pack/i.test(combined)) action = 'call_pack';
-    // Movimientos directos
-    else if (/rueda|maroma|roll|ru[eé]date/i.test(combined)) action = 'roll';
-    else if (/saluda|la pata|ch[oó]calas|wave|hola/i.test(combined)) action = 'wave';
-    else if (/a[uú]lla|aullido|howl/i.test(combined)) action = 'howl';
-    else if (/cava|entierra|rasca/i.test(combined)) action = 'dig';
-    else if (/baila|dance|meneate/i.test(combined)) { action = 'dance'; emotion = 'PARTY'; }
-    else if (/sigilo|esp[ií]a|agachado|sneak/i.test(combined)) action = 'sneak';
-    else if (/voltereta|mortal|backflip/i.test(combined)) { action = 'backflip'; emotion = 'PROUD'; }
-    else if (/gira|vuelta|spin/i.test(combined)) action = 'spin';
-    else if (/salta|brinca|jump/i.test(combined)) action = 'jump';
-    else if (/ladra|guau|bark/i.test(combined)) action = 'bark';
-    else if (/si[eé]ntate|sentado|sit/i.test(combined)) action = 'sit';
-    else if (/acu[eé]state|échate|t[uú]mbate|dormir/i.test(combined)) { action = 'lieDown'; emotion = 'SLEEPY'; }
-    else if (/olfatea|huele|sniff/i.test(combined)) action = 'sniff';
-    else if (/cola|feliz|wag/i.test(combined)) action = 'wagTail';
 
-    // Invención de truco si el usuario lo pide
     if (/aprende|inventa|nuevo truco|coreograf[ií]a/i.test(combined)) {
       const trickTitles = [
         `Tornado Cibernético de ${p.name}`,
@@ -716,7 +770,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     };
   }
 
-  applyDecision(dec) {
+  applyDecision(dec, alreadyDispatchedAction = null) {
     if (!dec) return;
 
     if (dec.emotion && EMOTIONS[dec.emotion]) {
@@ -744,7 +798,6 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       this.addLearnedTrick(dec.invent_movement.name, `Inventado por ${this.robot.name}`, dec.invent_movement.sequence);
       roboAudio.playTrickSuccess();
       this.executeMovementSequence(dec.invent_movement.sequence);
-      return;
     }
 
     if (dec.remember) {
@@ -761,18 +814,23 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       this.speakThought(dec.thought, this.robot.profile ? this.robot.profile.voicePitch : 1.0);
     }
 
-    this.executeAction(dec.action, dec.interaction);
+    // Only execute physical action if it wasn't already started at 0ms latency
+    if (dec.action && dec.action !== alreadyDispatchedAction) {
+      this.executeAction(dec.action, dec.interaction);
+    }
   }
 
   executeAction(action, interaction = null) {
     if (!action) return;
+    this.clearActiveTimers();
+    const activeBot = this.robot;
 
     // Call Pack assemble!
     if (action === 'call_pack') {
       if (this.packManager && this.packManager.callPackToPlayer) {
-        this.packManager.callPackToPlayer(this.robot);
+        this.packManager.callPackToPlayer(activeBot);
         roboAudio.playHowl();
-        this.robot.animController.play('howl', 2.5);
+        activeBot.animController.play('howl', 2.5);
         this.addJournalEntry('Orgulloso', '¡Llamé a toda mi manada y nos reunimos en formación!');
         return;
       }
@@ -780,11 +838,11 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
 
     // 1. Oxytocin Praise Burst
     if (action === 'praise_burst') {
-      this.robot.praise();
+      activeBot.praise();
       if (this.particleSystem) {
-        this.particleSystem.spawnBurst(this.robot.group.position, 'LOVING');
+        this.particleSystem.spawnBurst(activeBot.group.position, 'LOVING');
       }
-      this.robot.animController.play(Math.random() < 0.5 ? 'bellyRub' : 'playBow', 3.0);
+      activeBot.animController.play(Math.random() < 0.5 ? 'bellyRub' : 'playBow', 3.0);
       this.addJournalEntry('Cariñoso', '¡Mi humano me elogió! Sentí una oleada de amor y lealtad perruna.');
       return;
     }
@@ -797,31 +855,27 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       }
       if (!ball) return;
 
-      const humanPos = this.robot.group.position.clone();
-      this.robot.setEmotion(EMOTIONS.EXCITED);
+      const humanPos = activeBot.group.position.clone();
+      activeBot.setEmotion(EMOTIONS.EXCITED);
       roboAudio.playYip(1.3);
 
-      // Phase 1: Sprint to the ball
       this.navigateToward(ball.mesh.position, 7.2, 'run', () => {
-        // Phase 2: Pick up ball in mouth
-        this.robot.grabObject(ball.mesh);
-        ball.carriedBy = this.robot;
+        activeBot.grabObject(ball.mesh);
+        ball.carriedBy = activeBot;
         roboAudio.playGrumble ? roboAudio.playGrumble(1.1) : roboAudio.playBoop(1.4);
         this.addJournalEntry('Juguetón', '¡Atrapé la pelota en mi hocico! Llevándosela a mi humano.');
 
-        // Phase 3: Return to human starting point
         this.navigateToward(humanPos, 6.6, 'run', () => {
-          // Phase 4: Drop ball at feet and perform play-bow
-          const droppedMesh = this.robot.dropObject();
+          const droppedMesh = activeBot.dropObject();
           ball.carriedBy = null;
           if (droppedMesh) {
             this.world.scene.add(droppedMesh);
-            droppedMesh.position.copy(this.robot.group.position);
+            droppedMesh.position.copy(activeBot.group.position);
             droppedMesh.position.y = this.world.getHeightAt(droppedMesh.position.x, droppedMesh.position.z) + ball.radius;
             ball.velocity.set(0, 0, 0);
           }
-          this.robot.animController.play('playBow', 2.8);
-          this.robot.setEmotion(EMOTIONS.HAPPY);
+          activeBot.animController.play('playBow', 2.8);
+          activeBot.setEmotion(EMOTIONS.HAPPY);
           roboAudio.playHappyJingle();
           this.addJournalEntry('Feliz', '¡Te traje la pelota y la dejé a tus pies! ¡Lánzamela otra vez!');
         });
@@ -829,17 +883,17 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 3. Chorus Howl (Manada sincronizada)
+    // 3. Chorus Howl
     if (action === 'chorus_howl') {
       roboAudio.playHowl();
-      this.robot.animController.play('howl', 3.0);
-      this.robot.setEmotion(EMOTIONS.EXCITED);
+      activeBot.animController.play('howl', 3.0);
+      activeBot.setEmotion(EMOTIONS.EXCITED);
       if (this.packManager && this.packManager.pack) {
         this.packManager.pack.forEach((otherBot, idx) => {
-          setTimeout(() => {
+          this.registerTimeout(() => {
             otherBot.animController.play('howl', 2.8);
             otherBot.setEmotion(EMOTIONS.EXCITED);
-            otherBot.lookAt(this.robot.group.position);
+            otherBot.lookAt(activeBot.group.position);
           }, 350 + idx * 300);
         });
       }
@@ -847,15 +901,15 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 4. Scent Tracking (Olfato canino)
+    // 4. Scent Tracking
     if (action === 'scent_track') {
-      this.robot.animController.play('sniff', 3.0);
-      this.robot.setEmotion(EMOTIONS.CURIOUS);
+      activeBot.animController.play('sniff', 3.0);
+      activeBot.setEmotion(EMOTIONS.CURIOUS);
       roboAudio.playBoop(1.1);
 
       let nearestPos = null;
       let minDist = Infinity;
-      const rPos = this.robot.group.position;
+      const rPos = activeBot.group.position;
       const candidates = [];
       if (this.world.snacks) this.world.snacks.forEach(s => candidates.push(s.group.position));
       if (this.world.balls) this.world.balls.forEach(b => candidates.push(b.mesh.position));
@@ -870,8 +924,8 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
 
       if (nearestPos) {
         this.navigateToward(nearestPos, 3.8, 'walk', () => {
-          this.robot.animController.play('wagTail', 2.0);
-          this.robot.setEmotion(EMOTIONS.HAPPY);
+          activeBot.animController.play('wagTail', 2.0);
+          activeBot.setEmotion(EMOTIONS.HAPPY);
           roboAudio.playHappyJingle();
           this.addJournalEntry('Curioso', '¡Mi olfato cibernético siguió el rastro y encontré un objeto en el prado!');
         });
@@ -890,17 +944,17 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       let wpIdx = 0;
       const visitNext = () => {
         if (wpIdx >= waypoints.length) {
-          this.robot.animController.play('wagTail', 2.0);
-          this.robot.setEmotion(EMOTIONS.PROUD);
+          activeBot.animController.play('wagTail', 2.0);
+          activeBot.setEmotion(EMOTIONS.PROUD);
           this.addJournalEntry('Alerta', '¡Ronda de patrullaje perimetral completada sin novedades!');
           return;
         }
         const wp = waypoints[wpIdx++];
         this.navigateToward(wp, 4.2, 'walk', () => {
-          this.robot.animController.play('patrolLook', 2.8);
-          this.robot.setEmotion(EMOTIONS.ALERT);
+          activeBot.animController.play('patrolLook', 2.8);
+          activeBot.setEmotion(EMOTIONS.ALERT);
           roboAudio.playBoop(1.2);
-          setTimeout(visitNext, 2900);
+          this.registerTimeout(visitNext, 2900);
         });
       };
       visitNext();
@@ -909,18 +963,18 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
 
     // 6. Chase Its Own Tail
     if (action === 'chase_tail') {
-      this.robot.setEmotion(EMOTIONS.EXCITED);
-      this.robot.animController.play('chaseTail', 3.8);
+      activeBot.setEmotion(EMOTIONS.EXCITED);
+      activeBot.animController.play('chaseTail', 3.8);
       roboAudio.playYip(1.4);
       let spinTime = 0;
-      const spinInterval = setInterval(() => {
+      const spinInterval = this.registerInterval(() => {
         spinTime += 0.05;
-        this.robot.group.rotation.y += 0.42;
+        activeBot.group.rotation.y += 0.42;
         if (spinTime >= 3.6) {
           clearInterval(spinInterval);
-          this.robot.setEmotion(EMOTIONS.CONFUSED);
-          this.robot.animController.play('dizzy', 2.5);
-          if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, 'CONFUSED');
+          activeBot.setEmotion(EMOTIONS.CONFUSED);
+          activeBot.animController.play('dizzy', 2.5);
+          if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'CONFUSED');
           roboAudio.playConfused();
           this.addJournalEntry('Juguetón', '¡Giré tanto persiguiéndome la cola que me mareé y caí sentado!');
         }
@@ -935,24 +989,22 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
         const rings = this.world.slalomRings;
         const jumpThroughNext = () => {
           if (rIdx >= rings.length) {
-            this.robot.setEmotion(EMOTIONS.PROUD);
-            this.robot.animController.play('backflip', 1.6);
+            activeBot.setEmotion(EMOTIONS.PROUD);
+            activeBot.animController.play('backflip', 1.6);
             roboAudio.playGoalFanfare();
             this.addJournalEntry('Orgulloso', '¡Completé el circuito de aros de agilidad con saltos perfectos!');
             return;
           }
           const ring = rings[rIdx++];
           this.navigateToward(ring.entryPos, 6.2, 'run', () => {
-            // Parabolic leap through ring center to exit
             roboAudio.playTrampoline();
-            this.robot.animController.play('jump', 1.2);
+            activeBot.animController.play('jump', 1.2);
             let p = 0;
-            const leapInterval = setInterval(() => {
+            const leapInterval = this.registerInterval(() => {
               p += 0.08;
-              this.robot.group.position.lerpVectors(ring.entryPos, ring.exitPos, p);
-              // Parabola: 4 * h * p * (1 - p)
+              activeBot.group.position.lerpVectors(ring.entryPos, ring.exitPos, p);
               const leapH = 1.6 * (4 * p * (1 - p));
-              this.robot.group.position.y = ring.entryPos.y + leapH;
+              activeBot.group.position.y = ring.entryPos.y + leapH;
               if (p >= 1.0) {
                 clearInterval(leapInterval);
                 jumpThroughNext();
@@ -971,19 +1023,17 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       const goalPos = new THREE.Vector3(25, 1, 40);
       if (ball) {
         const ballPos = ball.mesh.position;
-        // Calculate approach vector aligned Perro -> Pelota -> Portería
         const kickDir = new THREE.Vector3().subVectors(goalPos, ballPos).normalize();
         const approachPos = new THREE.Vector3().subVectors(ballPos, kickDir.clone().multiplyScalar(2.0));
         approachPos.y = this.world.getHeightAt(approachPos.x, approachPos.z);
 
         this.navigateToward(approachPos, 7.0, 'run', () => {
-          this.robot.lookAt(goalPos);
-          this.robot.animController.play('jump', 1.2);
+          activeBot.lookAt(goalPos);
+          activeBot.animController.play('jump', 1.2);
           roboAudio.playBark(1.3);
-          // Apply strong impulse to ball
           ball.velocity.copy(kickDir.multiplyScalar(26));
           ball.velocity.y = 8.5;
-          this.robot.setEmotion(EMOTIONS.PROUD);
+          activeBot.setEmotion(EMOTIONS.PROUD);
           this.addJournalEntry('Orgulloso', '¡Alineé el tiro y rematé el balón directo al centro de la portería!');
         });
       }
@@ -997,13 +1047,14 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
         let bounces = 0;
         const doBounce = () => {
           bounces++;
-          const force = 2.0 + bounces * 0.8;
-          this.robot.group.position.y += force;
+          const force = 5.5 + bounces * 1.8;
+          activeBot.velocityY = force;
+          activeBot.group.position.y += 0.25;
           roboAudio.playTrampoline();
-          this.robot.animController.play('backflip', 1.5);
-          this.robot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.animController.play('backflip', 1.5);
+          activeBot.setEmotion(EMOTIONS.EXCITED);
           if (bounces < 3) {
-            setTimeout(doBounce, 1300);
+            this.registerTimeout(doBounce, 1300);
           } else {
             this.addJournalEntry('Juguetón', '¡Hice 3 rebotes consecutivos cada vez más altos con piruetas 360°!');
           }
@@ -1018,27 +1069,27 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       const slidePos = new THREE.Vector3(-18, 0, -32);
       this.navigateToward(slidePos, 5.8, 'run', () => {
         if (this.world.slide) {
-          // Pause 1s on top platform
-          this.robot.group.position.copy(this.world.slide.topPos);
-          this.robot.lookAt(new THREE.Vector3(0, 0, 0));
-          this.robot.animController.play('headTilt', 1.2);
-          setTimeout(() => {
-            // Slide down chute
-            this.world.logActivity(`🎢 ¡${this.robot.name} se lanzó por el tobogán a gran velocidad!`);
+          activeBot.isSliding = true;
+          activeBot.group.position.copy(this.world.slide.topPos);
+          activeBot.lookAt(new THREE.Vector3(-18, 0, -20));
+          activeBot.animController.play('headTilt', 1.2);
+          this.registerTimeout(() => {
+            this.world.logActivity(`🎢 ¡${activeBot.name} se lanzó por el tobogán a gran velocidad!`);
             let p = 0;
-            this.robot.animController.play('roll', 2.0);
-            const iv = setInterval(() => {
+            activeBot.animController.play('roll', 2.0);
+            const iv = this.registerInterval(() => {
               p += 0.08;
-              this.robot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, p);
-              this.robot.group.position.y = THREE.MathUtils.lerp(this.world.slide.topPos.y, this.world.slide.endPos.y, p);
+              activeBot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, p);
+              activeBot.group.position.y = THREE.MathUtils.lerp(this.world.slide.topPos.y, this.world.slide.endPos.y, p);
               if (p >= 1.0) {
                 clearInterval(iv);
-                this.robot.animController.play('backflip', 1.5);
+                activeBot.isSliding = false;
+                activeBot.animController.play('backflip', 1.5);
                 roboAudio.playHappyJingle();
                 this.addJournalEntry('Juguetón', '¡Me deslicé por el tobogán y aterricé en la colchoneta con estilo!');
               }
             }, 35);
-          }, 1100);
+          }, 950);
         }
       });
       return;
@@ -1046,26 +1097,23 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
 
     // 11. Lake Swimming & Drying Shake-Off
     if (action === 'lake_swim' || action === 'go_lake') {
-      // Clear open sandy beach access point
       const beachPos = new THREE.Vector3(-55, 0, -55);
       this.navigateToward(beachPos, 5.2, 'run', () => {
-        // Step into water
         const swimPos = new THREE.Vector3(-66, -0.52, -66);
         this.navigateToward(swimPos, 3.2, 'swimming', () => {
           roboAudio.playSplash();
-          this.robot.isInWater = true;
-          this.robot.animController.play('swimming');
-          this.robot.setEmotion(EMOTIONS.HAPPY);
+          activeBot.isInWater = true;
+          activeBot.animController.play('swimming');
+          activeBot.setEmotion(EMOTIONS.HAPPY);
           this.addJournalEntry('Feliz', '¡Nadando en el Lago de Cristal moviendo las patitas bajo la superficie!');
 
-          // Swim in circle for 3.5s then return to shore to dry off
-          setTimeout(() => {
+          this.registerTimeout(() => {
             this.navigateToward(beachPos, 3.5, 'swimming', () => {
-              this.robot.isInWater = false;
-              this.robot.wasInWater = false;
-              this.robot.animController.play('shakeOff', 2.0);
+              activeBot.isInWater = false;
+              activeBot.wasInWater = false;
+              activeBot.animController.play('shakeOff', 2.0);
               roboAudio.playSplash();
-              if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, 'HAPPY');
+              if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'HAPPY');
               this.addJournalEntry('Feliz', '¡Salí del agua a tierra firme y me sacudí con fuerza para secarme!');
             });
           }, 3500);
@@ -1074,26 +1122,33 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 12. Play Tag (La Traes)
+    // 12. Play Tag
     if (action === 'play_tag') {
       if (this.packManager && this.packManager.startTagGame) {
-        this.packManager.startTagGame(this.robot);
+        this.packManager.startTagGame(activeBot);
         return;
       }
     }
 
-    // 13. Speed Race
+    // 13. Speed Race (Both Pack and Player Robot race to the destination!)
     if (action === 'speed_race') {
       if (this.packManager && this.packManager.startSpeedRace) {
-        this.packManager.startSpeedRace(this.robot);
+        const raceDest = this.packManager.startSpeedRace(activeBot);
+        if (raceDest) {
+          this.navigateToward(raceDest, 7.2, 'run', () => {
+            activeBot.animController.play('backflip', 1.8);
+            activeBot.setEmotion(EMOTIONS.PROUD);
+          });
+        }
         return;
       }
     }
 
-    // 14. Pack Gossip / Circle Gathering
+    // 14. Pack Gossip
     if (action === 'pack_gossip') {
       if (this.packManager && this.packManager.startPackGossip) {
-        this.packManager.startPackGossip(this.robot);
+        this.packManager.startPackGossip(activeBot);
+        activeBot.animController.play('wagTail', 3.0);
         return;
       }
     }
@@ -1102,7 +1157,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     if (action === 'dig_treasure') {
       let nearestSpot = null;
       let minD = Infinity;
-      const rPos = this.robot.group.position;
+      const rPos = activeBot.group.position;
       if (this.world.treasureSpots) {
         this.world.treasureSpots.forEach(s => {
           if (!s.dug) {
@@ -1113,16 +1168,16 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       }
       const targetP = nearestSpot ? new THREE.Vector3(nearestSpot.x, 0, nearestSpot.z) : new THREE.Vector3(rPos.x + 2, 0, rPos.z + 2);
       this.navigateToward(targetP, 4.8, 'run', () => {
-        this.robot.animController.play('dig', 3.2);
-        this.robot.setEmotion(EMOTIONS.CURIOUS);
+        activeBot.animController.play('dig', 3.2);
+        activeBot.setEmotion(EMOTIONS.CURIOUS);
         roboAudio.playBoop(1.2);
-        if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, 'CURIOUS');
-        setTimeout(() => {
+        if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'CURIOUS');
+        this.registerTimeout(() => {
           if (nearestSpot && this.world.revealDugTreasure) {
-            this.world.revealDugTreasure(this.robot, nearestSpot);
+            this.world.revealDugTreasure(activeBot, nearestSpot);
           }
-          this.robot.animController.play('wagTail', 2.0);
-          this.robot.setEmotion(EMOTIONS.PROUD);
+          activeBot.animController.play('wagTail', 2.0);
+          activeBot.setEmotion(EMOTIONS.PROUD);
         }, 3200);
       });
       return;
@@ -1132,7 +1187,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     if (action === 'hunt_butterfly') {
       let targetBfly = null;
       let minD = Infinity;
-      const rPos = this.robot.group.position;
+      const rPos = activeBot.group.position;
       if (this.world.butterflies && this.world.butterflies.length > 0) {
         this.world.butterflies.forEach(b => {
           const d = rPos.distanceTo(b.sprite.position);
@@ -1142,10 +1197,11 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       if (targetBfly) {
         const dest = new THREE.Vector3(targetBfly.sprite.position.x, 0, targetBfly.sprite.position.z);
         this.navigateToward(dest, 3.2, 'sneak', () => {
-          this.robot.animController.play('jump', 1.4);
-          this.robot.group.position.y += 1.8;
+          activeBot.animController.play('jump', 1.4);
+          activeBot.velocityY = 6.5;
+          activeBot.group.position.y += 0.2;
           roboAudio.playYip(1.5);
-          this.robot.setEmotion(EMOTIONS.EXCITED);
+          activeBot.setEmotion(EMOTIONS.EXCITED);
           this.addJournalEntry('Curioso', '¡Me acerqué en sigilo y salté alto intentando atrapar la mariposa!');
         });
       }
@@ -1156,17 +1212,16 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     if (action === 'shade_nap') {
       const shadePos = new THREE.Vector3(-22, 0, 18);
       this.navigateToward(shadePos, 4.0, 'walk', () => {
-        // Circle 720 degrees
         let rotAngle = 0;
-        const circleIv = setInterval(() => {
+        const circleIv = this.registerInterval(() => {
           rotAngle += 0.25;
-          this.robot.group.rotation.y += 0.25;
+          activeBot.group.rotation.y += 0.25;
           if (rotAngle >= Math.PI * 4) {
             clearInterval(circleIv);
-            this.robot.animController.play('lieDown', 6.0);
-            this.robot.setEmotion(EMOTIONS.SLEEPY);
-            if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, 'SLEEPY');
-            this.robot.energy = 100;
+            activeBot.animController.play('lieDown', 6.0);
+            activeBot.setEmotion(EMOTIONS.SLEEPY);
+            if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'SLEEPY');
+            activeBot.energy = 100;
             this.addJournalEntry('Somnoliento', 'Di dos vueltas sobre mí mismo y me eché a dormir una rica siesta bajo la sombra del pino.');
           }
         }, 50);
@@ -1176,25 +1231,29 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
 
     // 18. Beg for Pets to Camera
     if (action === 'beg_pets') {
-      const curPos = this.robot.group.position;
-      this.robot.lookAt(new THREE.Vector3(curPos.x + 1, curPos.y + 1, curPos.z + 2));
-      this.robot.animController.play('bellyRub', 4.0);
-      this.robot.setEmotion(EMOTIONS.LOVING);
-      if (this.particleSystem) this.particleSystem.spawnBurst(this.robot.group.position, 'LOVING');
+      const curPos = activeBot.group.position;
+      activeBot.lookAt(new THREE.Vector3(curPos.x + 1, curPos.y + 1, curPos.z + 2));
+      activeBot.animController.play('bellyRub', 4.0);
+      activeBot.setEmotion(EMOTIONS.LOVING);
+      if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'LOVING');
       roboAudio.playBoop(1.4);
       this.addJournalEntry('Cariñoso', '¡Me puse panza arriba con las patitas al aire esperando tus caricias!');
       return;
     }
 
-    // Direct movement animations (incluyendo posturas etológicas)
+    // Direct movement animations
     const directAnims = [
       'walk', 'run', 'sit', 'lieDown', 'jump', 'wagTail', 'bark', 'sniff', 'scratch',
       'backflip', 'spin', 'roll', 'wave', 'recharge', 'dig', 'howl', 'dance', 'sneak',
       'playBow', 'headTilt', 'bellyRub', 'beg', 'shakeOff', 'nuzzle', 'dizzy', 'swimming', 'patrolLook', 'scentTrack'
     ];
     if (directAnims.includes(action)) {
-      if (this.robot.animController) {
-        this.robot.animController.play(action, 2.5);
+      if (activeBot.animController) {
+        if (action === 'jump') {
+          activeBot.velocityY = 7.0;
+          activeBot.group.position.y += 0.15;
+        }
+        activeBot.animController.play(action, 2.5);
       }
       return;
     }
@@ -1202,22 +1261,23 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     // Interactive Navigations
     if (action === 'go_playground') {
       this.navigateToward(new THREE.Vector3(50, 0, 40), 5.5, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.robot.animController.play('wagTail', 2.0);
+        activeBot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.animController.play('wagTail', 2.0);
       });
     } else if (action === 'go_trampoline') {
       const trampPos = new THREE.Vector3(38, 0, 22);
       this.navigateToward(trampPos, 5.8, 'run', () => {
-        this.world.launchTrampoline(this.robot);
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.robot.animController.play('backflip', 1.8);
+        this.world.launchTrampoline(activeBot);
+        activeBot.velocityY = 8.5;
+        activeBot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.animController.play('backflip', 1.8);
         this.addJournalEntry('Juguetón', '¡Reboté súper alto en el trampolín cibernético!');
       });
     } else if (action === 'go_carousel') {
       const carouselPos = new THREE.Vector3(62, 0, 26);
       this.navigateToward(carouselPos, 4.8, 'walk', () => {
-        this.robot.setEmotion(EMOTIONS.HAPPY);
-        this.robot.animController.play('spin', 3.0);
+        activeBot.setEmotion(EMOTIONS.HAPPY);
+        activeBot.animController.play('spin', 3.0);
         this.addJournalEntry('Feliz', 'Me subí al carrusel a dar alegres vueltas.');
       });
     } else if (action === 'go_ball') {
@@ -1233,8 +1293,8 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
           ball.velocity.copy(kickDir.multiplyScalar(22));
           ball.velocity.y = 7;
           roboAudio.playBark(1.2);
-          this.robot.animController.play('jump', 1.2);
-          this.robot.setEmotion(EMOTIONS.PROUD);
+          activeBot.animController.play('jump', 1.2);
+          activeBot.setEmotion(EMOTIONS.PROUD);
           this.addJournalEntry('Orgulloso', '¡Pateé la pelota de fútbol con toda la potencia hacia la portería!');
         }
       });
@@ -1242,8 +1302,8 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       const discoPos = new THREE.Vector3(52, 0, 56);
       this.navigateToward(discoPos, 5.4, 'run', () => {
         this.world.triggerDiscoParty();
-        this.robot.setEmotion(EMOTIONS.PARTY);
-        this.robot.animController.play('dance', 3.5);
+        activeBot.setEmotion(EMOTIONS.PARTY);
+        activeBot.animController.play('dance', 3.5);
         this.addJournalEntry('Fiestero', '¡Llegué a la pista disco a poner el mejor ambiente!');
       });
     } else if (action === 'go_snack') {
@@ -1252,75 +1312,73 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
         snackPos = this.world.snacks[0].group.position;
       }
       this.navigateToward(snackPos, 5.8, 'run', () => {
-        this.robot.energy = 100;
+        activeBot.energy = 100;
         roboAudio.playSnackMunch();
-        this.robot.setEmotion(EMOTIONS.HUNGRY);
-        this.robot.animController.play('sniff', 2.0);
+        activeBot.setEmotion(EMOTIONS.HUNGRY);
+        activeBot.animController.play('sniff', 2.0);
         this.addJournalEntry('Glotón', '¡Me comí una rica ciborgalleta y recargué mi energía al 100%!');
       });
     } else if (action === 'go_doghouse') {
       const housePos = new THREE.Vector3(72, 0, 52);
       this.navigateToward(housePos, 4.2, 'walk', () => {
-        this.robot.energy = 100;
-        this.robot.setEmotion(EMOTIONS.SLEEPY);
-        this.robot.animController.play('lieDown', 3.0);
+        activeBot.energy = 100;
+        activeBot.setEmotion(EMOTIONS.SLEEPY);
+        activeBot.animController.play('lieDown', 3.0);
         this.addJournalEntry('Somnoliento', 'Descansando plácidamente en la estación de recarga.');
       });
     } else if (action === 'go_fountain') {
       const fPos = new THREE.Vector3(12, 0, 10);
       this.navigateToward(fPos, 5.0, 'walk', () => {
-        if (this.robot.quenchThirst) this.robot.quenchThirst(40);
+        if (activeBot.quenchThirst) activeBot.quenchThirst(40);
         roboAudio.playSplash();
-        this.robot.setEmotion(EMOTIONS.HAPPY);
-        this.robot.animController.play('wagTail', 2.5);
+        activeBot.setEmotion(EMOTIONS.HAPPY);
+        activeBot.animController.play('wagTail', 2.5);
         this.addJournalEntry('Feliz', 'Bebí agua fresca y deliciosa en la fuente cibernética.');
       });
     } else if (action === 'go_bridge') {
       const bPos = new THREE.Vector3(-46, 0, -48);
       this.navigateToward(bPos, 4.8, 'walk', () => {
-        this.robot.setEmotion(EMOTIONS.CURIOUS);
-        this.robot.animController.play('headTilt', 2.0);
+        activeBot.setEmotion(EMOTIONS.CURIOUS);
+        activeBot.animController.play('headTilt', 2.0);
         this.addJournalEntry('Curioso', 'Crucé el puente de madera sobre el arroyo del lago.');
       });
     } else if (action === 'go_seesaw') {
       const sPos = new THREE.Vector3(48, 0, 32);
       this.navigateToward(sPos, 5.2, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.robot.animController.play('jump', 1.8);
+        activeBot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.animController.play('jump', 1.8);
         this.addJournalEntry('Juguetón', 'Me subí al balancín cibernético para balancearme con mis amigos.');
       });
     } else if (action === 'go_ballpit') {
       const pitPos = new THREE.Vector3(-32, 0, 48);
       this.navigateToward(pitPos, 5.6, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.robot.animController.play('jump', 1.8);
+        activeBot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.animController.play('jump', 1.8);
         this.addJournalEntry('Juguetón', '¡Me zambullí de lleno en la piscina de pelotas!');
       });
     } else if (action === 'go_slide') {
-      const slidePos = new THREE.Vector3(-18, 0, -32);
-      this.navigateToward(slidePos, 5.8, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.addJournalEntry('Juguetón', '¡Subí al tobogán y me deslicé a toda velocidad!');
-      });
+      this.executeAction('slide_down');
     } else if (action === 'go_tunnel') {
       const tunnelPos = new THREE.Vector3(22, 0, -50);
       this.navigateToward(tunnelPos, 5.4, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.CURIOUS);
-        this.robot.animController.play('sneak', 2.0);
+        activeBot.setEmotion(EMOTIONS.CURIOUS);
+        activeBot.animController.play('sneak', 2.0);
         this.addJournalEntry('Curioso', '¡Pasé a toda velocidad por el túnel de agilidad!');
       });
     } else if (action === 'go_target') {
       const targetPos = new THREE.Vector3(76, 0, 18);
       this.navigateToward(targetPos, 5.6, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.PROUD);
-        this.robot.animController.play('bark', 2.0);
+        activeBot.setEmotion(EMOTIONS.PROUD);
+        activeBot.animController.play('bark', 2.0);
         this.addJournalEntry('Orgulloso', '¡Llegué a la diana de tiro al blanco a probar mi puntería!');
       });
     } else if (action === 'go_pinata') {
       const pinataPos = new THREE.Vector3(-42, 0, 14);
       this.navigateToward(pinataPos, 6.0, 'run', () => {
-        this.robot.setEmotion(EMOTIONS.EXCITED);
-        this.robot.animController.play('jump', 1.5);
+        activeBot.setEmotion(EMOTIONS.EXCITED);
+        activeBot.velocityY = 6.5;
+        activeBot.group.position.y += 0.35;
+        activeBot.animController.play('jump', 1.5);
         this.addJournalEntry('Juguetón', '¡Salté a golpear la piñata de galletas!');
       });
     } else if (action.startsWith('go_robot_')) {
@@ -1328,13 +1386,13 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       if (this.packManager && this.packManager.allRobots[targetName]) {
         const targetBot = this.packManager.allRobots[targetName];
         this.navigateToward(targetBot.group.position, 5.2, 'run', () => {
-          this.robot.lookAt(targetBot.group.position);
-          this.robot.animController.play('wave', 2.0);
-          this.robot.setEmotion(EMOTIONS.LOVING);
-          targetBot.lookAt(this.robot.group.position);
+          activeBot.lookAt(targetBot.group.position);
+          activeBot.animController.play('wave', 2.0);
+          activeBot.setEmotion(EMOTIONS.LOVING);
+          targetBot.lookAt(activeBot.group.position);
           targetBot.animController.play('wagTail', 2.0);
           targetBot.setEmotion(EMOTIONS.HAPPY);
-          roboAudio.playBark(this.robot.profile.voicePitch || 1.0);
+          roboAudio.playBark(activeBot.profile.voicePitch || 1.0);
           this.addJournalEntry('Cariñoso', `Fui a saludar a mi amigo ${targetName} y jugamos juntos.`);
         });
       }
@@ -1356,7 +1414,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     this.navSpeed = speed * (this.robot.profile ? this.robot.profile.speedMultiplier : 1.0);
     this.isNavigating = true;
     this.navTimer = 0;
-    this.navMaxTime = 16.0; // 16s mission timeout
+    this.navMaxTime = 16.0;
     this.navStuckTime = 0;
     this.navLastPos = this.robot.group.position.clone();
     this.onArrivalCallback = onArrival;
@@ -1367,7 +1425,6 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     if (!this.isNavigating || !this.navTarget) return;
 
     this.navTimer += delta;
-    // 1. Mission Timeout: If not arrived within max duration, liberate the robot!
     if (this.navTimer >= this.navMaxTime) {
       this.isNavigating = false;
       this.robot.clearMission();
@@ -1381,19 +1438,16 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     diff.y = 0;
     const dist = diff.length();
 
-    // 2. Unstuck detector: check progress
     if (this.navLastPos) {
-      const moved = curPos.distanceTo(this.navLastPos);
+      const moved = Math.hypot(curPos.x - this.navLastPos.x, curPos.z - this.navLastPos.z);
       this.navLastPos.copy(curPos);
-      if (moved < 0.05) {
+      if (moved < 0.045) {
         this.navStuckTime += delta;
-        if (this.navStuckTime > 0.8) {
-          // Tangent steering to slip around obstacles
+        if (this.navStuckTime > 0.65) {
           const tangent = new THREE.Vector3(-diff.z, 0, diff.x).normalize();
-          curPos.addScaledVector(tangent, delta * 3.8);
+          curPos.addScaledVector(tangent, delta * 4.2);
         }
-        if (this.navStuckTime > 2.5) {
-          // Finish navigation gracefully to avoid permanent freezing
+        if (this.navStuckTime > 2.2) {
           this.isNavigating = false;
           this.robot.clearMission();
           if (this.onArrivalCallback) {
@@ -1421,15 +1475,24 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     }
 
     diff.normalize();
+
+    // Proactive obstacle feeler steering
+    if (this.packManager && this.packManager.computeAvoidanceDir) {
+      const steered = this.packManager.computeAvoidanceDir(curPos, diff);
+      diff.copy(steered);
+    }
+
     const targetAngle = Math.atan2(diff.x, diff.z);
-    this.robot.group.rotation.y = THREE.MathUtils.lerp(this.robot.group.rotation.y, targetAngle, delta * 6);
+    this.robot.group.rotation.y = lerpAngle(this.robot.group.rotation.y, targetAngle, delta * 7);
 
     curPos.addScaledVector(diff, this.navSpeed * delta);
     if (this.world) {
       if (this.world.resolveObstacleCollisions) {
-        this.world.resolveObstacleCollisions(curPos, 0.75);
+        this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
       }
-      curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
+      if (!this.robot.isInWater) {
+        curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
+      }
       this.world.handleRobotInteractions(this.robot);
     }
   }

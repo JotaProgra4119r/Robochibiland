@@ -1,4 +1,4 @@
-// Main Coordinator: Multi-Robot Switching, Day/Sunset/Night Cycles, Interactive Props & Cyber HUD
+// Main Coordinator: Multi-Robot Switching, 3D Skybox & Waypoint Beacon, Parabolic Jump Physics & Cyber HUD
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CHARACTER_PROFILES } from './robot.js';
@@ -9,6 +9,11 @@ import { EmotionParticleSystem, EMOTIONS } from './emotions.js';
 import { RobotBrain } from './brain_llm.js';
 import { roboAudio } from './audio.js';
 import { MultiplayerClient } from './multiplayer.js';
+
+function lerpAngle(current, target, t) {
+  const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+  return current + diff * Math.min(1, t);
+}
 
 class App {
   constructor() {
@@ -26,6 +31,7 @@ class App {
     this.isFreeWillActive = false;
     this.freeWillTimer = 0;
     this.joystickInput = null;
+    this.touchControlsInitialized = false;
 
     // Hand Grab & Move Tool
     this.isHandToolActive = false;
@@ -40,7 +46,9 @@ class App {
 
     this.initScene();
     this.initLights();
+    this.initSkyCelestials();
     this.initWorld();
+    this.initWaypointBeacon3D();
     this.initPackAndPlayer();
     this.initVisionAndBrain();
     this.initMinimap();
@@ -57,10 +65,10 @@ class App {
   initScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87ceeb);
-    this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.0032);
+    this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.0028);
 
     const aspect = window.innerWidth / window.innerHeight || 1.6;
-    this.camera = new THREE.PerspectiveCamera(50, aspect, 0.3, 1000);
+    this.camera = new THREE.PerspectiveCamera(50, aspect, 0.25, 1000);
     this.camera.position.set(32 + 18, 16, 32 + 18);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -107,6 +115,78 @@ class App {
     this.scene.add(this.fillLight);
   }
 
+  // 3D Celestial Sun, Glowing Moon & Night Starfield Dome
+  initSkyCelestials() {
+    this.skyGroup = new THREE.Group();
+    this.scene.add(this.skyGroup);
+
+    // Glowing Sun Orb
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xfffbeb, fog: false });
+    this.sunOrb = new THREE.Mesh(new THREE.SphereGeometry(14, 24, 24), sunMat);
+    this.sunOrb.position.set(150, 185, 110);
+    this.skyGroup.add(this.sunOrb);
+
+    // Cyber Moon Orb
+    const moonMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, fog: false });
+    this.moonOrb = new THREE.Mesh(new THREE.SphereGeometry(11, 24, 24), moonMat);
+    this.moonOrb.position.set(-140, 175, -120);
+    this.moonOrb.visible = false;
+    this.skyGroup.add(this.moonOrb);
+
+    // Night Starfield
+    const starCount = 320;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * (Math.PI * 0.44);
+      const r = 310;
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = Math.max(35, r * Math.cos(phi));
+      starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xe0f2fe,
+      size: 1.6,
+      transparent: true,
+      opacity: 0.9,
+      fog: false
+    });
+    this.starField = new THREE.Points(starGeo, starMat);
+    this.starField.visible = false;
+    this.skyGroup.add(this.starField);
+  }
+
+  // 3D Tactical Waypoint Ring shown in the 3D world when navigating via Minimap
+  initWaypointBeacon3D() {
+    this.waypointBeaconGroup = new THREE.Group();
+    this.waypointBeaconGroup.visible = false;
+
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x22ff88,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.25, 32), ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.12;
+    this.waypointBeaconGroup.add(ring);
+
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0x22ff88,
+      transparent: true,
+      opacity: 0.28,
+      side: THREE.DoubleSide
+    });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 4.5, 24, 1, true), beamMat);
+    beam.position.y = 2.25;
+    this.waypointBeaconGroup.add(beam);
+
+    this.scene.add(this.waypointBeaconGroup);
+  }
+
   setTimeOfDay(time) {
     this.timeOfDay = time;
     if (time === 'day') {
@@ -116,7 +196,16 @@ class App {
       this.hemiLight.groundColor.setHex(0x388e3c);
       this.sunLight.color.setHex(0xfff7ed);
       this.sunLight.intensity = 1.35;
+      this.sunLight.position.set(120, 160, 90);
       this.fillLight.color.setHex(0x0284c7);
+
+      if (this.sunOrb) {
+        this.sunOrb.visible = true;
+        this.sunOrb.material.color.setHex(0xfffbeb);
+        this.sunOrb.position.set(150, 185, 110);
+      }
+      if (this.moonOrb) this.moonOrb.visible = false;
+      if (this.starField) this.starField.visible = false;
       this.pushActivity("☀️ Es mediodía brillante en el prado.");
     } else if (time === 'sunset') {
       this.scene.background.setHex(0xfd7e14);
@@ -125,7 +214,16 @@ class App {
       this.hemiLight.groundColor.setHex(0x7c2d12);
       this.sunLight.color.setHex(0xffedd5);
       this.sunLight.intensity = 1.1;
+      this.sunLight.position.set(-160, 65, 90);
       this.fillLight.color.setHex(0xd97706);
+
+      if (this.sunOrb) {
+        this.sunOrb.visible = true;
+        this.sunOrb.material.color.setHex(0xff7043);
+        this.sunOrb.position.set(-210, 68, 110);
+      }
+      if (this.moonOrb) this.moonOrb.visible = false;
+      if (this.starField) this.starField.visible = false;
       this.pushActivity("🌅 El atardecer tiñe el cielo de oro y naranja.");
     } else if (time === 'night') {
       this.scene.background.setHex(0x070b19);
@@ -133,9 +231,14 @@ class App {
       this.hemiLight.color.setHex(0x1e293b);
       this.hemiLight.groundColor.setHex(0x022c22);
       this.sunLight.color.setHex(0x38bdf8);
-      this.sunLight.intensity = 0.5;
+      this.sunLight.intensity = 0.55;
+      this.sunLight.position.set(-120, 150, -100);
       this.fillLight.color.setHex(0x6366f1);
-      this.pushActivity("🌙 Cae la noche cibernética; las luces de neón brillan.");
+
+      if (this.sunOrb) this.sunOrb.visible = false;
+      if (this.moonOrb) this.moonOrb.visible = true;
+      if (this.starField) this.starField.visible = true;
+      this.pushActivity("🌙 Cae la noche cibernética; las estrellas y luces de neón brillan.");
     }
   }
 
@@ -162,6 +265,7 @@ class App {
       this.pushActivity(msg);
     });
     this.playerRobot = this.packManager.allRobots['Sparky'];
+    this.playerRobot.velocityY = 0;
   }
 
   initVisionAndBrain() {
@@ -188,7 +292,6 @@ class App {
     if (this.minimapCanvas) {
       this.minimapCtx = this.minimapCanvas.getContext('2d');
 
-      // Click on Minimap to Move Robot there!
       this.minimapCanvas.addEventListener('click', (e) => {
         const rect = this.minimapCanvas.getBoundingClientRect();
         const clickX = (e.clientX - rect.left) * (this.minimapCanvas.width / rect.width);
@@ -199,10 +302,17 @@ class App {
 
         const worldX = pPos.x + (clickX - centerX) / this.minimapScale;
         const worldZ = pPos.z + (clickY - centerY) / this.minimapScale;
+        const groundY = this.world.getHeightAt(worldX, worldZ);
 
-        this.targetWaypoint = new THREE.Vector3(worldX, 0, worldZ);
+        this.targetWaypoint = new THREE.Vector3(worldX, groundY, worldZ);
+        if (this.waypointBeaconGroup) {
+          this.waypointBeaconGroup.position.copy(this.targetWaypoint);
+          this.waypointBeaconGroup.visible = true;
+        }
+
         this.brain.navigateToward(this.targetWaypoint, 5.8, 'run', () => {
           this.targetWaypoint = null;
+          if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
         });
 
         this.pushActivity(`🎯 Navegando hacia punto táctico (${Math.round(worldX)}, ${Math.round(worldZ)})`);
@@ -219,6 +329,7 @@ class App {
     document.getElementById('btn-minimap-recenter')?.addEventListener('click', () => {
       this.minimapScale = 0.55;
       this.targetWaypoint = null;
+      if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
     });
   }
 
@@ -240,12 +351,10 @@ class App {
     if (!newPlayer) return;
 
     this.playerRobot = newPlayer;
-    this.vision.robot = newPlayer;
-    if (this.vision.eyeCamera && newPlayer.nodes.head) {
-      newPlayer.nodes.head.add(this.vision.eyeCamera);
-      this.vision.eyeCamera.position.set(0, 0.58, 0.96);
-      this.vision.eyeCamera.rotation.set(0, Math.PI, 0);
-    }
+    this.targetWaypoint = null;
+    if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
+
+    this.vision.attachToRobot(newPlayer);
     this.brain.setRobot(newPlayer);
 
     // Update HUD
@@ -259,7 +368,6 @@ class App {
     if (avatarEl) avatarEl.textContent = newPlayer.profile.avatarIcon || "🐾";
     if (headerAvatarEl) headerAvatarEl.textContent = newPlayer.profile.avatarIcon || "🐾";
 
-    // Highlight active switcher card and close popover
     document.querySelectorAll('.robo-switch-card').forEach(card => {
       if (card.dataset.robot === name) card.classList.add('active');
       else card.classList.remove('active');
@@ -275,12 +383,21 @@ class App {
     this.updateHUDStats();
   }
 
+  triggerPlayerJump(boost = 7.2) {
+    if (!this.playerRobot) return;
+    const groundY = this.world.getHeightAt(this.playerRobot.group.position.x, this.playerRobot.group.position.z);
+    if (this.playerRobot.group.position.y <= groundY + 0.25) {
+      this.playerRobot.velocityY = boost;
+      this.playerRobot.animController.play('jump', 1.2);
+      roboAudio.playJump();
+    }
+  }
+
   initUI() {
     const nameEl = document.getElementById('robot-name');
     if (nameEl) nameEl.textContent = this.playerRobot.name;
     this.updateHUDStats();
 
-    // Robot Switcher Cards
     document.querySelectorAll('.robo-switch-card').forEach(card => {
       card.addEventListener('click', () => {
         const botName = card.dataset.robot;
@@ -288,7 +405,6 @@ class App {
       });
     });
 
-    // Time of Day Buttons
     ['day', 'sunset', 'night'].forEach(t => {
       document.getElementById(`btn-time-${t}`)?.addEventListener('click', () => {
         this.setTimeOfDay(t);
@@ -297,7 +413,6 @@ class App {
       });
     });
 
-    // Interactive Action Buttons
     document.getElementById('btn-spawn-snack')?.addEventListener('click', () => {
       const pos = this.playerRobot.group.position.clone();
       const fwd = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.playerRobot.group.rotation.y);
@@ -363,7 +478,6 @@ class App {
     document.getElementById('pill-toggle-hand')?.addEventListener('click', toggleHandTool);
     document.getElementById('btn-hand-tool')?.addEventListener('click', toggleHandTool);
 
-    // Independent Chat Dog Filter Pills
     document.querySelectorAll('.chat-dog-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         document.querySelectorAll('.chat-dog-pill').forEach(p => p.classList.remove('active'));
@@ -373,7 +487,6 @@ class App {
       });
     });
 
-    // Retractable Dock Category Tabs
     const bottomDock = document.getElementById('bottom-dock');
     const toggleIcon = document.getElementById('dock-toggle-icon');
     const quickBar = document.getElementById('roblox-quick-bar');
@@ -395,7 +508,6 @@ class App {
         const pane = document.getElementById(`tab-pane-${tab}`);
         if (pane) pane.classList.add('active');
 
-        // Automatically uncollapse dock if collapsed
         if (bottomDock && bottomDock.classList.contains('collapsed')) {
           bottomDock.classList.remove('collapsed');
           updateDockUI();
@@ -403,7 +515,6 @@ class App {
       });
     });
 
-    // Collapsible Bottom Dock & Close Handlers
     const toggleDockBtn = document.getElementById('btn-toggle-bottom-dock');
     const closeDockBtn = document.getElementById('btn-close-bottom-dock');
 
@@ -419,7 +530,6 @@ class App {
       updateDockUI();
     });
 
-    // Roblox Quick Bar Action Wiring
     document.getElementById('quick-bar-more')?.addEventListener('click', () => {
       if (!bottomDock) return;
       bottomDock.classList.toggle('collapsed');
@@ -462,7 +572,6 @@ class App {
       }
     });
 
-    // Pet Switcher Dropdown / Popover Controller
     const petSwitcherBtn = document.getElementById('btn-open-pet-switcher');
     const switcherStrip = document.getElementById('robot-switcher-strip');
     const closeSwitcherBtn = document.getElementById('btn-close-switcher');
@@ -492,7 +601,6 @@ class App {
       }
     });
 
-    // Fullscreen Toggle Controller (Cross-Browser)
     const isFsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
 
     const updateFsUI = () => {
@@ -549,7 +657,6 @@ class App {
       document.addEventListener(evt, updateFsUI);
     });
 
-    // Roblox-Style Game Menu Modal
     const gameMenuModal = document.getElementById('modal-game-menu');
     const openMenuBtn = document.getElementById('btn-open-game-menu');
     const closeMenuBtn = document.getElementById('btn-close-game-menu');
@@ -613,11 +720,9 @@ class App {
       document.getElementById('pill-toggle-users')?.click();
     });
 
-    // Zen Mode (100% Immersive Clean 3D View)
     document.getElementById('btn-toggle-zen')?.addEventListener('click', () => this.toggleZenMode());
     document.getElementById('btn-exit-zen')?.addEventListener('click', () => this.toggleZenMode());
 
-    // Floating Widget Quick Pills (Radar, Camera, Users)
     const wirePill = (pillId, panelId) => {
       const pill = document.getElementById(pillId);
       const panel = document.getElementById(panelId);
@@ -633,7 +738,6 @@ class App {
     wirePill('pill-toggle-pip', 'pip-panel');
     wirePill('pill-toggle-users', 'online-users-panel');
 
-    // Panel Minimize Toggles (Collapses canvas/body, leaves header bar visible)
     const setupMinimize = (btnId, panelId) => {
       const btn = document.getElementById(btnId);
       const panel = document.getElementById(panelId);
@@ -652,7 +756,6 @@ class App {
     setupMinimize('btn-min-minimap', 'minimap-panel');
     setupMinimize('btn-min-pip', 'pip-panel');
 
-    // Panel Close Buttons (Hides panel completely)
     document.getElementById('btn-close-minimap')?.addEventListener('click', (e) => {
       e.stopPropagation();
       document.getElementById('minimap-panel')?.classList.add('hidden');
@@ -665,7 +768,6 @@ class App {
       document.getElementById('pill-toggle-pip')?.classList.remove('active');
     });
 
-    // Auto-minimize thought panel on mobile/compact screens to free 3D view
     if (window.innerWidth <= 900) {
       const thoughtPanel = document.getElementById('thought-panel');
       const minBtn = document.getElementById('btn-min-upperleft');
@@ -674,6 +776,7 @@ class App {
     }
 
     document.getElementById('btn-clear-chat-log')?.addEventListener('click', () => {
+      this.allChatHistory = [];
       const feed = document.getElementById('chat-history-feed');
       if (feed) {
         feed.innerHTML = `<div class="chat-bubble chat-system"><span class="chat-author">🤖 Sistema:</span> Historial reiniciado.</div>`;
@@ -866,7 +969,11 @@ class App {
     ];
     actions.forEach(action => {
       document.getElementById(`btn-anim-${action}`)?.addEventListener('click', () => {
-        this.playerRobot.animController.play(action, 2.5);
+        if (action === 'jump') {
+          this.triggerPlayerJump(7.2);
+        } else {
+          this.playerRobot.animController.play(action, 2.5);
+        }
       });
     });
 
@@ -882,7 +989,7 @@ class App {
     document.getElementById('btn-pet-robot')?.addEventListener('click', () => {
       this.playerRobot.petRobot();
       this.particleSystem.spawnBurst(this.playerRobot.group.position, 'LOVING');
-      this.pushActivity(`💖 Acariciaste a ${this.playerRobot.name}!`);
+      this.pushActivity(`💖 ¡Acariciaste a ${this.playerRobot.name}!`);
     });
 
     const chatInput = document.getElementById('chat-input');
@@ -894,7 +1001,6 @@ class App {
       chatInput.value = '';
       const userName = (this.currentUser && this.currentUser.username) ? this.currentUser.username : 'Tú';
 
-      // If user is filtering by a specific dog (e.g. Luna), target that dog!
       const targetDog = (this.chatFilterDog && this.chatFilterDog !== 'ALL') ? this.chatFilterDog : this.playerRobot.name;
       if (targetDog !== this.playerRobot.name && this.packManager && this.packManager.allRobots[targetDog]) {
         this.switchToRobot(targetDog);
@@ -916,7 +1022,6 @@ class App {
       this.brain.think();
     });
 
-    // Cameras
     const camModes = ['diagonal', 'follow', 'orbit', 'free', 'eye', 'drone'];
     camModes.forEach(mode => {
       document.getElementById(`btn-cam-${mode}`)?.addEventListener('click', () => {
@@ -953,7 +1058,11 @@ class App {
     this.pushActivity(isZen ? '👁️ Modo Zen activado (Inmersión 3D completa).' : '👁️ Modo Zen desactivado.');
   }
 
+  // Guarded with touchControlsInitialized so listeners are never registered twice
   initTouchControls() {
+    if (this.touchControlsInitialized) return;
+    this.touchControlsInitialized = true;
+
     const joystickZone = document.getElementById('joystick-zone');
     const joystickBase = document.getElementById('joystick-base');
     const joystickStick = document.getElementById('joystick-stick');
@@ -1022,17 +1131,19 @@ class App {
     window.addEventListener('touchend', onTouchEnd);
     window.addEventListener('touchcancel', onTouchEnd);
 
-    // Radial buttons for mobile thumbs
     document.querySelectorAll('.touch-act-btn').forEach(btn => {
       const key = btn.dataset.key;
+      let lastTrigger = 0;
       const trigger = () => {
+        const now = Date.now();
+        if (now - lastTrigger < 180) return;
+        lastTrigger = now;
+
         if (key === 'shift') {
           this.keys['shift'] = !this.keys['shift'];
           btn.classList.toggle('pressed', this.keys['shift']);
         } else if (key === ' ') {
-          this.playerRobot.animController.play('jump', 1.2);
-          this.playerRobot.group.position.y += 0.8;
-          roboAudio.playJump();
+          this.triggerPlayerJump(7.2);
         } else if (key === 'b') {
           this.playerRobot.animController.play('bark', 1.0);
           roboAudio.playBark(this.playerRobot.profile ? this.playerRobot.profile.voicePitch : 1.0);
@@ -1055,7 +1166,6 @@ class App {
       });
     });
 
-    // Auto-display touch controls on mobile viewports or touch devices
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768) {
       document.getElementById('virtual-touch-controls')?.classList.remove('hidden');
     }
@@ -1101,16 +1211,16 @@ class App {
     });
 
     window.addEventListener('keydown', (e) => {
-      if (e.target && e.target.tagName === 'INPUT') return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       this.keys[e.key.toLowerCase()] = true;
       roboAudio.ensureContext();
 
-      if (e.key === ' ' && this.playerRobot.animController.currentAnim !== 'jump') {
-        this.playerRobot.animController.play('jump', 1.2);
+      if (e.key === ' ') {
+        this.triggerPlayerJump(7.2);
       } else if (e.key.toLowerCase() === 'p') {
         this.playerRobot.petRobot();
         this.particleSystem.spawnBurst(this.playerRobot.group.position, 'LOVING');
-        this.pushActivity(`💖 Mimos para ${this.playerRobot.name}!`);
+        this.pushActivity(`💖 ¡Mimos para ${this.playerRobot.name}!`);
       } else if (e.key.toLowerCase() === 'b') {
         this.playerRobot.animController.play('bark', 1.0);
       } else if (e.key.toLowerCase() === 'f') {
@@ -1127,7 +1237,6 @@ class App {
         this.toggleZenMode();
       } else if (e.key === 'Tab') {
         e.preventDefault();
-        // Cycle between robots
         const order = ['Sparky', 'Bolt', 'Pixel', 'Luna', 'Rusty'];
         const curIdx = order.indexOf(this.playerRobot.name);
         const nextName = order[(curIdx + 1) % order.length];
@@ -1154,7 +1263,6 @@ class App {
       pointerDownTime = Date.now();
       pointerDownPos = { x: e.clientX, y: e.clientY };
 
-      // Raycast against all robots
       const allMeshes = Object.values(this.packManager.allRobots).map(r => r.group);
       const intersects = raycaster.intersectObjects(allMeshes, true);
 
@@ -1178,7 +1286,6 @@ class App {
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(mouse, this.camera);
 
-      // Trigger pickup if dragging a candidate robot
       if (candidateRobot && !this.grabbedRobot && (Date.now() - pointerDownTime > 110)) {
         const moved = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
         if (moved > 6) {
@@ -1198,7 +1305,7 @@ class App {
       }
     });
 
-    this.renderer.domElement.addEventListener('pointerup', (e) => {
+    this.renderer.domElement.addEventListener('pointerup', () => {
       if (this.grabbedRobot) {
         this.releaseGrabbedRobot();
         candidateRobot = null;
@@ -1209,22 +1316,23 @@ class App {
         if (candidateRobot === this.playerRobot) {
           this.playerRobot.petRobot();
           this.particleSystem.spawnBurst(this.playerRobot.group.position, 'LOVING');
-          this.pushActivity(`💖 Mimos para ${this.playerRobot.name}!`);
+          this.pushActivity(`💖 ¡Mimos para ${this.playerRobot.name}!`);
         } else {
           this.switchToRobot(candidateRobot.name);
         }
       }
       candidateRobot = null;
     });
-
-    this.initTouchControls();
   }
 
   grabRobot(robot) {
     if (!robot || this.grabbedRobot) return;
     this.grabbedRobot = robot;
     robot.isPickedUp = true;
-    robot.fallVelocityY = 0;
+    robot.velocityY = 0;
+    if (robot === this.playerRobot && this.brain) {
+      this.brain.cancelNavigation();
+    }
     if (robot.animController) robot.animController.play('pickedUp');
     document.body.classList.add('is-grabbing');
     roboAudio.playBoop(1.5);
@@ -1237,7 +1345,7 @@ class App {
     const released = this.grabbedRobot;
     this.grabbedRobot = null;
     released.isPickedUp = false;
-    released.fallVelocityY = -3.2;
+    released.velocityY = -2.5;
     document.body.classList.remove('is-grabbing');
     this.pushActivity(`🐾 ¡Soltaste a ${released.name}! Cayendo suavemente al terreno.`);
   }
@@ -1291,7 +1399,7 @@ class App {
     let savedUser = null;
     try {
       savedUser = JSON.parse(localStorage.getItem('robochibi_user'));
-    } catch (e) {}
+    } catch (e) { }
 
     let selectedAvatar = (savedUser && savedUser.avatar) || '🐾';
 
@@ -1300,7 +1408,6 @@ class App {
     const submitBtn = document.getElementById('btn-login-submit');
     const avatarBtns = document.querySelectorAll('.avatar-opt');
 
-    // Avatar picker buttons
     avatarBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         avatarBtns.forEach(b => b.classList.remove('active'));
@@ -1342,7 +1449,6 @@ class App {
       if (e.key === 'Enter') confirmLogin();
     });
 
-    // Profile badge click to edit name anytime
     document.getElementById('user-profile-badge')?.addEventListener('click', () => {
       if (usernameInput) usernameInput.value = this.currentUser ? this.currentUser.username : '';
       if (loginModal) loginModal.classList.remove('hidden');
@@ -1365,7 +1471,7 @@ class App {
         const dot = document.querySelector('.online-indicator-dot');
         if (dot) dot.style.background = connected ? '#22c55e' : '#ef4444';
       },
-      onUsersListUpdated: (users, currentUser) => {
+      onUsersListUpdated: (users) => {
         const countEl = document.getElementById('online-users-count');
         if (countEl) countEl.textContent = users.length;
 
@@ -1392,17 +1498,14 @@ class App {
         this.addChatMessage('Sistema', `🚪 ${user.avatar || '🐾'} <strong>${user.username}</strong> salió de la sesión.`, 'system');
         this.pushActivity(`🚪 ${user.username} salió del mundo.`);
       },
-      onCommandReceived: (sender, text, targetRobot) => {
-        // Only react if command is from another user
+      onCommandReceived: (sender, text) => {
         if (this.currentUser && sender.username === this.currentUser.username) return;
 
         this.addChatMessage(`${sender.avatar || '👤'} ${sender.username}`, text, 'user');
         this.pushActivity(`💬 ${sender.username} ordenó: "${text}"`);
         this.brain.think(text);
       },
-      onRobotActionReceived: (robotName, action, emotion, thought, sender) => {
-        // Process sync action
-      }
+      onRobotActionReceived: () => { }
     });
 
     if (this.currentUser) {
@@ -1456,7 +1559,6 @@ class App {
       });
     });
 
-    // Copy to clipboard buttons
     document.querySelectorAll('.copy-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-target');
@@ -1484,8 +1586,7 @@ class App {
   }
 
   handleManualMovement(delta) {
-    if (this.cameraMode === 'free') return;
-    if (this.brain && this.brain.isNavigating) return;
+    if (this.cameraMode === 'free' || this.playerRobot.isPickedUp || this.playerRobot.isSliding) return;
 
     let moveX = 0;
     let moveZ = 0;
@@ -1502,20 +1603,34 @@ class App {
       if (this.keys['d'] || this.keys['arrowright']) moveX += 1;
     }
 
+    // Manual input immediately overrides any autonomous navigation waypoint
+    if ((moveX !== 0 || moveZ !== 0) && this.brain && this.brain.isNavigating) {
+      this.brain.cancelNavigation();
+      this.targetWaypoint = null;
+      if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
+    }
+
+    if (this.brain && this.brain.isNavigating) return;
+
+    const rPos = this.playerRobot.group.position;
+
     if (moveX !== 0 || moveZ !== 0) {
       this.freeWillTimer = 3.0;
       const camYaw = Math.atan2(
-        this.camera.position.x - this.playerRobot.group.position.x,
-        this.camera.position.z - this.playerRobot.group.position.z
+        this.camera.position.x - rPos.x,
+        this.camera.position.z - rPos.z
       );
 
       const inputAngle = Math.atan2(moveX, -moveZ);
       const targetAngle = camYaw + inputAngle;
 
-      const angleDiff = targetAngle - this.playerRobot.group.rotation.y;
-      this.playerRobot.bankAngle = THREE.MathUtils.clamp(-angleDiff * 0.4, -0.22, 0.22);
-
-      this.playerRobot.group.rotation.y = THREE.MathUtils.lerp(
+      // Shortest angle difference prevents 360° spin wrap-around glitches
+      const shortestDiff = Math.atan2(
+        Math.sin(targetAngle - this.playerRobot.group.rotation.y),
+        Math.cos(targetAngle - this.playerRobot.group.rotation.y)
+      );
+      this.playerRobot.bankAngle = THREE.MathUtils.clamp(-shortestDiff * 0.35, -0.22, 0.22);
+      this.playerRobot.group.rotation.y = lerpAngle(
         this.playerRobot.group.rotation.y,
         targetAngle,
         delta * 12
@@ -1526,35 +1641,37 @@ class App {
       const anim = isRunning ? 'run' : 'walk';
 
       const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.playerRobot.group.rotation.y);
-      this.playerRobot.group.position.addScaledVector(forward, speed * delta);
+      rPos.addScaledVector(forward, speed * delta);
 
-      // 1. Resolve Solid Obstacle Collisions with true 3D clearance height
+      // 1. Resolve Solid Obstacle Collisions
       if (this.world && this.world.resolveObstacleCollisions) {
-        this.world.resolveObstacleCollisions(this.playerRobot.group.position, 0.75, 1.2);
+        this.world.resolveObstacleCollisions(rPos, 0.75, 1.2);
       }
 
-      // 2. Robot-to-Robot Solid Collision Pushout
+      // 2. Robot-to-Robot Solid Horizontal XZ Collision Pushout
       if (this.packManager && this.packManager.pack) {
         this.packManager.pack.forEach(bot => {
-          const dist = this.playerRobot.group.position.distanceTo(bot.group.position);
+          if (Math.abs(rPos.y - bot.group.position.y) >= 1.2) return;
+          const dx = rPos.x - bot.group.position.x;
+          const dz = rPos.z - bot.group.position.z;
+          const dist = Math.hypot(dx, dz);
           if (dist < 1.4 && dist > 0.001) {
-            const overlap = 1.4 - dist;
-            const push = new THREE.Vector3().subVectors(this.playerRobot.group.position, bot.group.position).normalize();
-            this.playerRobot.group.position.addScaledVector(push, overlap * 0.5);
-            bot.group.position.addScaledVector(push, -overlap * 0.5);
+            const overlap = (1.4 - dist) * 0.5;
+            const nx = dx / dist;
+            const nz = dz / dist;
+            rPos.x += nx * overlap;
+            rPos.z += nz * overlap;
+            bot.group.position.x -= nx * overlap;
+            bot.group.position.z -= nz * overlap;
           }
         });
       }
 
-      this.playerRobot.group.position.y = this.world.getHeightAt(
-        this.playerRobot.group.position.x,
-        this.playerRobot.group.position.z
-      );
-
-      this.playerRobot.animController.play(anim);
-      this.world.handleRobotInteractions(this.playerRobot);
+      if (!this.playerRobot.isInWater && this.playerRobot.animController.currentAnim !== 'jump' && this.playerRobot.animController.currentAnim !== 'backflip') {
+        this.playerRobot.animController.play(anim);
+      }
     } else {
-      this.playerRobot.bankAngle = 0;
+      this.playerRobot.bankAngle = THREE.MathUtils.lerp(this.playerRobot.bankAngle || 0, 0, delta * 10);
 
       if (this.isFreeWillActive) {
         this.freeWillTimer -= delta;
@@ -1575,6 +1692,33 @@ class App {
           this.playerRobot.animController.play('idle');
         }
       }
+    }
+
+    // Unified Parabolic Vertical Physics & World Interactions for Player Robot
+    const groundY = this.world.getHeightAt(rPos.x, rPos.z);
+    if (!this.playerRobot.isInWater) {
+      if (rPos.y > groundY + 0.04 || (this.playerRobot.velocityY && this.playerRobot.velocityY !== 0)) {
+        this.playerRobot.velocityY = (this.playerRobot.velocityY || 0) - 18.5 * delta;
+        rPos.y += this.playerRobot.velocityY * delta;
+        if (rPos.y <= groundY) {
+          rPos.y = groundY;
+          if (this.playerRobot.velocityY < -10) {
+            if (this.particleSystem) this.particleSystem.spawnBurst(rPos, 'HAPPY');
+          }
+          this.playerRobot.velocityY = 0;
+        }
+      } else {
+        rPos.y = groundY;
+        this.playerRobot.velocityY = 0;
+      }
+    }
+
+    const prevY = rPos.y;
+    this.world.handleRobotInteractions(this.playerRobot);
+    // If trampoline or world interaction boosted player Y upward, convert to smooth vertical velocity
+    if (rPos.y > prevY + 0.5 && !this.playerRobot.isInWater) {
+      this.playerRobot.velocityY = (rPos.y - prevY) * 3.2;
+      rPos.y = prevY + 0.15;
     }
   }
 
@@ -1679,6 +1823,7 @@ class App {
       this.controls.update();
     } else if (this.cameraMode === 'eye') {
       this.controls.enabled = false;
+      this.vision.eyeCamera.updateWorldMatrix(true, false);
       this.vision.eyeCamera.getWorldPosition(this.camera.position);
       this.vision.eyeCamera.getWorldQuaternion(this.camera.quaternion);
     } else if (this.cameraMode === 'drone') {
@@ -1705,16 +1850,13 @@ class App {
     const scale = this.minimapScale || 0.55;
     const pPos = this.playerRobot.group.position;
 
-    // Advance Radar Animations
     this.radarAngle = (this.radarAngle || 0) + delta * 2.2;
     this.pingRadius = ((this.pingRadius || 0) + delta * 28) % 45;
 
-    // 1. Tactical Deep Space Grid Background
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#060a14';
     ctx.fillRect(0, 0, w, h);
 
-    // Grid lines
     ctx.strokeStyle = 'rgba(0, 229, 255, 0.07)';
     ctx.lineWidth = 1;
     const gridSize = 25;
@@ -1731,7 +1873,6 @@ class App {
       ctx.stroke();
     }
 
-    // Concentric Range Rings (25m, 50m, 75m)
     [25, 50, 75].forEach(r => {
       ctx.strokeStyle = 'rgba(0, 229, 255, 0.12)';
       ctx.beginPath();
@@ -1742,7 +1883,6 @@ class App {
       ctx.fillText(`${r}m`, centerX + 4, centerY - r * scale + 9);
     });
 
-    // Radar Sweeping Scan Line
     ctx.save();
     ctx.translate(centerX, centerY);
     const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, 95);
@@ -1756,18 +1896,16 @@ class App {
     ctx.fill();
     ctx.restore();
 
-    // 2. Lake of Crystal (with shoreline, ripples, dock, toy boat)
+    // Lake of Crystal
     const lakeMapX = centerX + (-80 - pPos.x) * scale;
     const lakeMapY = centerY + (-80 - pPos.z) * scale;
     const lakeRadius = 65 * scale;
 
-    // Shoreline glow
     ctx.fillStyle = 'rgba(14, 165, 233, 0.18)';
     ctx.beginPath();
     ctx.arc(lakeMapX, lakeMapY, lakeRadius + 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // Water body
     const lakeGrad = ctx.createRadialGradient(lakeMapX, lakeMapY, 4, lakeMapX, lakeMapY, lakeRadius);
     lakeGrad.addColorStop(0, 'rgba(2, 132, 199, 0.65)');
     lakeGrad.addColorStop(1, 'rgba(3, 105, 161, 0.85)');
@@ -1780,20 +1918,18 @@ class App {
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // Pier / Dock
     const pierX = centerX + (-44 - pPos.x) * scale;
     const pierY = centerY + (-80 - pPos.z) * scale;
     ctx.fillStyle = '#b45309';
     ctx.fillRect(pierX - 6, pierY - 3, 14, 6);
 
-    // Toy boat on lake
     const boatX = centerX + (-80 - pPos.x) * scale;
     const boatY = centerY + (-65 - pPos.z) * scale;
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px sans-serif';
     ctx.fillText('⛵', boatX - 5, boatY + 4);
 
-    // 3. Playground Zone
+    // Playground Zone
     const playMapX = centerX + (50 - pPos.x) * scale;
     const playMapY = centerY + (40 - pPos.z) * scale;
     const playRadius = 36 * scale;
@@ -1808,60 +1944,38 @@ class App {
     // Soccer Field & Goal
     const goalX = centerX + (25 - pPos.x) * scale;
     const goalY = centerY + (40 - pPos.z) * scale;
-    // Field turf
     ctx.fillStyle = 'rgba(22, 101, 52, 0.55)';
     ctx.fillRect(goalX - 4, goalY - 14, 30, 28);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
     ctx.lineWidth = 1;
     ctx.strokeRect(goalX - 4, goalY - 14, 30, 28);
-    // Center circle
     ctx.beginPath();
     ctx.arc(goalX + 11, goalY, 6, 0, Math.PI * 2);
     ctx.stroke();
-    // Goal Net icon
     ctx.fillStyle = '#ffffff';
     ctx.font = '10px sans-serif';
     ctx.fillText('🥅', goalX - 10, goalY + 4);
 
-    // Trampoline
-    const trampX = centerX + (38 - pPos.x) * scale;
-    const trampY = centerY + (22 - pPos.z) * scale;
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.3)';
-    ctx.beginPath();
-    ctx.arc(trampX, trampY, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#00e5ff';
-    ctx.stroke();
-    ctx.fillText('🎪', trampX - 5, trampY + 4);
+    // Attractions Icons on Radar
+    const drawIcon = (wx, wz, emoji) => {
+      const ix = centerX + (wx - pPos.x) * scale;
+      const iy = centerY + (wz - pPos.z) * scale;
+      ctx.font = '10px sans-serif';
+      ctx.fillText(emoji, ix - 5, iy + 4);
+    };
+    drawIcon(38, 22, '🎪');   // Trampoline
+    drawIcon(62, 26, '🎠');   // Carousel
+    drawIcon(52, 56, '🪩');   // Disco Pad
+    drawIcon(72, 52, '🏠');   // Doghouse
+    drawIcon(12, 10, '💧');   // Water Fountain
+    drawIcon(-46, -48, '🌉'); // Wooden Bridge
+    drawIcon(-32, 48, '🟣');  // Ball Pit
+    drawIcon(-18, -32, '🎢'); // Agility Slide
+    drawIcon(22, -50, '🌀');  // Obstacle Course
+    drawIcon(76, 18, '🎯');   // Target Toss
+    drawIcon(-42, 14, '🪅');  // Piñata
 
-    // Carousel
-    const carX = centerX + (62 - pPos.x) * scale;
-    const carY = centerY + (26 - pPos.z) * scale;
-    ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
-    ctx.beginPath();
-    ctx.arc(carX, carY, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#facc15';
-    ctx.stroke();
-    ctx.fillText('🎠', carX - 5, carY + 4);
-
-    // Disco Pad
-    const discoX = centerX + (52 - pPos.x) * scale;
-    const discoY = centerY + (56 - pPos.z) * scale;
-    ctx.fillStyle = 'rgba(236, 72, 153, 0.35)';
-    ctx.fillRect(discoX - 7, discoY - 7, 14, 14);
-    ctx.strokeStyle = '#ec4899';
-    ctx.strokeRect(discoX - 7, discoY - 7, 14, 14);
-    ctx.fillText('🪩', discoX - 5, discoY + 4);
-
-    // Doghouse / Station
-    const houseX = centerX + (72 - pPos.x) * scale;
-    const houseY = centerY + (52 - pPos.z) * scale;
-    ctx.fillStyle = '#3b82f6';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('🏠', houseX - 5, houseY + 4);
-
-    // 4. Soccer Ball & Playground Balls
+    // Soccer Ball & Playground Balls
     if (this.world && this.world.soccerBall) {
       const sbPos = this.world.soccerBall.mesh.position;
       const bx = centerX + (sbPos.x - pPos.x) * scale;
@@ -1876,14 +1990,14 @@ class App {
         if (b === this.world.soccerBall) return;
         const bx = centerX + (b.mesh.position.x - pPos.x) * scale;
         const by = centerY + (b.mesh.position.z - pPos.z) * scale;
-        ctx.fillStyle = b.colorHex ? `#${b.colorHex.toString(16)}` : '#00e5ff';
+        ctx.fillStyle = '#00e5ff';
         ctx.beginPath();
         ctx.arc(bx, by, 3, 0, Math.PI * 2);
         ctx.fill();
       });
     }
 
-    // 5. Snacks
+    // Snacks
     if (this.world && this.world.snacks) {
       this.world.snacks.forEach(s => {
         const sx = centerX + (s.group.position.x - pPos.x) * scale;
@@ -1894,12 +2008,11 @@ class App {
       });
     }
 
-    // 6. Active Waypoint Line & Target Beacon
+    // Active Waypoint Line & Target Beacon
     if (this.targetWaypoint) {
       const wx = centerX + (this.targetWaypoint.x - pPos.x) * scale;
       const wy = centerY + (this.targetWaypoint.z - pPos.z) * scale;
 
-      // Dotted trajectory line
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = '#22c55e';
       ctx.lineWidth = 1.5;
@@ -1909,7 +2022,6 @@ class App {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Beacon ring
       ctx.strokeStyle = '#22c55e';
       ctx.beginPath();
       ctx.arc(wx, wy, 8 + Math.sin(this.radarAngle * 4) * 3, 0, Math.PI * 2);
@@ -1917,14 +2029,13 @@ class App {
       ctx.fillText('🎯', wx - 6, wy + 4);
     }
 
-    // 7. Pack Robots (with FOV cones, character icons, colors)
+    // Pack Robots
     if (this.packManager && this.packManager.allRobots) {
       Object.values(this.packManager.allRobots).forEach(bot => {
         if (bot === this.playerRobot) return;
         const bx = centerX + (bot.group.position.x - pPos.x) * scale;
         const by = centerY + (bot.group.position.z - pPos.z) * scale;
 
-        // Vision FOV Cone
         ctx.save();
         ctx.translate(bx, by);
         ctx.rotate(bot.group.rotation.y);
@@ -1936,14 +2047,12 @@ class App {
         ctx.fill();
         ctx.restore();
 
-        // Robot dot
         const color = bot.currentEmotion ? bot.currentEmotion.cssColor : '#00e5ff';
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(bx, by, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Icon & Name
         ctx.fillStyle = '#f8fafc';
         ctx.font = 'bold 9px Outfit, sans-serif';
         const icon = bot.profile.avatarIcon || '🐾';
@@ -1951,15 +2060,13 @@ class App {
       });
     }
 
-    // 8. Player Robot (Centered, Radar Ping, Direction Chevron)
-    // Pulsing sonar ping ring
+    // Player Robot
     ctx.strokeStyle = `rgba(34, 255, 136, ${Math.max(0, 1 - this.pingRadius / 45)})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(centerX, centerY, this.pingRadius, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Player FOV vision cone
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(this.playerRobot.group.rotation.y);
@@ -1971,7 +2078,6 @@ class App {
     ctx.closePath();
     ctx.fill();
 
-    // Direction Chevron
     ctx.fillStyle = '#22ff88';
     ctx.shadowColor = '#22ff88';
     ctx.shadowBlur = 10;
@@ -1984,12 +2090,10 @@ class App {
     ctx.fill();
     ctx.restore();
 
-    // Player Label
     ctx.fillStyle = '#22ff88';
     ctx.font = 'bold 10px Outfit, sans-serif';
     ctx.fillText(`★ ${this.playerRobot.name}`, centerX - 18, centerY + 18);
 
-    // 9. Compass Indicators (N, S, E, W)
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 9px monospace';
     ctx.fillText('▲ N', centerX - 8, 12);
@@ -1998,6 +2102,7 @@ class App {
     ctx.fillText('E', w - 12, centerY + 4);
   }
 
+  // Prevents inverted projection when robot is behind camera frustum (screenPos.z > 1)
   updateSpeechBubblePos() {
     const bubble = document.getElementById('world-speech-bubble');
     if (!bubble || bubble.classList.contains('hidden') || !this.playerRobot.nodes.overheadAnchor) return;
@@ -2005,6 +2110,12 @@ class App {
     const screenPos = new THREE.Vector3();
     this.playerRobot.nodes.overheadAnchor.getWorldPosition(screenPos);
     screenPos.project(this.camera);
+
+    if (screenPos.z > 1.0) {
+      bubble.style.opacity = '0';
+      return;
+    }
+    bubble.style.opacity = '1';
 
     const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
@@ -2024,22 +2135,12 @@ class App {
       this.playerRobot.update(delta);
       this.playerRobot.animController.update(delta);
 
-      // Hand drop gravity physics for released puppies
-      if (this.packManager && this.packManager.allRobots) {
-        Object.values(this.packManager.allRobots).forEach(dog => {
-          if (!dog.isPickedUp && dog.fallVelocityY !== undefined && dog.fallVelocityY !== 0) {
-            dog.group.position.y += dog.fallVelocityY * delta;
-            dog.fallVelocityY -= 22.0 * delta; // Gravity acceleration
-            const groundY = this.world.getHeightAt(dog.group.position.x, dog.group.position.z);
-            if (dog.group.position.y <= groundY) {
-              dog.group.position.y = groundY;
-              dog.fallVelocityY = 0;
-              if (dog.animController) dog.animController.play('shakeOff', 1.8);
-              if (this.particleSystem) this.particleSystem.spawnBurst(dog.group.position, 'LOVING');
-              roboAudio.playBoop(1.4);
-            }
-          }
-        });
+      if (this.waypointBeaconGroup && this.waypointBeaconGroup.visible) {
+        this.waypointBeaconGroup.rotation.y += delta * 2.0;
+      }
+
+      if (this.starField && this.starField.visible) {
+        this.starField.rotation.y += delta * 0.005;
       }
 
       if (this.packManager) this.packManager.update(delta, this.playerRobot);
@@ -2050,7 +2151,6 @@ class App {
       this.updateCamera(delta);
       this.renderer.render(this.scene, this.camera);
 
-      // Performance Optimization: Only render PIP camera when panel is open and not minimized!
       const pipPanel = document.getElementById('pip-panel');
       if (this.vision && pipPanel && !pipPanel.classList.contains('hidden') && !pipPanel.classList.contains('minimized')) {
         this.vision.renderPIP();
@@ -2058,7 +2158,6 @@ class App {
 
       this.updateHUDStats();
 
-      // Performance Optimization: Only render Minimap when radar panel is open and not minimized!
       const minimapPanel = document.getElementById('minimap-panel');
       if (minimapPanel && !minimapPanel.classList.contains('hidden') && !minimapPanel.classList.contains('minimized')) {
         this.renderMinimap(delta);

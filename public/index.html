@@ -1,23 +1,395 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>RoboChibi 3D - CyberPup Virtual World con IA</title>
+  <title>RoboChibi 3D - CyberPup Virtual World con IA [CyberCore OS v2.5]</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- ==================== ESTILOS AVANZADOS CYBERCORE OS v2.5 ==================== -->
+  <style>
+    :root {
+      --cc-cyan: #00f2fe;
+      --cc-purple: #b537f2;
+      --cc-green: #00ff88;
+      --cc-amber: #ffbe0b;
+      --cc-red: #ff2a6d;
+      --cc-glass: rgba(10, 16, 30, 0.78);
+      --cc-border: rgba(0, 242, 254, 0.28);
+    }
+
+    /* Capas de Post-Procesado y Clima */
+    #weather-fx-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    #cyber-optical-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      transition: all 0.4s ease;
+    }
+
+    /* Modos de Visión Óptica */
+    body.fx-crt #cyber-optical-overlay {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.32) 50%),
+        radial-gradient(circle, transparent 60%, rgba(0, 15, 30, 0.65) 100%);
+      background-size: 100% 4px, 100% 100%;
+    }
+
+    body.fx-nightvision #canvas-container {
+      filter: hue-rotate(75deg) saturate(2.2) brightness(1.18) contrast(1.25);
+    }
+
+    body.fx-nightvision #cyber-optical-overlay {
+      background: radial-gradient(circle, rgba(0, 255, 136, 0.06) 0%, rgba(0, 40, 15, 0.55) 100%);
+      box-shadow: inset 0 0 80px rgba(0, 255, 136, 0.35);
+    }
+
+    body.fx-thermal #canvas-container {
+      filter: invert(0.85) hue-rotate(180deg) saturate(3) contrast(1.35);
+    }
+
+    body.fx-cinema #cyber-optical-overlay {
+      border-top: 42px solid #04060c;
+      border-bottom: 42px solid #04060c;
+      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Mini Monitor FPS & IA en Topbar */
+    .cyber-perf-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(0, 242, 254, 0.25);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: #e2f1ff;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s ease, border-color 0.2s ease;
+    }
+
+    .cyber-perf-pill:hover {
+      border-color: var(--cc-cyan);
+      transform: translateY(-1px);
+    }
+
+    .perf-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cc-green);
+      box-shadow: 0 0 8px var(--cc-green);
+    }
+
+    /* Botón de Micrófono con Onda de Voz */
+    .mic-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 242, 254, 0.35);
+      background: rgba(0, 242, 254, 0.12);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mic-btn.recording {
+      background: rgba(255, 42, 109, 0.28);
+      border-color: var(--cc-red);
+      box-shadow: 0 0 15px rgba(255, 42, 109, 0.55);
+      animation: pulseMic 1.2s infinite;
+    }
+
+    @keyframes pulseMic {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.06);
+      }
+    }
+
+    /* Grids de las nuevas pestañas del Dock (Macros & Telemetría) */
+    .cyber-lab-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+      padding: 6px 2px;
+      max-height: 210px;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 780px) {
+      .cyber-lab-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .cyber-box {
+      background: rgba(6, 12, 24, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .cyber-box-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--cc-cyan);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Secuenciador de Macros */
+    .macro-timeline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 36px;
+      padding: 6px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px dashed rgba(0, 242, 254, 0.3);
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .macro-step-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(0, 242, 254, 0.16);
+      border: 1px solid rgba(0, 242, 254, 0.4);
+      color: #fff;
+    }
+
+    .macro-step-chip.active-step {
+      background: var(--cc-green);
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 0 10px var(--cc-green);
+    }
+
+    .macro-palette-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .mini-chip-btn {
+      padding: 4px 9px;
+      font-size: 0.74rem;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.07);
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mini-chip-btn:hover {
+      background: rgba(0, 242, 254, 0.22);
+      border-color: var(--cc-cyan);
+      color: #fff;
+    }
+
+    /* Telemetría y Monitor Neural */
+    .telemetry-metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .t-metric-card {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 5px 8px;
+      text-align: center;
+    }
+
+    .t-metric-card small {
+      display: block;
+      font-size: 0.65rem;
+      color: #94a3b8;
+    }
+
+    .t-metric-card strong {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      color: var(--cc-cyan);
+    }
+
+    #telemetry-chart-canvas {
+      width: 100%;
+      height: 64px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      border: 1px solid rgba(0, 242, 254, 0.2);
+    }
+
+    .llm-inspector-log {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(181, 55, 242, 0.35);
+      border-radius: 8px;
+      padding: 8px;
+      color: #d8b4fe;
+      max-height: 95px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* Paleta de Comandos (Ctrl+K) */
+    .cmd-palette-card {
+      width: min(580px, 92vw);
+      max-height: 78vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cmd-search-input {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 0.98rem;
+      border-radius: 10px;
+      border: 1px solid var(--cc-cyan);
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    .cmd-results-list {
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .cmd-result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cmd-result-item:hover,
+    .cmd-result-item.selected {
+      background: rgba(0, 242, 254, 0.16);
+      border-color: rgba(0, 242, 254, 0.45);
+    }
+
+    .cmd-shortcut-kbd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--cc-cyan);
+    }
+
+    /* Toast de Notificación Táctica */
+    #cyber-toast-container {
+      position: fixed;
+      bottom: 84px;
+      right: 18px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .cyber-toast {
+      background: rgba(8, 15, 30, 0.9);
+      backdrop-filter: blur(10px);
+      border-left: 4px solid var(--cc-cyan);
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+      animation: slideInToast 0.25s ease forwards;
+    }
+
+    @keyframes slideInToast {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+  </style>
 </head>
+
 <body>
   <!-- 3D WebGL Canvas Container -->
   <div id="canvas-container"></div>
+
+  <!-- Capa de Partículas Climáticas y Post-Procesado Óptico -->
+  <canvas id="weather-fx-canvas"></canvas>
+  <div id="cyber-optical-overlay"></div>
+
+  <!-- Contenedor de Notificaciones Tácticas -->
+  <div id="cyber-toast-container"></div>
 
   <!-- Floating 3D World Speech Bubble -->
   <div id="world-speech-bubble" class="hidden"></div>
 
   <!-- Floating Exit Zen Mode Button -->
-  <button id="btn-exit-zen" class="zen-exit-pill hidden" title="Salir de Modo Zen (Tecla H)">👁️ Salir de Modo Zen</button>
+  <button id="btn-exit-zen" class="zen-exit-pill hidden" title="Salir de Modo Zen (Tecla H)">👁️ Salir de Modo
+    Zen</button>
 
   <!-- Main Cyber HUD -->
   <div id="hud-overlay">
@@ -38,22 +410,30 @@
           <span class="stat-item"><span id="stat-emotion">😊 Feliz</span></span>
           <div class="stat-meter-group">
             <span class="meter-label">⚡</span>
-            <div class="meter-bar"><div id="bar-energy" class="bar-fill energy-fill"></div></div>
+            <div class="meter-bar">
+              <div id="bar-energy" class="bar-fill energy-fill"></div>
+            </div>
             <span id="stat-energy" class="meter-num">100%</span>
           </div>
           <div class="stat-meter-group">
             <span class="meter-label">🔍</span>
-            <div class="meter-bar"><div id="bar-curiosity" class="bar-fill curiosity-fill"></div></div>
+            <div class="meter-bar">
+              <div id="bar-curiosity" class="bar-fill curiosity-fill"></div>
+            </div>
             <span id="stat-curiosity" class="meter-num">85%</span>
           </div>
           <div class="stat-meter-group">
             <span class="meter-label">💖</span>
-            <div class="meter-bar"><div id="bar-affection" class="bar-fill affection-fill"></div></div>
+            <div class="meter-bar">
+              <div id="bar-affection" class="bar-fill affection-fill"></div>
+            </div>
             <span id="stat-affection" class="meter-num">88%</span>
           </div>
           <div class="stat-meter-group">
             <span class="meter-label">💧</span>
-            <div class="meter-bar"><div id="bar-hydration" class="bar-fill hydration-fill"></div></div>
+            <div class="meter-bar">
+              <div id="bar-hydration" class="bar-fill hydration-fill"></div>
+            </div>
             <span id="stat-hydration" class="meter-num">90%</span>
           </div>
           <span class="title-tag" id="robot-title-tag">El Explorador Curioso</span>
@@ -61,16 +441,28 @@
         </div>
       </div>
 
-      <!-- Center: Time & Scores -->
+      <!-- Center: Time, Weather & Scores -->
       <div class="topbar-center">
         <div class="time-controls">
           <button id="btn-time-day" class="time-btn active" title="Mediodía Soleado">☀️</button>
           <button id="btn-time-sunset" class="time-btn" title="Atardecer Dorado">🌅</button>
           <button id="btn-time-night" class="time-btn" title="Noche Cibernética">🌙</button>
+          <button id="btn-cycle-weather" class="time-btn"
+            title="Cambiar Clima Dinámico (Despejado / Lluvia Neón / Luciérnagas / Nieve)">🌦️</button>
+          <button id="btn-cycle-vision" class="time-btn"
+            title="Modo Óptico (Normal / CRT / Nocturna / Térmica / Cine)">🕶️</button>
         </div>
 
         <div class="score-badge" title="Puntuación en Portería y Diana">
           ⚽ <span id="soccer-score-num">0</span> | 🎯 <span id="target-score-num">0</span>
+        </div>
+
+        <!-- Mini Monitor FPS + IA Latency -->
+        <div id="cyber-perf-pill" class="cyber-perf-pill" title="Clic para abrir Telemetría y Diagnóstico Neural">
+          <span class="perf-dot" id="perf-status-dot"></span>
+          <span id="hud-fps-counter">60 FPS</span>
+          <span>|</span>
+          <span id="hud-ai-ping">IA: OK</span>
         </div>
       </div>
 
@@ -91,8 +483,9 @@
           <button id="btn-cam-drone" class="icon-btn" title="Drone Cinemático">🚁 Drone</button>
         </div>
 
-        <!-- Fullscreen Button (Requested by User) -->
-        <button id="btn-toggle-fullscreen" class="hud-btn fs-toggle-btn glow-gold" title="Pantalla Completa (F11 / Móvil)">
+        <!-- Fullscreen Button -->
+        <button id="btn-toggle-fullscreen" class="hud-btn fs-toggle-btn glow-gold"
+          title="Pantalla Completa (F11 / Móvil)">
           ⛶ <span class="btn-text-label">Completa</span>
         </button>
 
@@ -113,7 +506,11 @@
 
         <!-- Desktop Quick Modals -->
         <div class="desktop-extra-btns" id="desktop-extra-btns">
-          <button id="btn-toggle-zen" class="hud-btn glow-cyan" title="Modo Zen: Ocultar interfaz para inmersión 3D completa (Tecla H)">👁️ Zen</button>
+          <button id="btn-open-cmd-palette" class="hud-btn glow-cyan" title="Paleta de Comandos Rápida (Ctrl+K)">⌘
+            Cmd</button>
+          <button id="btn-toggle-sfx" class="hud-btn" title="Alternar Sintetizador de Audio Sci-Fi">🔊</button>
+          <button id="btn-toggle-zen" class="hud-btn glow-cyan"
+            title="Modo Zen: Ocultar interfaz para inmersión 3D completa (Tecla H)">👁️ Zen</button>
 
           <div id="user-profile-badge" class="user-profile-badge" title="Cambiar nombre de usuario">
             <span id="header-user-avatar">🐾</span>
@@ -121,7 +518,8 @@
             <small class="edit-icon">✏️</small>
           </div>
 
-          <button id="btn-open-share" class="hud-btn glow-green" title="Compartir enlace para abrir en móvil u otro router">🔗</button>
+          <button id="btn-open-share" class="hud-btn glow-green"
+            title="Compartir enlace para abrir en móvil u otro router">🔗</button>
           <button id="btn-open-memory" class="hud-btn" title="Ver Memoria JSON">📖</button>
           <button id="btn-open-settings" class="hud-btn" title="Configurar FreeLLMsAPI">⚙️</button>
         </div>
@@ -180,8 +578,12 @@
 
     <!-- Quick Floating Widget Toggles (Upper-Right) -->
     <div class="floating-pills-bar desktop-only-pills" id="floating-pills-bar">
-      <button id="pill-toggle-pip" class="floating-pill" title="Mostrar/Ocultar Cámara en Vivo Ojos de Robot">👁️ Cámara</button>
-      <button id="pill-toggle-users" class="floating-pill" title="Mostrar/Ocultar Usuarios Conectados">👥 En Línea (<span id="online-users-count">1</span>)</button>
+      <button id="pill-toggle-pip" class="floating-pill" title="Mostrar/Ocultar Cámara en Vivo Ojos de Robot">👁️
+        Cámara</button>
+      <button id="pill-toggle-users" class="floating-pill" title="Mostrar/Ocultar Usuarios Conectados">👥 En Línea
+        (<span id="online-users-count">1</span>)</button>
+      <button id="pill-quick-mic" class="floating-pill" title="Comando por Voz Directo (Hablar al Robot)">🎙️ Comando
+        Voz</button>
     </div>
 
     <!-- Upper-Right Visual Deck: Minimap, PIP & Users -->
@@ -213,7 +615,8 @@
           <div class="pip-header-right">
             <span class="live-dot"></span>
             <button id="btn-min-pip" class="mini-icon-btn min-btn" title="Minimizar o expandir cámara">—</button>
-            <button id="btn-close-pip" class="mini-icon-btn min-btn close-panel-btn" title="Cerrar cámara en vivo">✖</button>
+            <button id="btn-close-pip" class="mini-icon-btn min-btn close-panel-btn"
+              title="Cerrar cámara en vivo">✖</button>
           </div>
         </div>
         <div class="pip-viewport" id="pip-body">
@@ -252,7 +655,8 @@
           <button id="btn-min-upperleft" class="mini-icon-btn min-btn" title="Minimizar pensamiento">—</button>
         </div>
         <div id="thought-body">
-          <div id="thought-bubble-text">Iniciando mis sensores en el prado verde... ¡Qué emoción explorar con mis amigos!</div>
+          <div id="thought-bubble-text">Iniciando mis sensores en el prado verde... ¡Qué emoción explorar con mis
+            amigos!</div>
         </div>
       </div>
 
@@ -272,12 +676,18 @@
 
     <!-- Roblox-Style Floating Mobile Quick Bar -->
     <div id="roblox-quick-bar" class="roblox-quick-bar glass-panel">
-      <button id="quick-bar-hand" class="quick-pill hand-pill" title="Mano 3D para agarrar perritos">✋ <span class="qb-text">Agarrar</span></button>
-      <button id="quick-bar-fetch" class="quick-pill fetch-pill" title="Lanzar Pelota (G)">🎾 <span class="qb-text">Pelota</span></button>
-      <button id="quick-bar-snack" class="quick-pill snack-pill" title="Soltar Galleta">🍪 <span class="qb-text">Galleta</span></button>
-      <button id="quick-bar-pet" class="quick-pill pet-pill" title="Dar mimos (P)">❤️ <span class="qb-text">Mimos</span></button>
-      <button id="quick-bar-chat" class="quick-pill chat-pill" title="Abrir Chat y Diálogo">💬 <span class="qb-text">Diálogo</span></button>
-      <button id="quick-bar-more" class="quick-pill primary-pill glow-cyan" title="Abrir menú de trucos y acciones">🎮 <span class="qb-text">Acciones ▲</span></button>
+      <button id="quick-bar-hand" class="quick-pill hand-pill" title="Mano 3D para agarrar perritos">✋ <span
+          class="qb-text">Agarrar</span></button>
+      <button id="quick-bar-fetch" class="quick-pill fetch-pill" title="Lanzar Pelota (G)">🎾 <span
+          class="qb-text">Pelota</span></button>
+      <button id="quick-bar-snack" class="quick-pill snack-pill" title="Soltar Galleta">🍪 <span
+          class="qb-text">Galleta</span></button>
+      <button id="quick-bar-pet" class="quick-pill pet-pill" title="Dar mimos (P)">❤️ <span
+          class="qb-text">Mimos</span></button>
+      <button id="quick-bar-chat" class="quick-pill chat-pill" title="Abrir Chat y Diálogo">💬 <span
+          class="qb-text">Diálogo</span></button>
+      <button id="quick-bar-more" class="quick-pill primary-pill glow-cyan" title="Abrir menú de trucos y acciones">🎮
+        <span class="qb-text">Acciones ▲</span></button>
     </div>
 
     <!-- Bottom Action & Movement Dock with Retractable Categories -->
@@ -289,6 +699,10 @@
           <button class="dock-tab" data-tab="tricks" title="Piruetas y trucos aprendidos">🤸 Acrobacias</button>
           <button class="dock-tab" data-tab="emotions" title="Expresiones faciales y luces LED">🎨 Emociones</button>
           <button class="dock-tab" data-tab="chat" title="Diálogo y órdenes por chat">💬 Diálogo</button>
+          <button class="dock-tab" data-tab="macros" title="Secuenciador de Coreografías y Laboratorio de Macros">⚡
+            Macros</button>
+          <button class="dock-tab" data-tab="telemetry" title="Telemetría Neural, FPS e Inspector FreeLLMAPI">📊
+            Telemetría</button>
         </div>
         <div class="dock-toggle-action">
           <button id="btn-close-bottom-dock" class="dock-close-btn" title="Cerrar panel de acciones">✖</button>
@@ -303,20 +717,33 @@
         <!-- Tab 1: Quick Actions & Mini-Games -->
         <div id="tab-pane-quick" class="tab-pane active">
           <div class="quick-actions-strip">
-            <button id="btn-hand-tool" class="action-trigger-btn hand-glow" title="Mano para agarrar y mover perritos en 3D">✋ Agarrar</button>
-            <button id="btn-throw-fetch" class="action-trigger-btn fetch-glow" title="Lanzar pelota (G)">🎾 Lanzar Pelota (G)</button>
-            <button id="btn-praise-dog" class="action-trigger-btn praise-glow" title="Elogiar: '¡Buen chico!'">❤️ ¡Buen Chico!</button>
-            <button id="btn-slalom-rings" class="action-trigger-btn rings-glow" title="Circuito de aros de agilidad">⭕ Aros</button>
-            <button id="btn-lake-swim" class="action-trigger-btn lake-glow" title="Ir a nadar al lago y chapotear">🏊 Nadar Lago</button>
-            <button id="btn-dig-treasure" class="action-trigger-btn dig-glow" title="Cavar para desenterrar un tesoro oculto">💎 Cavar Tesoro</button>
-            <button id="btn-speed-race" class="action-trigger-btn race-glow" title="Desafío de carrera de velocidad entre la manada">🏁 Carrera</button>
-            <button id="btn-spawn-snack" class="action-trigger-btn" title="Soltar una galleta energética en el suelo">🍪 Galleta</button>
-            <button id="btn-call-pack" class="action-trigger-btn pack-glow" title="Llamar a toda la manada en formación">📣 Llamar Manada</button>
-            <button id="btn-drink-water" class="action-trigger-btn" title="Ir a tomar agua a la fuente">💧 Fuente Agua</button>
-            <button id="btn-trigger-disco" class="action-trigger-btn disco-glow" title="Activar fiesta disco">🪩 Fiesta Disco</button>
+            <button id="btn-hand-tool" class="action-trigger-btn hand-glow"
+              title="Mano para agarrar y mover perritos en 3D">✋ Agarrar</button>
+            <button id="btn-throw-fetch" class="action-trigger-btn fetch-glow" title="Lanzar pelota (G)">🎾 Lanzar
+              Pelota (G)</button>
+            <button id="btn-praise-dog" class="action-trigger-btn praise-glow" title="Elogiar: '¡Buen chico!'">❤️ ¡Buen
+              Chico!</button>
+            <button id="btn-slalom-rings" class="action-trigger-btn rings-glow" title="Circuito de aros de agilidad">⭕
+              Aros</button>
+            <button id="btn-lake-swim" class="action-trigger-btn lake-glow" title="Ir a nadar al lago y chapotear">🏊
+              Nadar Lago</button>
+            <button id="btn-dig-treasure" class="action-trigger-btn dig-glow"
+              title="Cavar para desenterrar un tesoro oculto">💎 Cavar Tesoro</button>
+            <button id="btn-speed-race" class="action-trigger-btn race-glow"
+              title="Desafío de carrera de velocidad entre la manada">🏁 Carrera</button>
+            <button id="btn-spawn-snack" class="action-trigger-btn" title="Soltar una galleta energética en el suelo">🍪
+              Galleta</button>
+            <button id="btn-call-pack" class="action-trigger-btn pack-glow"
+              title="Llamar a toda la manada en formación">📣 Llamar Manada</button>
+            <button id="btn-drink-water" class="action-trigger-btn" title="Ir a tomar agua a la fuente">💧 Fuente
+              Agua</button>
+            <button id="btn-trigger-disco" class="action-trigger-btn disco-glow" title="Activar fiesta disco">🪩 Fiesta
+              Disco</button>
             <button id="btn-pet-robot" class="action-trigger-btn pet-glow" title="Dar mimos (P)">💖 Mimos (P)</button>
-            <button id="btn-toggle-freewill" class="action-trigger-btn freewill-glow" title="Libre albedrío">🐾 Modo Libre: OFF</button>
-            <button id="btn-toggle-touch" class="action-trigger-btn" title="Mostrar/ocultar joystick táctil en pantalla">📱 Joystick Táctil</button>
+            <button id="btn-toggle-freewill" class="action-trigger-btn freewill-glow" title="Libre albedrío">🐾 Modo
+              Libre: OFF</button>
+            <button id="btn-toggle-touch" class="action-trigger-btn"
+              title="Mostrar/ocultar joystick táctil en pantalla">📱 Joystick Táctil</button>
           </div>
 
           <div class="base-moves-strip">
@@ -379,7 +806,8 @@
             <div class="chat-log-header">
               <span>💬 DIÁLOGO CON EL ROBOT</span>
               <div class="chat-log-controls">
-                <button id="btn-toggle-voice" class="voice-btn active" title="Alternar voz sintetizada (Web Speech API)">🔊 Voz: ON</button>
+                <button id="btn-toggle-voice" class="voice-btn active"
+                  title="Alternar voz sintetizada (Web Speech API)">🔊 Voz: ON</button>
                 <button id="btn-clear-chat-log" class="mini-icon-btn" title="Limpiar historial">🗑️</button>
               </div>
             </div>
@@ -394,12 +822,104 @@
             </div>
             <div id="chat-history-feed" class="chat-feed">
               <div class="chat-bubble chat-system">
-                <span class="chat-author">🤖 Sistema:</span> ¡Escribe órdenes en el chat para controlar al robot en tiempo real con IA y FreeLLMAPI!
+                <span class="chat-author">🤖 Sistema:</span> ¡Escribe o usa el micrófono 🎙️ para controlar al robot en
+                tiempo real con IA y FreeLLMAPI!
               </div>
             </div>
             <div class="chat-bar">
-              <input type="text" id="chat-input" placeholder="Escribe al robot (ej: 'Ve a la piscina de pelotas', 'Patea a la diana', 'Salta en el tobogán', '¿Cómo estás?')">
+              <button id="btn-voice-stt" class="mic-btn"
+                title="Hablar por micrófono (Reconocimiento de Voz en Español)">🎙️</button>
+              <input type="text" id="chat-input"
+                placeholder="Escribe o habla al robot (ej: 'Ve a la piscina de pelotas', 'Haz una voltereta', '¿Cómo estás?')">
               <button id="chat-btn" class="send-btn">Enviar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 5 (NUEVO): Secuenciador de Coreografías & Macros -->
+        <div id="tab-pane-macros" class="tab-pane">
+          <div class="cyber-lab-grid">
+            <div class="cyber-box">
+              <div class="cyber-box-title">
+                <span>🎬 SECUENCIADOR DE COREOGRAFÍA (COLA DE ACCIONES)</span>
+                <span id="macro-status-badge" style="color: var(--cc-green);">LISTO</span>
+              </div>
+              <div id="macro-timeline" class="macro-timeline">
+                <!-- Se llena dinámicamente con pasos -->
+              </div>
+              <div class="macro-palette-btns">
+                <button class="mini-chip-btn" data-macro-add="btn-anim-walk">+ Caminar</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-run">+ Correr</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-jump">+ Saltar</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-backflip">+ Voltereta</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-spin">+ Girar</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-dance">+ Bailar</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-howl">+ Aullar</button>
+                <button class="mini-chip-btn" data-macro-add="btn-anim-playBow">+ Reverencia</button>
+                <button class="mini-chip-btn" data-macro-add="btn-emo-party">+ LED Fiesta</button>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="btn-macro-play" class="ctrl-btn"
+                  style="border-color: var(--cc-green); color: var(--cc-green);">▶️ Ejecutar Secuencia</button>
+                <button id="btn-macro-loop" class="ctrl-btn">🔁 Bucle: OFF</button>
+                <button id="btn-macro-clear" class="ctrl-btn">🗑️ Limpiar</button>
+              </div>
+            </div>
+
+            <div class="cyber-box">
+              <div class="cyber-box-title">
+                <span>⚡ PROTOCOLOS COMPUESTOS DE MANADA</span>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+                <button class="action-trigger-btn" id="preset-macro-show">🎪 Show Acrobático</button>
+                <button class="action-trigger-btn" id="preset-macro-guard">🛡️ Patrulla Táctica</button>
+                <button class="action-trigger-btn" id="preset-macro-fiesta">🪩 Fiesta Total</button>
+                <button class="action-trigger-btn" id="preset-macro-training">🏅 Entrenamiento</button>
+              </div>
+              <div style="margin-top:10px; font-size:0.75rem; color:#94a3b8;">
+                💡 Combina llamadas a la manada, cambios de iluminación, trucos y emociones con intervalos sincronizados
+                de 1.8s.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 6 (NUEVO): Telemetría Neural & Diagnóstico FreeLLMAPI -->
+        <div id="tab-pane-telemetry" class="tab-pane">
+          <div class="cyber-lab-grid">
+            <div class="cyber-box">
+              <div class="cyber-box-title">
+                <span>📈 RENDIMIENTO DEL MOTOR 3D & SENSORES</span>
+                <small id="telemetry-heap-label">MEM: -- MB</small>
+              </div>
+              <div class="telemetry-metrics-row">
+                <div class="t-metric-card">
+                  <small>FPS</small>
+                  <strong id="t-val-fps">60</strong>
+                </div>
+                <div class="t-metric-card">
+                  <small>FRAME MS</small>
+                  <strong id="t-val-ms">16.6</strong>
+                </div>
+                <div class="t-metric-card">
+                  <small>LATENCIA IA</small>
+                  <strong id="t-val-ping">-- ms</strong>
+                </div>
+                <div class="t-metric-card">
+                  <small>LLAMADAS API</small>
+                  <strong id="t-val-calls">0</strong>
+                </div>
+              </div>
+              <canvas id="telemetry-chart-canvas" width="380" height="64"></canvas>
+            </div>
+
+            <div class="cyber-box">
+              <div class="cyber-box-title">
+                <span>🧠 INSPECTOR NEURAL FREELLMAPI (EN VIVO)</span>
+                <button id="btn-ping-llm-now" class="mini-chip-btn">📡 Ping Router</button>
+              </div>
+              <div id="llm-inspector-log" class="llm-inspector-log">Esperando tráfico cognitivo en
+                http://127.0.0.1:31415/v1/chat/completions...</div>
             </div>
           </div>
         </div>
@@ -426,6 +946,22 @@
     </div>
   </div>
 
+  <!-- Modal (NUEVO): Paleta de Comandos Rápida (Ctrl+K) -->
+  <div id="modal-cmd-palette" class="modal-overlay hidden">
+    <div class="modal-card glass-panel cmd-palette-card">
+      <div class="modal-header">
+        <h2>⌘ Paleta de Comandos CyberCore</h2>
+        <button id="btn-close-cmd-palette" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="cmd-palette-input" class="cmd-search-input"
+          placeholder="Escribe una orden, truco, robot o modo visual... (Ej: Voltereta, Bolt, Nocturna, Disco)"
+          autocomplete="off">
+        <div id="cmd-palette-results" class="cmd-results-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: FreeLLMsAPI Settings -->
   <div id="modal-settings" class="modal-overlay hidden">
     <div class="modal-card glass-panel">
@@ -442,8 +978,10 @@
 
         <div class="form-group">
           <label>URL del Endpoint (FreeLLMAPI Router):</label>
-          <input type="text" id="cfg-endpoint" value="http://127.0.0.1:31415/v1/chat/completions" placeholder="http://127.0.0.1:31415/v1/chat/completions">
-          <small class="field-hint">💡 Acepta URLs directas o comandos de consola (ej: <code>npx freellmapi setup-codex --url http://127.0.0.1:31415</code>).</small>
+          <input type="text" id="cfg-endpoint" value="http://127.0.0.1:31415/v1/chat/completions"
+            placeholder="http://127.0.0.1:31415/v1/chat/completions">
+          <small class="field-hint">💡 Acepta URLs directas o comandos de consola (ej:
+            <code>npx freellmapi setup-codex --url http://127.0.0.1:31415</code>).</small>
         </div>
 
         <div class="form-group">
@@ -469,12 +1007,14 @@
             <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
             <option value="custom">✏️ Escribir otro modelo manualmente...</option>
           </select>
-          <input type="text" id="cfg-model-custom" class="hidden" placeholder="Escribe el nombre exacto de tu modelo (ej: llama-3, mistral, etc.)" style="margin-top: 6px;">
+          <input type="text" id="cfg-model-custom" class="hidden"
+            placeholder="Escribe el nombre exacto de tu modelo (ej: llama-3, mistral, etc.)" style="margin-top: 6px;">
         </div>
 
         <div class="form-group">
           <label>Prompt del sistema:</label>
-          <textarea id="cfg-system-prompt" rows="3" placeholder="Opcional. Se envía como mensaje del sistema antes de tu chat."></textarea>
+          <textarea id="cfg-system-prompt" rows="3"
+            placeholder="Opcional. Se envía como mensaje del sistema antes de tu chat."></textarea>
         </div>
 
         <div class="form-group">
@@ -506,7 +1046,8 @@
       <div class="modal-body">
         <p class="modal-desc">
           Archivo sincronizado en disco local en: <code>E:\RoboChibiLand\data\memory.json</code>.
-          Aquí se registran lugares descubiertos, amigos conocidos, trucos inventados y el diario de vivencias de cada robot.
+          Aquí se registran lugares descubiertos, amigos conocidos, trucos inventados y el diario de vivencias de cada
+          robot.
         </p>
         <pre id="memory-display" class="json-viewer"></pre>
         <div class="modal-actions">
@@ -526,12 +1067,14 @@
         <p class="modal-desc">
           Entra a este mundo virtual 3D multi-usuario colaborativo.
           <br>
-          <strong>Ingresa tu nombre o apodo</strong> para que la manada y las demás personas conectadas te reconozcan y puedas dar órdenes en tiempo real:
+          <strong>Ingresa tu nombre o apodo</strong> para que la manada y las demás personas conectadas te reconozcan y
+          puedas dar órdenes en tiempo real:
         </p>
 
         <div class="form-group" style="margin-top: 16px;">
           <label for="login-username-input">Tu Nombre o Apodo:</label>
-          <input type="text" id="login-username-input" placeholder="Escribe tu nombre aquí (ej: Carlos, Sofía...)" maxlength="18" autocomplete="off" autofocus>
+          <input type="text" id="login-username-input" placeholder="Escribe tu nombre aquí (ej: Carlos, Sofía...)"
+            maxlength="18" autocomplete="off" autofocus>
         </div>
 
         <div class="form-group">
@@ -553,7 +1096,8 @@
         </div>
 
         <div class="modal-actions" style="justify-content: center; margin-top: 24px;">
-          <button id="btn-login-submit" class="primary-btn glow-cyan" style="font-size: 1.05rem; padding: 12px 28px;">🚀 Entrar a la Sesión</button>
+          <button id="btn-login-submit" class="primary-btn glow-cyan" style="font-size: 1.05rem; padding: 12px 28px;">🚀
+            Entrar a la Sesión</button>
         </div>
       </div>
     </div>
@@ -675,5 +1219,569 @@
 
   <!-- Main Standalone Robust Bundle -->
   <script src="bundle.js"></script>
+
+  <!-- ==================== MOTOR DE EXPANSIÓN CYBERCORE OS v2.5 ==================== -->
+  <script>
+    (() => {
+      'use strict';
+
+      /* -------------------------------------------------------------------------- */
+      /* 1. SINTETIZADOR PROCEDURAL WEBAUDIO (SFX SCI-FI & CHIBI BLEEPS)            */
+      /* -------------------------------------------------------------------------- */
+      const CyberAudio = {
+        enabled: true,
+        ctx: null,
+        init() {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        },
+        beep(freq = 680, duration = 0.06, type = 'sine', vol = 0.06) {
+          if (!this.enabled) return;
+          try {
+            this.init();
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+          } catch (_) { }
+        },
+        chibiChirp() {
+          if (!this.enabled) return;
+          [520, 780, 1040].forEach((f, idx) => {
+            setTimeout(() => this.beep(f, 0.07, 'triangle', 0.05), idx * 55);
+          });
+        }
+      };
+
+      const sfxBtn = document.getElementById('btn-toggle-sfx');
+      if (sfxBtn) {
+        sfxBtn.addEventListener('click', () => {
+          CyberAudio.enabled = !CyberAudio.enabled;
+          sfxBtn.textContent = CyberAudio.enabled ? '🔊' : '🔇';
+          showToast(CyberAudio.enabled ? '🔊 Sintetizador Sci-Fi activado' : '🔇 Efectos de sonido silenciados');
+        });
+      }
+
+      /* -------------------------------------------------------------------------- */
+      /* 2. SISTEMA DE NOTIFICACIONES TÁCTICAS (TOASTS)                             */
+      /* -------------------------------------------------------------------------- */
+      function showToast(msg) {
+        const container = document.getElementById('cyber-toast-container');
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'cyber-toast';
+        el.textContent = msg;
+        container.appendChild(el);
+        CyberAudio.beep(880, 0.05, 'sine', 0.04);
+        setTimeout(() => {
+          el.style.opacity = '0';
+          el.style.transition = 'opacity 0.25s ease';
+          setTimeout(() => el.remove(), 260);
+        }, 2800);
+      }
+
+      /* -------------------------------------------------------------------------- */
+      /* 3. RECONOCIMIENTO DE VOZ NEURONAL (WEB SPEECH API STT)                     */
+      /* -------------------------------------------------------------------------- */
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const micBtn = document.getElementById('btn-voice-stt');
+      const quickMicBtn = document.getElementById('pill-quick-mic');
+      const chatInput = document.getElementById('chat-input');
+      const chatSendBtn = document.getElementById('chat-btn');
+
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'es-ES';
+        recognition.interimResults = true;
+        recognition.continuous = false;
+        let isRecording = false;
+
+        const toggleVoiceInput = () => {
+          if (isRecording) {
+            recognition.stop();
+          } else {
+            try {
+              recognition.start();
+              isRecording = true;
+              if (micBtn) micBtn.classList.add('recording');
+              showToast('🎙️ Escuchando orden de voz para el robot...');
+              CyberAudio.chibiChirp();
+            } catch (_) { }
+          }
+        };
+
+        recognition.onresult = (event) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          if (chatInput) chatInput.value = transcript;
+          if (event.results[0].isFinal && chatSendBtn) {
+            showToast(`🗣️ Orden reconocida: "${transcript}"`);
+            setTimeout(() => chatSendBtn.click(), 180);
+          }
+        };
+
+        recognition.onend = () => {
+          isRecording = false;
+          if (micBtn) micBtn.classList.remove('recording');
+        };
+
+        if (micBtn) micBtn.addEventListener('click', toggleVoiceInput);
+        if (quickMicBtn) quickMicBtn.addEventListener('click', toggleVoiceInput);
+      } else if (micBtn) {
+        micBtn.title = 'Tu navegador no soporta Web Speech Recognition';
+        micBtn.style.opacity = '0.5';
+      }
+
+      /* -------------------------------------------------------------------------- */
+      /* 4. MOTOR DE CLIMA DINÁMICO EN CANVAS & FILTROS ÓPTICOS                     */
+      /* -------------------------------------------------------------------------- */
+      const weatherCanvas = document.getElementById('weather-fx-canvas');
+      const wCtx = weatherCanvas.getContext('2d');
+      const weatherModes = ['CLEAR', 'CYBER_RAIN', 'FIREFLIES', 'STARDUST'];
+      let currentWeatherIdx = 0;
+      let particles = [];
+
+      function resizeWeatherCanvas() {
+        weatherCanvas.width = window.innerWidth;
+        weatherCanvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resizeWeatherCanvas);
+      resizeWeatherCanvas();
+
+      function initParticles(mode) {
+        particles = [];
+        const count = mode === 'CYBER_RAIN' ? 110 : mode === 'FIREFLIES' ? 55 : mode === 'STARDUST' ? 80 : 0;
+        for (let i = 0; i < count; i++) {
+          particles.push({
+            x: Math.random() * weatherCanvas.width,
+            y: Math.random() * weatherCanvas.height,
+            vx: mode === 'CYBER_RAIN' ? -1.5 : (Math.random() - 0.5) * 0.8,
+            vy: mode === 'CYBER_RAIN' ? 12 + Math.random() * 6 : mode === 'STARDUST' ? 1.2 + Math.random() : (Math.random() - 0.5) * 0.8,
+            size: mode === 'CYBER_RAIN' ? 1.5 : 2 + Math.random() * 2.5,
+            alpha: 0.3 + Math.random() * 0.7,
+            hue: mode === 'FIREFLIES' ? (Math.random() > 0.5 ? 160 : 290) : 190
+          });
+        }
+      }
+
+      function renderWeather() {
+        wCtx.clearRect(0, 0, weatherCanvas.width, weatherCanvas.height);
+        const mode = weatherModes[currentWeatherIdx];
+        if (mode !== 'CLEAR') {
+          for (const p of particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.y > weatherCanvas.height) p.y = -10;
+            if (p.y < -10) p.y = weatherCanvas.height;
+            if (p.x > weatherCanvas.width) p.x = 0;
+            if (p.x < 0) p.x = weatherCanvas.width;
+
+            if (mode === 'CYBER_RAIN') {
+              wCtx.strokeStyle = `rgba(0, 242, 254, ${p.alpha * 0.55})`;
+              wCtx.lineWidth = p.size;
+              wCtx.beginPath();
+              wCtx.moveTo(p.x, p.y);
+              wCtx.lineTo(p.x + p.vx * 1.6, p.y + p.vy * 1.6);
+              wCtx.stroke();
+            } else {
+              wCtx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${p.alpha})`;
+              wCtx.beginPath();
+              wCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+              wCtx.fill();
+            }
+          }
+        }
+        requestAnimationFrame(renderWeather);
+      }
+      renderWeather();
+
+      const btnWeather = document.getElementById('btn-cycle-weather');
+      if (btnWeather) {
+        btnWeather.addEventListener('click', () => {
+          currentWeatherIdx = (currentWeatherIdx + 1) % weatherModes.length;
+          const mode = weatherModes[currentWeatherIdx];
+          initParticles(mode);
+          const names = {
+            CLEAR: '☀️ Clima Despejado',
+            CYBER_RAIN: '🌧️ Lluvia de Neón Cibernética',
+            FIREFLIES: '✨ Luciérnagas Cuánticas',
+            STARDUST: '❄️ Polvo Estelar Ártico'
+          };
+          showToast(names[mode]);
+        });
+      }
+
+      // Sincronizar luciérnagas automáticamente al activar la noche
+      const btnNight = document.getElementById('btn-time-night');
+      if (btnNight) {
+        btnNight.addEventListener('click', () => {
+          if (weatherModes[currentWeatherIdx] === 'CLEAR') {
+            currentWeatherIdx = 2; // FIREFLIES
+            initParticles('FIREFLIES');
+          }
+        });
+      }
+
+      // Filtros de Visión Óptica
+      const visionModes = ['', 'fx-crt', 'fx-nightvision', 'fx-thermal', 'fx-cinema'];
+      let currentVisionIdx = 0;
+      const btnVision = document.getElementById('btn-cycle-vision');
+      if (btnVision) {
+        btnVision.addEventListener('click', () => {
+          visionModes.forEach(cls => cls && document.body.classList.remove(cls));
+          currentVisionIdx = (currentVisionIdx + 1) % visionModes.length;
+          const activeCls = visionModes[currentVisionIdx];
+          if (activeCls) document.body.classList.add(activeCls);
+          const labels = ['🕶️ Óptica: Estándar', '📺 Óptica: CRT Scanlines', '🟢 Óptica: Visión Nocturna', '🔥 Óptica: Infrarrojo Térmico', '🎬 Óptica: Cine Anamórfico'];
+          showToast(labels[currentVisionIdx]);
+        });
+      }
+
+      /* -------------------------------------------------------------------------- */
+      /* 5. SOPORTE EXTENDIDO DE TABS Y SECUENCIADOR DE MACROS                      */
+      /* -------------------------------------------------------------------------- */
+      const dockTabs = document.querySelectorAll('.dock-tab');
+      const tabPanes = document.querySelectorAll('.tab-pane');
+      const bottomDock = document.getElementById('bottom-dock');
+
+      dockTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const target = tab.getAttribute('data-tab');
+          dockTabs.forEach(t => t.classList.toggle('active', t === tab));
+          tabPanes.forEach(pane => {
+            pane.classList.toggle('active', pane.id === `tab-pane-${target}`);
+          });
+          if (bottomDock && bottomDock.classList.contains('collapsed')) {
+            bottomDock.classList.remove('collapsed');
+          }
+          CyberAudio.beep(620, 0.04);
+        });
+      });
+
+      // Lógica del Secuenciador de Coreografías
+      const macroTimeline = document.getElementById('macro-timeline');
+      const macroStatusBadge = document.getElementById('macro-status-badge');
+      let macroQueue = [
+        { id: 'btn-anim-playBow', label: '🙇 Reverencia' },
+        { id: 'btn-anim-spin', label: '🔄 Girar' },
+        { id: 'btn-anim-backflip', label: '🤸 Voltereta' },
+        { id: 'btn-emo-happy', label: '😊 Feliz' }
+      ];
+      let macroLoop = false;
+      let macroRunning = false;
+
+      function renderMacroTimeline(activeIndex = -1) {
+        if (!macroTimeline) return;
+        macroTimeline.innerHTML = '';
+        if (macroQueue.length === 0) {
+          macroTimeline.innerHTML = '<small style="color:#64748b;">Cola vacía. Añade pasos abajo...</small>';
+          return;
+        }
+        macroQueue.forEach((item, idx) => {
+          const chip = document.createElement('span');
+          chip.className = 'macro-step-chip' + (idx === activeIndex ? ' active-step' : '');
+          chip.textContent = `${idx + 1}. ${item.label}`;
+          chip.title = 'Clic para quitar este paso';
+          chip.style.cursor = 'pointer';
+          chip.addEventListener('click', () => {
+            if (!macroRunning) {
+              macroQueue.splice(idx, 1);
+              renderMacroTimeline();
+            }
+          });
+          macroTimeline.appendChild(chip);
+        });
+      }
+      renderMacroTimeline();
+
+      document.querySelectorAll('[data-macro-add]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-macro-add');
+          macroQueue.push({ id: targetId, label: btn.textContent.replace('+ ', '') });
+          renderMacroTimeline();
+          CyberAudio.beep(760, 0.04);
+        });
+      });
+
+      async function runMacroSequence() {
+        if (macroRunning || macroQueue.length === 0) return;
+        macroRunning = true;
+        if (macroStatusBadge) macroStatusBadge.textContent = 'EJECUTANDO...';
+        showToast('🎬 Ejecutando secuencia de coreografía...');
+
+        do {
+          for (let i = 0; i < macroQueue.length; i++) {
+            if (!macroRunning) break;
+            renderMacroTimeline(i);
+            const targetBtn = document.getElementById(macroQueue[i].id);
+            if (targetBtn) targetBtn.click();
+            CyberAudio.beep(540 + i * 70, 0.06);
+            await new Promise(r => setTimeout(r, 1750));
+          }
+        } while (macroLoop && macroRunning);
+
+        macroRunning = false;
+        renderMacroTimeline(-1);
+        if (macroStatusBadge) macroStatusBadge.textContent = 'LISTO';
+      }
+
+      const btnMacroPlay = document.getElementById('btn-macro-play');
+      const btnMacroLoop = document.getElementById('btn-macro-loop');
+      const btnMacroClear = document.getElementById('btn-macro-clear');
+
+      if (btnMacroPlay) btnMacroPlay.addEventListener('click', runMacroSequence);
+      if (btnMacroLoop) {
+        btnMacroLoop.addEventListener('click', () => {
+          macroLoop = !macroLoop;
+          btnMacroLoop.textContent = `🔁 Bucle: ${macroLoop ? 'ON' : 'OFF'}`;
+        });
+      }
+      if (btnMacroClear) {
+        btnMacroClear.addEventListener('click', () => {
+          macroRunning = false;
+          macroQueue = [];
+          renderMacroTimeline();
+        });
+      }
+
+      // Presets compuestos
+      const loadPresetMacro = (steps, name) => {
+        macroRunning = false;
+        macroQueue = steps;
+        renderMacroTimeline();
+        showToast(`⚡ Protocolo cargado: ${name}`);
+        runMacroSequence();
+      };
+
+      document.getElementById('preset-macro-show')?.addEventListener('click', () => {
+        loadPresetMacro([
+          { id: 'btn-call-pack', label: '📣 Manada' },
+          { id: 'btn-anim-playBow', label: '🙇 Reverencia' },
+          { id: 'btn-anim-backflip', label: '🤸 Voltereta' },
+          { id: 'btn-anim-dance', label: '🪩 Bailar' },
+          { id: 'btn-emo-proud', label: '😎 Orgulloso' }
+        ], 'Show Acrobático');
+      });
+
+      document.getElementById('preset-macro-guard')?.addEventListener('click', () => {
+        loadPresetMacro([
+          { id: 'btn-emo-alert', label: '⚠️ Alerta' },
+          { id: 'btn-anim-sniff', label: '🔍 Olfatear' },
+          { id: 'btn-anim-sneak', label: '🕵️ Sigilo' },
+          { id: 'btn-anim-bark', label: '🗣️ Ladrar' }
+        ], 'Patrulla Táctica');
+      });
+
+      document.getElementById('preset-macro-fiesta')?.addEventListener('click', () => {
+        loadPresetMacro([
+          { id: 'btn-trigger-disco', label: '🪩 Disco' },
+          { id: 'btn-emo-party', label: '🎉 Fiestero' },
+          { id: 'btn-anim-dance', label: '🕺 Bailar' },
+          { id: 'btn-anim-spin', label: '🔄 Girar' },
+          { id: 'btn-anim-howl', label: '🐺 Aullar' }
+        ], 'Fiesta Total');
+      });
+
+      document.getElementById('preset-macro-training')?.addEventListener('click', () => {
+        loadPresetMacro([
+          { id: 'btn-slalom-rings', label: '⭕ Aros' },
+          { id: 'btn-anim-jump', label: '🦘 Saltar' },
+          { id: 'btn-throw-fetch', label: '🎾 Pelota' },
+          { id: 'btn-praise-dog', label: '❤️ Elogiar' }
+        ], 'Entrenamiento');
+      });
+
+      /* -------------------------------------------------------------------------- */
+      /* 6. TELEMETRÍA FPS EN VIVO & INTERCEPTOR DE RED FREELLMAPI                  */
+      /* -------------------------------------------------------------------------- */
+      const tChart = document.getElementById('telemetry-chart-canvas');
+      const tCtx = tChart ? tChart.getContext('2d') : null;
+      const fpsHistory = new Array(60).fill(60);
+      let frameCount = 0;
+      let lastFpsTime = performance.now();
+      let apiCallCount = 0;
+      let lastAiPing = '--';
+
+      function updateTelemetryLoop(now) {
+        frameCount++;
+        const delta = now - lastFpsTime;
+        if (delta >= 500) {
+          const fps = Math.min(144, Math.round((frameCount * 1000) / delta));
+          const frameMs = (delta / frameCount).toFixed(1);
+          frameCount = 0;
+          lastFpsTime = now;
+
+          fpsHistory.push(fps);
+          fpsHistory.shift();
+
+          const hudFps = document.getElementById('hud-fps-counter');
+          const valFps = document.getElementById('t-val-fps');
+          const valMs = document.getElementById('t-val-ms');
+          const heapLabel = document.getElementById('telemetry-heap-label');
+
+          if (hudFps) hudFps.textContent = `${fps} FPS`;
+          if (valFps) valFps.textContent = fps;
+          if (valMs) valMs.textContent = frameMs;
+          if (heapLabel && performance.memory) {
+            const mb = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+            heapLabel.textContent = `MEM: ${mb} MB`;
+          }
+
+          if (tCtx) {
+            tCtx.clearRect(0, 0, tChart.width, tChart.height);
+            tCtx.strokeStyle = '#00f2fe';
+            tCtx.lineWidth = 2;
+            tCtx.beginPath();
+            fpsHistory.forEach((v, i) => {
+              const x = (i / (fpsHistory.length - 1)) * tChart.width;
+              const y = tChart.height - Math.min(1, v / 90) * (tChart.height - 10) - 5;
+              if (i === 0) tCtx.moveTo(x, y);
+              else tCtx.lineTo(x, y);
+            });
+            tCtx.stroke();
+          }
+        }
+        requestAnimationFrame(updateTelemetryLoop);
+      }
+      requestAnimationFrame(updateTelemetryLoop);
+
+      // Abrir pestaña de telemetría al hacer clic en el pill superior
+      document.getElementById('cyber-perf-pill')?.addEventListener('click', () => {
+        const telemetryTab = document.querySelector('.dock-tab[data-tab="telemetry"]');
+        if (telemetryTab) telemetryTab.click();
+      });
+
+      // Interceptor no destructivo de window.fetch para monitorear FreeLLMAPI
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+        const isLlmCall = url.includes('chat/completions') || url.includes('31415');
+        const t0 = performance.now();
+
+        try {
+          const response = await originalFetch(...args);
+          if (isLlmCall) {
+            const ping = Math.round(performance.now() - t0);
+            apiCallCount++;
+            lastAiPing = `${ping}ms`;
+            document.getElementById('hud-ai-ping').textContent = `IA: ${ping}ms`;
+            document.getElementById('t-val-ping').textContent = `${ping} ms`;
+            document.getElementById('t-val-calls').textContent = apiCallCount;
+
+            const clone = response.clone();
+            clone.json().then(data => {
+              const logEl = document.getElementById('llm-inspector-log');
+              const content = data?.choices?.[0]?.message?.content || JSON.stringify(data);
+              if (logEl) {
+                logEl.textContent = `[${new Date().toLocaleTimeString()} | ${ping}ms | Modelo: ${data?.model || 'auto'}]\n${content}`;
+              }
+            }).catch(() => { });
+          }
+          return response;
+        } catch (err) {
+          if (isLlmCall) {
+            document.getElementById('hud-ai-ping').textContent = 'IA: OFFLINE';
+          }
+          throw err;
+        }
+      };
+
+      // Sonido sutil cuando el pensamiento del robot cambia
+      const thoughtText = document.getElementById('thought-bubble-text');
+      if (thoughtText) {
+        const obs = new MutationObserver(() => CyberAudio.chibiChirp());
+        obs.observe(thoughtText, { childList: true, characterData: true, subtree: true });
+      }
+
+      /* -------------------------------------------------------------------------- */
+      /* 7. PALETA DE COMANDOS RÁPIDA (CTRL + K)                                    */
+      /* -------------------------------------------------------------------------- */
+      const cmdModal = document.getElementById('modal-cmd-palette');
+      const cmdInput = document.getElementById('cmd-palette-input');
+      const cmdResults = document.getElementById('cmd-palette-results');
+
+      const commandCatalog = [
+        { name: '🐾 Poseer a Sparky (Explorador)', tag: 'Robot', run: () => document.querySelector('[data-robot="Sparky"]')?.click() },
+        { name: '⚡ Poseer a Bolt (Velocista)', tag: 'Robot', run: () => document.querySelector('[data-robot="Bolt"]')?.click() },
+        { name: '🔍 Poseer a Pixel (Hacker)', tag: 'Robot', run: () => document.querySelector('[data-robot="Pixel"]')?.click() },
+        { name: '💖 Poseer a Luna (Soñadora)', tag: 'Robot', run: () => document.querySelector('[data-robot="Luna"]')?.click() },
+        { name: '🤸 Poseer a Rusty (Acróbata)', tag: 'Robot', run: () => document.querySelector('[data-robot="Rusty"]')?.click() },
+        { name: '🎾 Lanzar Pelota (Fetch)', tag: 'Juego (G)', run: () => document.getElementById('btn-throw-fetch')?.click() },
+        { name: '🪩 Activar Fiesta Disco', tag: 'Evento', run: () => document.getElementById('btn-trigger-disco')?.click() },
+        { name: '📣 Llamar a toda la Manada', tag: 'Manada', run: () => document.getElementById('btn-call-pack')?.click() },
+        { name: '🏊 Ir a Nadar al Lago', tag: 'Acción', run: () => document.getElementById('btn-lake-swim')?.click() },
+        { name: '💎 Cavar Tesoro Oculto', tag: 'Acción', run: () => document.getElementById('btn-dig-treasure')?.click() },
+        { name: '🏁 Iniciar Carrera de Velocidad', tag: 'Juego', run: () => document.getElementById('btn-speed-race')?.click() },
+        { name: '🤸 Hacer Voltereta Mortal (Backflip)', tag: 'Acrobacia (F)', run: () => document.getElementById('btn-anim-backflip')?.click() },
+        { name: '🐺 Aullar en Manada', tag: 'Acrobacia', run: () => document.getElementById('btn-anim-howl')?.click() },
+        { name: '🌦️ Cambiar Clima Dinámico', tag: 'Clima', run: () => document.getElementById('btn-cycle-weather')?.click() },
+        { name: '🕶️ Cambiar Modo de Visión Óptica', tag: 'Shader', run: () => document.getElementById('btn-cycle-vision')?.click() },
+        { name: '🧠 Forzar Decisión Cognitiva IA', tag: 'FreeLLMAPI', run: () => document.getElementById('btn-manual-think')?.click() },
+        { name: '⚙️ Configurar Router FreeLLMAPI', tag: 'Ajustes', run: () => document.getElementById('btn-open-settings')?.click() }
+      ];
+
+      function renderCmdList(filter = '') {
+        if (!cmdResults) return;
+        cmdResults.innerHTML = '';
+        const q = filter.toLowerCase().trim();
+        const matches = commandCatalog.filter(c => c.name.toLowerCase().includes(q) || c.tag.toLowerCase().includes(q));
+        matches.forEach((cmd, idx) => {
+          const item = document.createElement('div');
+          item.className = 'cmd-result-item' + (idx === 0 ? ' selected' : '');
+          item.innerHTML = `<span>${cmd.name}</span><span class="cmd-shortcut-kbd">${cmd.tag}</span>`;
+          item.addEventListener('click', () => {
+            cmd.run();
+            cmdModal.classList.add('hidden');
+            CyberAudio.beep(920, 0.06);
+          });
+          cmdResults.appendChild(item);
+        });
+      }
+
+      function openCmdPalette() {
+        if (!cmdModal) return;
+        cmdModal.classList.remove('hidden');
+        cmdInput.value = '';
+        renderCmdList('');
+        setTimeout(() => cmdInput.focus(), 40);
+      }
+
+      document.getElementById('btn-open-cmd-palette')?.addEventListener('click', openCmdPalette);
+      document.getElementById('btn-close-cmd-palette')?.addEventListener('click', () => cmdModal.classList.add('hidden'));
+
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if (cmdModal.classList.contains('hidden')) openCmdPalette();
+          else cmdModal.classList.add('hidden');
+        } else if (e.key === 'Escape' && cmdModal && !cmdModal.classList.contains('hidden')) {
+          cmdModal.classList.add('hidden');
+        }
+      });
+
+      if (cmdInput) {
+        cmdInput.addEventListener('input', () => renderCmdList(cmdInput.value));
+        cmdInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            const first = cmdResults.querySelector('.cmd-result-item');
+            if (first) first.click();
+          }
+        });
+      }
+    })();
+  </script>
 </body>
+
 </html>
