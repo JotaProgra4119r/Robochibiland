@@ -620,6 +620,11 @@ export class RobotPackManager {
           this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
         }
 
+        // World boundary limit
+        const MAP_LIMIT = 110;
+        curPos.x = THREE.MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
+        curPos.z = THREE.MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
+
         // Parabolic vertical physics so trampoline bounces & jumps don't snap to ground immediately
         const groundY = this.world.getHeightAt(curPos.x, curPos.z);
         if (!dog.isInWater) {

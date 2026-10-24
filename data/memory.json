@@ -3,11 +3,11 @@
   "model_type": "Chibi-CyberPup v1.0",
   "personality": "Curioso, enérgico, cariñoso y leal",
   "created_at": "2026-10-22T20:00:00Z",
-  "last_updated": "2026-10-23T21:40:12.597Z",
+  "last_updated": "2026-10-24T01:59:07.398Z",
   "stats": {
     "times_played": 0,
     "places_explored": 2,
-    "tricks_invented": 5,
+    "tricks_invented": 6,
     "barks_given": 0
   },
   "discovered_places": [
@@ -114,6 +114,17 @@
       ],
       "created_by": "Pixel",
       "timestamp": "2026-10-23T03:21:52.396Z"
+    },
+    {
+      "name": "Ola Robótica",
+      "description": "Inventado por Sparky",
+      "sequence": [
+        "roll",
+        "howl",
+        "wagTail"
+      ],
+      "created_by": "Sparky",
+      "timestamp": "2026-10-24T01:55:25.289Z"
     }
   ],
   "journal": [
@@ -356,6 +367,136 @@
       "time": "2026-10-23T21:40:12.597Z",
       "emotion": "Orgulloso",
       "thought": "[Sparky] ¡Completé el circuito de aros de agilidad con saltos perfectos!"
+    },
+    {
+      "time": "2026-10-24T01:54:56.333Z",
+      "emotion": "HAPPY",
+      "thought": "[Sparky] ¡Me encanta pasear con mi manada de amigos!"
+    },
+    {
+      "time": "2026-10-24T01:55:03.045Z",
+      "emotion": "Juguetón",
+      "thought": "[Sparky] ¡Atrapé la pelota en mi hocico! Llevándosela a mi humano."
+    },
+    {
+      "time": "2026-10-24T01:55:03.925Z",
+      "emotion": "Feliz",
+      "thought": "[Sparky] ¡Te traje la pelota y la dejé a tus pies! ¡Lánzamela otra vez!"
+    },
+    {
+      "time": "2026-10-24T01:55:12.296Z",
+      "emotion": "HAPPY",
+      "thought": "[Sparky] ¡Me encanta pasear con mi manada de amigos!"
+    },
+    {
+      "time": "2026-10-24T01:55:25.293Z",
+      "emotion": "PROUD",
+      "thought": "[Sparky] ¡Acabo de crear: Ola Robótica!"
+    },
+    {
+      "time": "2026-10-24T01:55:33.396Z",
+      "emotion": "HAPPY",
+      "thought": "[Sparky] ¡El prado verde huele a flores y aire fresco digital!"
+    },
+    {
+      "time": "2026-10-24T01:55:36.547Z",
+      "emotion": "HAPPY",
+      "thought": "[Sparky] ¡Me encanta pasear con mi manada de amigos!"
+    },
+    {
+      "time": "2026-10-24T01:58:21.302Z",
+      "emotion": "Despistado",
+      "thought": "[Sparky] Cambié mi emoción a Despistado"
+    },
+    {
+      "time": "2026-10-24T01:58:21.916Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:24.300Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:24.517Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:25.033Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:25.216Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:25.496Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:25.698Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:26.048Z",
+      "emotion": "Fiestero",
+      "thought": "[Sparky] Cambié mi emoción a Fiestero"
+    },
+    {
+      "time": "2026-10-24T01:58:26.476Z",
+      "emotion": "Pícaro",
+      "thought": "[Sparky] Cambié mi emoción a Pícaro"
+    },
+    {
+      "time": "2026-10-24T01:58:26.660Z",
+      "emotion": "Pícaro",
+      "thought": "[Sparky] Cambié mi emoción a Pícaro"
+    },
+    {
+      "time": "2026-10-24T01:58:26.889Z",
+      "emotion": "Pícaro",
+      "thought": "[Sparky] Cambié mi emoción a Pícaro"
+    },
+    {
+      "time": "2026-10-24T01:58:27.492Z",
+      "emotion": "Pícaro",
+      "thought": "[Sparky] Cambié mi emoción a Pícaro"
+    },
+    {
+      "time": "2026-10-24T01:58:27.672Z",
+      "emotion": "Pícaro",
+      "thought": "[Sparky] Cambié mi emoción a Pícaro"
+    },
+    {
+      "time": "2026-10-24T01:58:27.827Z",
+      "emotion": "Pícaro",
+      "thought": "[Sparky] Cambié mi emoción a Pícaro"
+    },
+    {
+      "time": "2026-10-24T01:58:28.560Z",
+      "emotion": "Despistado",
+      "thought": "[Sparky] Cambié mi emoción a Despistado"
+    },
+    {
+      "time": "2026-10-24T01:58:28.740Z",
+      "emotion": "Despistado",
+      "thought": "[Sparky] Cambié mi emoción a Despistado"
+    },
+    {
+      "time": "2026-10-24T01:58:28.979Z",
+      "emotion": "Despistado",
+      "thought": "[Sparky] Cambié mi emoción a Despistado"
+    },
+    {
+      "time": "2026-10-24T01:59:07.398Z",
+      "emotion": "Orgulloso",
+      "thought": "[Bolt] ¡Llamé a toda mi manada y nos reunimos en formación!"
     }
   ]
 }

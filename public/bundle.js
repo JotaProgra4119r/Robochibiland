@@ -34889,6 +34889,12 @@ void main() {
       const neckJoint = new Mesh(new CylinderGeometry(0.18, 0.22, 0.22, 16), jointMat);
       neckJoint.position.set(0, 0.08, 0.05);
       neckPivot.add(neckJoint);
+      const collarMesh = new Mesh(new TorusGeometry(0.28, 0.045, 12, 24).rotateX(Math.PI / 2), darkMat);
+      collarMesh.position.set(0, 0.14, 0.08);
+      neckPivot.add(collarMesh);
+      const medalTag = new Mesh(new CylinderGeometry(0.085, 0.085, 0.02, 16).rotateX(Math.PI / 2), neonMat);
+      medalTag.position.set(0, 0.01, 0.36);
+      neckPivot.add(medalTag);
       const headGroup = new Group();
       neckPivot.add(headGroup);
       this.nodes.head = headGroup;
@@ -34897,6 +34903,18 @@ void main() {
       headMesh.position.set(0, 0.48, 0.22);
       headMesh.castShadow = true;
       headGroup.add(headMesh);
+      const blushMat = new MeshStandardMaterial({
+        color: 16724889,
+        emissive: 16724889,
+        emissiveIntensity: 0.85,
+        transparent: true,
+        opacity: 0.85
+      });
+      [-0.34, 0.34].forEach((bx) => {
+        const blush = new Mesh(new CircleGeometry(0.065, 16), blushMat);
+        blush.position.set(bx, 0.32, 0.76);
+        headGroup.add(blush);
+      });
       [-0.58, 0.58].forEach((cx) => {
         const disc = new Mesh(new CylinderGeometry(0.22, 0.22, 0.06, 20).rotateZ(Math.PI / 2), darkMat);
         disc.position.set(cx, 0.46, 0.22);
@@ -37131,6 +37149,49 @@ void main() {
         this.scene.add(treeGroup);
         this.registerObstacle({ type: "tree", x, z, radius: 0.85, height: 7 });
       }
+      const outerLeafMats = [
+        new MeshStandardMaterial({ color: 1793568, roughness: 0.7 }),
+        new MeshStandardMaterial({ color: 3046706, roughness: 0.65 }),
+        new MeshStandardMaterial({ color: 1984032, roughness: 0.75 }),
+        new MeshStandardMaterial({ color: 2582345, roughness: 0.6 })
+      ];
+      const cyberGlowMat = new MeshStandardMaterial({
+        color: 62206,
+        emissive: 62206,
+        emissiveIntensity: 0.85,
+        roughness: 0.2
+      });
+      for (let i = 0; i < 185; i++) {
+        const angle = i / 185 * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+        const dist = 102 + Math.random() * 155;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        const outerTree = new Group();
+        const terrainY = this.getTerrainHeightOnly(x, z);
+        outerTree.position.set(x, terrainY, z);
+        const height = 6.5 + Math.random() * 7.5;
+        const trunk = new Mesh(new CylinderGeometry(0.5, 0.85, height, 8), trunkMat);
+        trunk.position.y = height / 2;
+        trunk.castShadow = true;
+        outerTree.add(trunk);
+        if (i % 5 === 0) {
+          const ringGeo = new TorusGeometry(0.7, 0.08, 8, 16);
+          ringGeo.rotateX(Math.PI / 2);
+          const glowRing = new Mesh(ringGeo, cyberGlowMat);
+          glowRing.position.y = height * 0.42;
+          outerTree.add(glowRing);
+        }
+        const leafMat = outerLeafMats[Math.floor(Math.random() * outerLeafMats.length)];
+        const numTiers = 3 + Math.floor(Math.random() * 2);
+        for (let l = 0; l < numTiers; l++) {
+          const baseRadius = 4.6 - l * 0.75;
+          const foliage = new Mesh(new ConeGeometry(baseRadius, 3.8, 8), leafMat);
+          foliage.position.y = height + l * 2.1;
+          foliage.castShadow = true;
+          outerTree.add(foliage);
+        }
+        this.scene.add(outerTree);
+      }
       const flowerGeo = new SphereGeometry(0.2, 8, 8);
       const flwMat = new MeshStandardMaterial({ roughness: 0.4, emissive: 16777215, emissiveIntensity: 0.25 });
       const flowerInst = new InstancedMesh(flowerGeo, flwMat, 240);
@@ -38989,6 +39050,9 @@ void main() {
           if (this.world && this.world.resolveObstacleCollisions) {
             this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
           }
+          const MAP_LIMIT = 110;
+          curPos.x = MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
+          curPos.z = MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
           const groundY = this.world.getHeightAt(curPos.x, curPos.z);
           if (!dog.isInWater) {
             if (curPos.y > groundY + 0.05 || dog.velocityY && dog.velocityY > 0) {
@@ -40641,6 +40705,9 @@ ${systemPrompt}`;
         if (this.world.resolveObstacleCollisions) {
           this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
         }
+        const MAP_LIMIT = 110;
+        curPos.x = MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
+        curPos.z = MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
         if (!this.robot.isInWater) {
           curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
         }
@@ -41960,12 +42027,15 @@ Endpoint: ${cleanEp}`);
           }
         }
         if (this.grabbedRobot) {
+          const MAP_LIMIT = 110;
           const groundY = this.world.getHeightAt(this.grabbedRobot.group.position.x, this.grabbedRobot.group.position.z);
           const targetH = groundY + 2.4;
           groundPlane.constant = -targetH;
           if (raycaster.ray.intersectPlane(groundPlane, planeIntersect)) {
-            this.grabbedRobot.group.position.x = MathUtils.lerp(this.grabbedRobot.group.position.x, planeIntersect.x, 0.45);
-            this.grabbedRobot.group.position.z = MathUtils.lerp(this.grabbedRobot.group.position.z, planeIntersect.z, 0.45);
+            const clampedX = MathUtils.clamp(planeIntersect.x, -MAP_LIMIT, MAP_LIMIT);
+            const clampedZ = MathUtils.clamp(planeIntersect.z, -MAP_LIMIT, MAP_LIMIT);
+            this.grabbedRobot.group.position.x = MathUtils.lerp(this.grabbedRobot.group.position.x, clampedX, 0.45);
+            this.grabbedRobot.group.position.z = MathUtils.lerp(this.grabbedRobot.group.position.z, clampedZ, 0.45);
             this.grabbedRobot.group.position.y = targetH;
           }
         }
@@ -42008,6 +42078,9 @@ Endpoint: ${cleanEp}`);
       this.grabbedRobot = null;
       released.isPickedUp = false;
       released.velocityY = -2.5;
+      const MAP_LIMIT = 110;
+      released.group.position.x = MathUtils.clamp(released.group.position.x, -MAP_LIMIT, MAP_LIMIT);
+      released.group.position.z = MathUtils.clamp(released.group.position.z, -MAP_LIMIT, MAP_LIMIT);
       document.body.classList.remove("is-grabbing");
       this.pushActivity(`\u{1F43E} \xA1Soltaste a ${released.name}! Cayendo suavemente al terreno.`);
     }
@@ -42283,6 +42356,9 @@ Endpoint: ${cleanEp}`);
             }
           });
         }
+        const MAP_LIMIT = 110;
+        rPos.x = MathUtils.clamp(rPos.x, -MAP_LIMIT, MAP_LIMIT);
+        rPos.z = MathUtils.clamp(rPos.z, -MAP_LIMIT, MAP_LIMIT);
         if (!this.playerRobot.isInWater && this.playerRobot.animController.currentAnim !== "jump" && this.playerRobot.animController.currentAnim !== "backflip") {
           this.playerRobot.animController.play(anim);
         }

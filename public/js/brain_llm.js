@@ -1490,6 +1490,10 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       if (this.world.resolveObstacleCollisions) {
         this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
       }
+      // World boundary clamping
+      const MAP_LIMIT = 110;
+      curPos.x = THREE.MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
+      curPos.z = THREE.MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
       if (!this.robot.isInWater) {
         curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
       }

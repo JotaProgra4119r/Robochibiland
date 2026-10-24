@@ -411,6 +411,15 @@ export class ChibiRobotDog {
     neckJoint.position.set(0, 0.08, 0.05);
     neckPivot.add(neckJoint);
 
+    // Cyber Collar with Metallic Name Medal
+    const collarMesh = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.045, 12, 24).rotateX(Math.PI / 2), darkMat);
+    collarMesh.position.set(0, 0.14, 0.08);
+    neckPivot.add(collarMesh);
+
+    const medalTag = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.02, 16).rotateX(Math.PI / 2), neonMat);
+    medalTag.position.set(0, 0.01, 0.36);
+    neckPivot.add(medalTag);
+
     const headGroup = new THREE.Group();
     neckPivot.add(headGroup);
     this.nodes.head = headGroup;
@@ -421,6 +430,20 @@ export class ChibiRobotDog {
     headMesh.position.set(0, 0.48, 0.22);
     headMesh.castShadow = true;
     headGroup.add(headMesh);
+
+    // Cute Cyber LED Blush Cheek Lights
+    const blushMat = new THREE.MeshStandardMaterial({
+      color: 0xff3399,
+      emissive: 0xff3399,
+      emissiveIntensity: 0.85,
+      transparent: true,
+      opacity: 0.85
+    });
+    [-0.34, 0.34].forEach(bx => {
+      const blush = new THREE.Mesh(new THREE.CircleGeometry(0.065, 16), blushMat);
+      blush.position.set(bx, 0.32, 0.76);
+      headGroup.add(blush);
+    });
 
     // Side Headphone / Audio Sensor Discs on Cheeks
     [-0.58, 0.58].forEach(cx => {

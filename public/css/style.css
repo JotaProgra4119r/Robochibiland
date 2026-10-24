@@ -221,15 +221,22 @@ body.fx-cinema #cyber-optical-overlay {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 9px 18px;
-  gap: 12px;
+  padding: 5px 14px;
+  gap: 10px;
+  height: 48px;
+  border-radius: 999px;
+  max-width: 96%;
+  margin: 6px auto 0 auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(0, 242, 254, 0.1);
+  overflow: hidden;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .robot-avatar {
@@ -299,9 +306,9 @@ body.fx-cinema #cyber-optical-overlay {
 .robot-stats-compact {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.82rem;
-  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  flex-wrap: nowrap;
 }
 
 .stat-item span {
@@ -826,22 +833,25 @@ body.fx-cinema #cyber-optical-overlay {
    DECK SUPERIOR IZQUIERDO: PENSAMIENTO IA Y ACTIVIDAD EN VIVO
    ========================================================================== */
 .upper-left-deck {
-  position: absolute;
-  top: 76px;
-  left: 18px;
+  position: fixed;
+  top: 60px;
+  left: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 410px;
-  z-index: 15;
+  gap: 8px;
+  width: 275px;
+  max-width: calc(100vw - 120px);
+  z-index: 35;
+  pointer-events: auto;
 }
 
 .thought-bar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 14px;
+  gap: 5px;
+  padding: 8px 12px;
   border-left: 3px solid var(--accent-cyan);
+  border-radius: 14px;
 }
 
 .thought-bar-header {
@@ -950,12 +960,20 @@ body.fx-cinema #cyber-optical-overlay {
   transition: transform 0.3s var(--ease-out-expo), opacity 0.2s ease;
 }
 
-#bottom-dock.collapsed #controls-panel {
+#bottom-dock.collapsed {
   display: none !important;
 }
 
-#bottom-dock.collapsed {
-  max-width: 760px;
+#bottom-dock:not(.collapsed) {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 100% !important;
+  max-width: 860px !important;
+  border-radius: 20px 20px 0 0 !important;
+  z-index: 45 !important;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.65), 0 0 20px rgba(0, 242, 254, 0.15) !important;
 }
 
 .dock-tabs-bar {
@@ -2193,6 +2211,67 @@ body.hand-tool-active.is-grabbing canvas {
   box-shadow: 0 0 12px rgba(246, 211, 101, 0.6) !important;
 }
 
+/* ==========================================================================
+   DOCK DE ACCIONES VERTICAL DERECHO (CAM, RADAR, PIP, VOZ, USUARIOS, AGARRAR)
+   ========================================================================== */
+.side-action-dock {
+  position: fixed;
+  top: 60px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.dock-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(11, 18, 34, 0.84);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-radius: 999px;
+  color: #f8fafc;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.dock-action-pill:hover {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: rgba(0, 229, 255, 0.65);
+  transform: translateX(-3px);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+}
+
+.dock-action-pill.active {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.32), rgba(181, 55, 242, 0.32));
+  border-color: #00e5ff;
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.5);
+  color: #00f2fe;
+}
+
+.dock-action-pill .pill-icon {
+  font-size: 0.95rem;
+}
+
+.dock-action-pill.user-badge-pill {
+  border-color: rgba(34, 255, 136, 0.35);
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.dock-action-pill.user-badge-pill:hover {
+  border-color: rgba(34, 255, 136, 0.7);
+  box-shadow: 0 0 16px rgba(34, 255, 136, 0.35);
+}
+
 .roblox-quick-bar {
   position: fixed;
   bottom: 12px;
@@ -2526,8 +2605,37 @@ body.hand-tool-active.is-grabbing canvas {
 
   .status-badge,
   .btn-text-label,
-  .quick-pill .qb-text,
+  .quick-pill .qb-text {
+    display: none !important;
+  }
+
+  .side-action-dock {
+    top: 52px;
+    right: 8px;
+    gap: 5px;
+  }
+
+  .dock-action-pill {
+    padding: 7px;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+  }
+
+  .dock-action-pill .pill-label,
+  .dock-action-pill .edit-icon {
+    display: none !important;
+  }
+
   .upper-left-deck {
+    top: 52px;
+    left: 8px;
+    max-width: 210px;
+    width: 210px;
+  }
+
+  .activity-ticker {
     display: none !important;
   }
 

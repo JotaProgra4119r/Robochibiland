@@ -466,68 +466,40 @@
         </div>
       </div>
 
-      <!-- Right: Roblox Action Cluster -->
+      <!-- Right: Minimal Essential Controls -->
       <div class="topbar-right">
-        <!-- Mobile/Compact Camera Pill -->
-        <button id="btn-cam-cycle" class="hud-btn roblox-cam-pill" title="Cambiar modo de cámara (Clic para rotar)">
-          🎥 <span id="cam-current-name">Seguir</span>
-        </button>
-
-        <!-- Desktop Camera Buttons -->
-        <div class="cam-controls cam-controls-desktop" id="cam-controls-desktop">
-          <button id="btn-cam-diagonal" class="icon-btn active" title="Isométrica 45°">📐 Diag</button>
-          <button id="btn-cam-follow" class="icon-btn" title="Seguir 3ra persona">🎥 Seguir</button>
-          <button id="btn-cam-orbit" class="icon-btn" title="Órbita 360°">🌐 Órbita</button>
-          <button id="btn-cam-free" class="icon-btn" title="Modo Libre (L)">🛸 Vuelo</button>
-          <button id="btn-cam-eye" class="icon-btn" title="Ojos de Robot">👁️ Ojos</button>
-          <button id="btn-cam-drone" class="icon-btn" title="Drone Cinemático">🚁 Drone</button>
-        </div>
-
         <!-- Fullscreen Button -->
         <button id="btn-toggle-fullscreen" class="hud-btn fs-toggle-btn glow-gold"
           title="Pantalla Completa (F11 / Móvil)">
           ⛶ <span class="btn-text-label">Completa</span>
         </button>
 
-        <!-- Hand Tool Button -->
-        <button id="pill-toggle-hand" class="hud-btn hand-pill" title="Mano 3D para agarrar perritos">
-          ✋ <span class="btn-text-label">Agarrar</span>
-        </button>
+        <!-- Sound Synthesizer SFX -->
+        <button id="btn-toggle-sfx" class="hud-btn" title="Alternar Sintetizador de Audio Sci-Fi">🔊</button>
 
-        <!-- Radar Toggle Button -->
-        <button id="pill-toggle-minimap" class="hud-btn radar-pill" title="Mostrar/Ocultar Radar Táctico">
-          📡 <span class="btn-text-label">Radar</span>
-        </button>
+        <!-- Command Palette Trigger (Desktop) -->
+        <button id="btn-open-cmd-palette" class="hud-btn glow-cyan desktop-only" title="Paleta de Comandos Rápida (Ctrl+K)">⌘ Cmd</button>
 
-        <!-- Quick Chat Toggle -->
-        <button id="btn-toggle-chat" class="hud-btn chat-pill" title="Abrir Chat y Diálogo">
-          💬
-        </button>
-
-        <!-- Desktop Quick Modals -->
-        <div class="desktop-extra-btns" id="desktop-extra-btns">
-          <button id="btn-open-cmd-palette" class="hud-btn glow-cyan" title="Paleta de Comandos Rápida (Ctrl+K)">⌘
-            Cmd</button>
-          <button id="btn-toggle-sfx" class="hud-btn" title="Alternar Sintetizador de Audio Sci-Fi">🔊</button>
-          <button id="btn-toggle-zen" class="hud-btn glow-cyan"
-            title="Modo Zen: Ocultar interfaz para inmersión 3D completa (Tecla H)">👁️ Zen</button>
-
-          <div id="user-profile-badge" class="user-profile-badge" title="Cambiar nombre de usuario">
-            <span id="header-user-avatar">🐾</span>
-            <span id="header-user-name">Humano</span>
-            <small class="edit-icon">✏️</small>
-          </div>
-
-          <button id="btn-open-share" class="hud-btn glow-green"
-            title="Compartir enlace para abrir en móvil u otro router">🔗</button>
-          <button id="btn-open-memory" class="hud-btn" title="Ver Memoria JSON">📖</button>
-          <button id="btn-open-settings" class="hud-btn" title="Configurar FreeLLMsAPI">⚙️</button>
-        </div>
-
-        <!-- Mobile Roblox Menu Hamburger/Gear Button -->
-        <button id="btn-open-game-menu" class="hud-btn menu-pill" title="Menú de Opciones y Ajustes">
+        <!-- Mobile / Global Game Menu Hamburger -->
+        <button id="btn-open-game-menu" class="hud-btn menu-pill glow-cyan" title="Menú de Opciones y Ajustes">
           ☰
         </button>
+
+        <!-- Hidden desktop utility buttons preserved for script hooks -->
+        <div class="hidden-hook-deck" style="display:none;">
+          <div class="cam-controls cam-controls-desktop" id="cam-controls-desktop">
+            <button id="btn-cam-diagonal" class="icon-btn active">📐</button>
+            <button id="btn-cam-follow" class="icon-btn">🎥</button>
+            <button id="btn-cam-orbit" class="icon-btn">🌐</button>
+            <button id="btn-cam-free" class="icon-btn">🛸</button>
+            <button id="btn-cam-eye" class="icon-btn">👁️</button>
+            <button id="btn-cam-drone" class="icon-btn">🚁</button>
+          </div>
+          <button id="btn-toggle-zen">👁️</button>
+          <button id="btn-open-share">🔗</button>
+          <button id="btn-open-memory">📖</button>
+          <button id="btn-open-settings">⚙️</button>
+        </div>
       </div>
     </header>
 
@@ -576,15 +548,57 @@
       </div>
     </div>
 
-    <!-- Quick Floating Widget Toggles (Upper-Right) -->
-    <div class="floating-pills-bar desktop-only-pills" id="floating-pills-bar">
-      <button id="pill-toggle-pip" class="floating-pill" title="Mostrar/Ocultar Cámara en Vivo Ojos de Robot">👁️
-        Cámara</button>
-      <button id="pill-toggle-users" class="floating-pill" title="Mostrar/Ocultar Usuarios Conectados">👥 En Línea
-        (<span id="online-users-count">1</span>)</button>
-      <button id="pill-quick-mic" class="floating-pill" title="Comando por Voz Directo (Hablar al Robot)">🎙️ Comando
-        Voz</button>
-    </div>
+    <!-- Vertical Action Dock on the Right (Camera, Radar, PIP, Voice, Online, Hand, Profile) -->
+    <aside class="side-action-dock" id="side-action-dock">
+      <!-- Camera Mode Cycler Pill -->
+      <button id="btn-cam-cycle" class="dock-action-pill" title="Cambiar modo de cámara (Clic para rotar)">
+        <span class="pill-icon">🎥</span>
+        <span class="pill-label" id="cam-current-name">Seguir</span>
+      </button>
+
+      <!-- Radar Minimap Toggle -->
+      <button id="pill-toggle-minimap" class="dock-action-pill radar-action-pill" title="Mostrar/Ocultar Radar Táctico">
+        <span class="pill-icon">📡</span>
+        <span class="pill-label">Radar</span>
+      </button>
+
+      <!-- Live Dog Eye PIP Camera Toggle -->
+      <button id="pill-toggle-pip" class="dock-action-pill pip-action-pill" title="Mostrar/Ocultar Cámara en Vivo Ojos de Robot">
+        <span class="pill-icon">👁️</span>
+        <span class="pill-label">Ojos</span>
+      </button>
+
+      <!-- Direct Voice Command -->
+      <button id="pill-quick-mic" class="dock-action-pill mic-action-pill" title="Comando por Voz Directo (Hablar al Robot)">
+        <span class="pill-icon">🎙️</span>
+        <span class="pill-label">Voz</span>
+      </button>
+
+      <!-- Connected Online Users Toggle -->
+      <button id="pill-toggle-users" class="dock-action-pill users-action-pill" title="Mostrar/Ocultar Usuarios Conectados">
+        <span class="pill-icon">👥</span>
+        <span class="pill-label">En Línea (<span id="online-users-count">1</span>)</span>
+      </button>
+
+      <!-- 3D Hand Grab Tool Toggle -->
+      <button id="pill-toggle-hand" class="dock-action-pill hand-action-pill" title="Mano 3D para agarrar perritos">
+        <span class="pill-icon">✋</span>
+        <span class="pill-label">Agarrar</span>
+      </button>
+
+      <!-- Quick Chat Window Toggle -->
+      <button id="btn-toggle-chat" class="dock-action-pill chat-action-pill" title="Abrir Chat y Diálogo">
+        <span class="pill-icon">💬</span>
+        <span class="pill-label">Chat</span>
+      </button>
+
+      <!-- User Profile Badge Pill -->
+      <div id="user-profile-badge" class="dock-action-pill user-badge-pill" title="Cambiar nombre de usuario">
+        <span class="pill-icon" id="header-user-avatar">🐾</span>
+        <span class="pill-label" id="header-user-name">Humano</span>
+        <small class="edit-icon">✏️</small>
+      </div>
+    </aside>
 
     <!-- Upper-Right Visual Deck: Minimap, PIP & Users -->
     <div class="upper-right-deck">

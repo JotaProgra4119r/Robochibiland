@@ -1294,12 +1294,15 @@ class App {
       }
 
       if (this.grabbedRobot) {
+        const MAP_LIMIT = 110;
         const groundY = this.world.getHeightAt(this.grabbedRobot.group.position.x, this.grabbedRobot.group.position.z);
         const targetH = groundY + 2.4;
         groundPlane.constant = -targetH;
         if (raycaster.ray.intersectPlane(groundPlane, planeIntersect)) {
-          this.grabbedRobot.group.position.x = THREE.MathUtils.lerp(this.grabbedRobot.group.position.x, planeIntersect.x, 0.45);
-          this.grabbedRobot.group.position.z = THREE.MathUtils.lerp(this.grabbedRobot.group.position.z, planeIntersect.z, 0.45);
+          const clampedX = THREE.MathUtils.clamp(planeIntersect.x, -MAP_LIMIT, MAP_LIMIT);
+          const clampedZ = THREE.MathUtils.clamp(planeIntersect.z, -MAP_LIMIT, MAP_LIMIT);
+          this.grabbedRobot.group.position.x = THREE.MathUtils.lerp(this.grabbedRobot.group.position.x, clampedX, 0.45);
+          this.grabbedRobot.group.position.z = THREE.MathUtils.lerp(this.grabbedRobot.group.position.z, clampedZ, 0.45);
           this.grabbedRobot.group.position.y = targetH;
         }
       }
@@ -1346,6 +1349,10 @@ class App {
     this.grabbedRobot = null;
     released.isPickedUp = false;
     released.velocityY = -2.5;
+    // Strictly clamp position within map bounds so it lands safely inside the world
+    const MAP_LIMIT = 110;
+    released.group.position.x = THREE.MathUtils.clamp(released.group.position.x, -MAP_LIMIT, MAP_LIMIT);
+    released.group.position.z = THREE.MathUtils.clamp(released.group.position.z, -MAP_LIMIT, MAP_LIMIT);
     document.body.classList.remove('is-grabbing');
     this.pushActivity(`🐾 ¡Soltaste a ${released.name}! Cayendo suavemente al terreno.`);
   }
@@ -1666,6 +1673,11 @@ class App {
           }
         });
       }
+
+      // 3. Map Boundaries: Clamp player robot strictly inside map limits
+      const MAP_LIMIT = 110;
+      rPos.x = THREE.MathUtils.clamp(rPos.x, -MAP_LIMIT, MAP_LIMIT);
+      rPos.z = THREE.MathUtils.clamp(rPos.z, -MAP_LIMIT, MAP_LIMIT);
 
       if (!this.playerRobot.isInWater && this.playerRobot.animController.currentAnim !== 'jump' && this.playerRobot.animController.currentAnim !== 'backflip') {
         this.playerRobot.animController.play(anim);

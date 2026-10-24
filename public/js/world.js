@@ -2218,6 +2218,58 @@ export class WorldManager {
       this.registerObstacle({ type: 'tree', x, z, radius: 0.85, height: 7.0 });
     }
 
+    // Dense Outer Perimeter Forest (Lush Boundary Enclosing the Cyber-Valley)
+    const outerLeafMats = [
+      new THREE.MeshStandardMaterial({ color: 0x1b5e20, roughness: 0.7 }),
+      new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.65 }),
+      new THREE.MeshStandardMaterial({ color: 0x1e4620, roughness: 0.75 }),
+      new THREE.MeshStandardMaterial({ color: 0x276749, roughness: 0.6 })
+    ];
+    const cyberGlowMat = new THREE.MeshStandardMaterial({
+      color: 0x00f2fe,
+      emissive: 0x00f2fe,
+      emissiveIntensity: 0.85,
+      roughness: 0.2
+    });
+
+    for (let i = 0; i < 185; i++) {
+      const angle = (i / 185) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+      const dist = 102 + Math.random() * 155; // Concentric rings outside playable area
+      const x = Math.cos(angle) * dist;
+      const z = Math.sin(angle) * dist;
+
+      const outerTree = new THREE.Group();
+      const terrainY = this.getTerrainHeightOnly(x, z);
+      outerTree.position.set(x, terrainY, z);
+
+      const height = 6.5 + Math.random() * 7.5;
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.85, height, 8), trunkMat);
+      trunk.position.y = height / 2;
+      trunk.castShadow = true;
+      outerTree.add(trunk);
+
+      // Subtle cyber-luminescent ring on select outer trees
+      if (i % 5 === 0) {
+        const ringGeo = new THREE.TorusGeometry(0.7, 0.08, 8, 16);
+        ringGeo.rotateX(Math.PI / 2);
+        const glowRing = new THREE.Mesh(ringGeo, cyberGlowMat);
+        glowRing.position.y = height * 0.42;
+        outerTree.add(glowRing);
+      }
+
+      const leafMat = outerLeafMats[Math.floor(Math.random() * outerLeafMats.length)];
+      const numTiers = 3 + Math.floor(Math.random() * 2);
+      for (let l = 0; l < numTiers; l++) {
+        const baseRadius = 4.6 - l * 0.75;
+        const foliage = new THREE.Mesh(new THREE.ConeGeometry(baseRadius, 3.8, 8), leafMat);
+        foliage.position.y = height + l * 2.1;
+        foliage.castShadow = true;
+        outerTree.add(foliage);
+      }
+
+      this.scene.add(outerTree);
+    }
+
     // Wildflowers via InstancedMesh
     const flowerGeo = new THREE.SphereGeometry(0.2, 8, 8);
     const flwMat = new THREE.MeshStandardMaterial({ roughness: 0.4, emissive: 0xffffff, emissiveIntensity: 0.25 });
