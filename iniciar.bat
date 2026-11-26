@@ -13,7 +13,7 @@ for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":3000" ^| findstr "LI
 )
 taskkill /F /IM cloudflared.exe >nul 2>&1
 
-echo [2/3] Verificando bundle WebGL (public\bundle.js)...
+echo [2/3] Verificando bundle WebGL...
 if not exist "public\bundle.js" (
     where npm >nul 2>&1
     if not errorlevel 1 (
@@ -30,17 +30,18 @@ if not exist "public\bundle.js" (
 
 echo [3/3] Iniciando Servidor...
 where cargo >nul 2>&1
-if not errorlevel 1 (
-    echo   Usando servidor Rust (robochibi-server)...
-    start http://localhost:3000
-    cargo run --release -p robochibi-server
-    goto :end
-)
+if errorlevel 1 goto :use_node
 
+echo   Usando servidor Rust robochibi-server...
+start http://localhost:3000
+cargo run --release -p robochibi-server
+goto :end
+
+:use_node
 echo [AVISO] Cargo no encontrado en PATH; usando servidor Node.js...
 where node >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR CRITICO] Ni Rust (cargo) ni Node.js estan instalados en PATH.
+    echo [ERROR CRITICO] Ni Rust ni Node.js estan instalados en PATH.
     pause
     exit /b 1
 )
@@ -52,8 +53,6 @@ start http://localhost:3000
 node server.js
 
 :end
-if errorlevel 1 (
-    echo.
-    echo [AVISO] El servidor se ha detenido inesperadamente.
-    pause
-)
+echo.
+echo [AVISO] El servidor se ha detenido.
+pause
