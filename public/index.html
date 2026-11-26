@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>RoboChibi 3D - CyberPup Virtual World con IA [CyberCore OS v2.5]</title>
+  <title>RoboChibi 3D - CyberPup World [Rust + WebGL2 / WebGPU / Vulkan]</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,30 +42,9 @@
       transition: all 0.4s ease;
     }
 
-    /* Modos de Visión Óptica */
-    body.fx-crt #cyber-optical-overlay {
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.32) 50%),
-        radial-gradient(circle, transparent 60%, rgba(0, 15, 30, 0.65) 100%);
-      background-size: 100% 4px, 100% 100%;
-    }
-
-    body.fx-nightvision #canvas-container {
-      filter: hue-rotate(75deg) saturate(2.2) brightness(1.18) contrast(1.25);
-    }
-
+    /* Modos de Visión Óptica (procesados en WGSL GPU; solo brillo sutil de borde en HUD) */
     body.fx-nightvision #cyber-optical-overlay {
-      background: radial-gradient(circle, rgba(0, 255, 136, 0.06) 0%, rgba(0, 40, 15, 0.55) 100%);
-      box-shadow: inset 0 0 80px rgba(0, 255, 136, 0.35);
-    }
-
-    body.fx-thermal #canvas-container {
-      filter: invert(0.85) hue-rotate(180deg) saturate(3) contrast(1.35);
-    }
-
-    body.fx-cinema #cyber-optical-overlay {
-      border-top: 42px solid #04060c;
-      border-bottom: 42px solid #04060c;
-      box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.8);
+      box-shadow: inset 0 0 80px rgba(0, 255, 136, 0.22);
     }
 
     /* Mini Monitor FPS & IA en Topbar */
@@ -374,8 +353,17 @@
 </head>
 
 <body>
-  <!-- 3D WebGL Canvas Container -->
-  <div id="canvas-container"></div>
+  <!-- 3D WebGL2 / WebGPU Canvas Container -->
+  <div id="canvas-container">
+    <canvas id="world-canvas" style="width:100%;height:100%;display:block;touch-action:none;"></canvas>
+  </div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div style="font-size:2.4rem;">🐾 ⚡</div>
+    <strong style="font-size:1.25rem;letter-spacing:0.06em;">ROBO CHIBI LAND 3D (RUST ENGINE)</strong>
+    <span id="loading-subtext" style="font-size:0.85rem;color:#94a3b8;">Inicializando motor WebGL2 / WebGPU y audio DSP...</span>
+  </div>
 
   <!-- Capa de Partículas Climáticas y Post-Procesado Óptico -->
   <canvas id="weather-fx-canvas"></canvas>
@@ -468,6 +456,11 @@
 
       <!-- Right: Minimal Essential Controls -->
       <div class="topbar-right">
+        <!-- WebGL2 / WebGPU Backend Switcher -->
+        <button id="btn-cycle-gfx" class="hud-btn gfx-switch-btn" title="Alternar API Gráfica WebGL2 / WebGPU (Para Vulkan nativo usar robochibi-native)">
+          🚀 <span id="gfx-mode-label">WebGL2</span>
+        </button>
+
         <!-- Fullscreen Button -->
         <button id="btn-toggle-fullscreen" class="hud-btn fs-toggle-btn glow-gold"
           title="Pantalla Completa (F11 / Móvil)">
@@ -475,7 +468,14 @@
         </button>
 
         <!-- Sound Synthesizer SFX -->
-        <button id="btn-toggle-sfx" class="hud-btn" title="Alternar Sintetizador de Audio Sci-Fi">🔊</button>
+        <button id="btn-toggle-sfx" class="hud-btn" title="Alternar Sintetizador de Audio DSP Rust">🔊</button>
+
+        <div class="desktop-extra-btns desktop-only">
+          <button id="btn-open-memory" class="hud-btn" title="Memoria Persistente (memory.json)">📖</button>
+          <button id="btn-open-share" class="hud-btn" title="Compartir / Conectar Dispositivos">🔗</button>
+          <button id="btn-open-settings" class="hud-btn" title="Ajustes IA FreeLLMAPI">⚙️</button>
+          <button id="btn-toggle-zen" class="hud-btn" title="Modo Zen (Tecla H)">👁️</button>
+        </div>
 
         <!-- Command Palette Trigger (Desktop) -->
         <button id="btn-open-cmd-palette" class="hud-btn glow-cyan desktop-only" title="Paleta de Comandos Rápida (Ctrl+K)">⌘ Cmd</button>
@@ -485,7 +485,7 @@
           ☰
         </button>
 
-        <!-- Hidden desktop utility buttons preserved for script hooks -->
+        <!-- Hidden camera hook buttons preserved for shortcuts -->
         <div class="hidden-hook-deck" style="display:none;">
           <div class="cam-controls cam-controls-desktop" id="cam-controls-desktop">
             <button id="btn-cam-diagonal" class="icon-btn active">📐</button>
@@ -495,10 +495,6 @@
             <button id="btn-cam-eye" class="icon-btn">👁️</button>
             <button id="btn-cam-drone" class="icon-btn">🚁</button>
           </div>
-          <button id="btn-toggle-zen">👁️</button>
-          <button id="btn-open-share">🔗</button>
-          <button id="btn-open-memory">📖</button>
-          <button id="btn-open-settings">⚙️</button>
         </div>
       </div>
     </header>
@@ -1231,570 +1227,14 @@
     </div>
   </div>
 
-  <!-- Main Standalone Robust Bundle -->
-  <script src="bundle.js"></script>
-
-  <!-- ==================== MOTOR DE EXPANSIÓN CYBERCORE OS v2.5 ==================== -->
-  <script>
-    (() => {
-      'use strict';
-
-      /* -------------------------------------------------------------------------- */
-      /* 1. SINTETIZADOR PROCEDURAL WEBAUDIO (SFX SCI-FI & CHIBI BLEEPS)            */
-      /* -------------------------------------------------------------------------- */
-      const CyberAudio = {
-        enabled: true,
-        ctx: null,
-        init() {
-          if (!this.ctx) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) this.ctx = new AudioCtx();
-          }
-          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-        },
-        beep(freq = 680, duration = 0.06, type = 'sine', vol = 0.06) {
-          if (!this.enabled) return;
-          try {
-            this.init();
-            if (!this.ctx) return;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-            gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start();
-            osc.stop(this.ctx.currentTime + duration);
-          } catch (_) { }
-        },
-        chibiChirp() {
-          if (!this.enabled) return;
-          [520, 780, 1040].forEach((f, idx) => {
-            setTimeout(() => this.beep(f, 0.07, 'triangle', 0.05), idx * 55);
-          });
-        }
-      };
-
-      const sfxBtn = document.getElementById('btn-toggle-sfx');
-      if (sfxBtn) {
-        sfxBtn.addEventListener('click', () => {
-          CyberAudio.enabled = !CyberAudio.enabled;
-          sfxBtn.textContent = CyberAudio.enabled ? '🔊' : '🔇';
-          showToast(CyberAudio.enabled ? '🔊 Sintetizador Sci-Fi activado' : '🔇 Efectos de sonido silenciados');
-        });
-      }
-
-      /* -------------------------------------------------------------------------- */
-      /* 2. SISTEMA DE NOTIFICACIONES TÁCTICAS (TOASTS)                             */
-      /* -------------------------------------------------------------------------- */
-      function showToast(msg) {
-        const container = document.getElementById('cyber-toast-container');
-        if (!container) return;
-        const el = document.createElement('div');
-        el.className = 'cyber-toast';
-        el.textContent = msg;
-        container.appendChild(el);
-        CyberAudio.beep(880, 0.05, 'sine', 0.04);
-        setTimeout(() => {
-          el.style.opacity = '0';
-          el.style.transition = 'opacity 0.25s ease';
-          setTimeout(() => el.remove(), 260);
-        }, 2800);
-      }
-
-      /* -------------------------------------------------------------------------- */
-      /* 3. RECONOCIMIENTO DE VOZ NEURONAL (WEB SPEECH API STT)                     */
-      /* -------------------------------------------------------------------------- */
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const micBtn = document.getElementById('btn-voice-stt');
-      const quickMicBtn = document.getElementById('pill-quick-mic');
-      const chatInput = document.getElementById('chat-input');
-      const chatSendBtn = document.getElementById('chat-btn');
-
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'es-ES';
-        recognition.interimResults = true;
-        recognition.continuous = false;
-        let isRecording = false;
-
-        const toggleVoiceInput = () => {
-          if (isRecording) {
-            recognition.stop();
-          } else {
-            try {
-              recognition.start();
-              isRecording = true;
-              if (micBtn) micBtn.classList.add('recording');
-              showToast('🎙️ Escuchando orden de voz para el robot...');
-              CyberAudio.chibiChirp();
-            } catch (_) { }
-          }
-        };
-
-        recognition.onresult = (event) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          if (chatInput) chatInput.value = transcript;
-          if (event.results[0].isFinal && chatSendBtn) {
-            showToast(`🗣️ Orden reconocida: "${transcript}"`);
-            setTimeout(() => chatSendBtn.click(), 180);
-          }
-        };
-
-        recognition.onend = () => {
-          isRecording = false;
-          if (micBtn) micBtn.classList.remove('recording');
-        };
-
-        if (micBtn) micBtn.addEventListener('click', toggleVoiceInput);
-        if (quickMicBtn) quickMicBtn.addEventListener('click', toggleVoiceInput);
-      } else if (micBtn) {
-        micBtn.title = 'Tu navegador no soporta Web Speech Recognition';
-        micBtn.style.opacity = '0.5';
-      }
-
-      /* -------------------------------------------------------------------------- */
-      /* 4. MOTOR DE CLIMA DINÁMICO EN CANVAS & FILTROS ÓPTICOS                     */
-      /* -------------------------------------------------------------------------- */
-      const weatherCanvas = document.getElementById('weather-fx-canvas');
-      const wCtx = weatherCanvas.getContext('2d');
-      const weatherModes = ['CLEAR', 'CYBER_RAIN', 'FIREFLIES', 'STARDUST'];
-      let currentWeatherIdx = 0;
-      let particles = [];
-
-      function resizeWeatherCanvas() {
-        weatherCanvas.width = window.innerWidth;
-        weatherCanvas.height = window.innerHeight;
-      }
-      window.addEventListener('resize', resizeWeatherCanvas);
-      resizeWeatherCanvas();
-
-      function initParticles(mode) {
-        particles = [];
-        const count = mode === 'CYBER_RAIN' ? 110 : mode === 'FIREFLIES' ? 55 : mode === 'STARDUST' ? 80 : 0;
-        for (let i = 0; i < count; i++) {
-          particles.push({
-            x: Math.random() * weatherCanvas.width,
-            y: Math.random() * weatherCanvas.height,
-            vx: mode === 'CYBER_RAIN' ? -1.5 : (Math.random() - 0.5) * 0.8,
-            vy: mode === 'CYBER_RAIN' ? 12 + Math.random() * 6 : mode === 'STARDUST' ? 1.2 + Math.random() : (Math.random() - 0.5) * 0.8,
-            size: mode === 'CYBER_RAIN' ? 1.5 : 2 + Math.random() * 2.5,
-            alpha: 0.3 + Math.random() * 0.7,
-            hue: mode === 'FIREFLIES' ? (Math.random() > 0.5 ? 160 : 290) : 190
-          });
-        }
-      }
-
-      function renderWeather() {
-        wCtx.clearRect(0, 0, weatherCanvas.width, weatherCanvas.height);
-        const mode = weatherModes[currentWeatherIdx];
-        if (mode !== 'CLEAR') {
-          for (const p of particles) {
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.y > weatherCanvas.height) p.y = -10;
-            if (p.y < -10) p.y = weatherCanvas.height;
-            if (p.x > weatherCanvas.width) p.x = 0;
-            if (p.x < 0) p.x = weatherCanvas.width;
-
-            if (mode === 'CYBER_RAIN') {
-              wCtx.strokeStyle = `rgba(0, 242, 254, ${p.alpha * 0.55})`;
-              wCtx.lineWidth = p.size;
-              wCtx.beginPath();
-              wCtx.moveTo(p.x, p.y);
-              wCtx.lineTo(p.x + p.vx * 1.6, p.y + p.vy * 1.6);
-              wCtx.stroke();
-            } else {
-              wCtx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${p.alpha})`;
-              wCtx.beginPath();
-              wCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-              wCtx.fill();
-            }
-          }
-        }
-        requestAnimationFrame(renderWeather);
-      }
-      renderWeather();
-
-      const btnWeather = document.getElementById('btn-cycle-weather');
-      if (btnWeather) {
-        btnWeather.addEventListener('click', () => {
-          currentWeatherIdx = (currentWeatherIdx + 1) % weatherModes.length;
-          const mode = weatherModes[currentWeatherIdx];
-          initParticles(mode);
-          const names = {
-            CLEAR: '☀️ Clima Despejado',
-            CYBER_RAIN: '🌧️ Lluvia de Neón Cibernética',
-            FIREFLIES: '✨ Luciérnagas Cuánticas',
-            STARDUST: '❄️ Polvo Estelar Ártico'
-          };
-          showToast(names[mode]);
-        });
-      }
-
-      // Sincronizar luciérnagas automáticamente al activar la noche
-      const btnNight = document.getElementById('btn-time-night');
-      if (btnNight) {
-        btnNight.addEventListener('click', () => {
-          if (weatherModes[currentWeatherIdx] === 'CLEAR') {
-            currentWeatherIdx = 2; // FIREFLIES
-            initParticles('FIREFLIES');
-          }
-        });
-      }
-
-      // Filtros de Visión Óptica
-      const visionModes = ['', 'fx-crt', 'fx-nightvision', 'fx-thermal', 'fx-cinema'];
-      let currentVisionIdx = 0;
-      const btnVision = document.getElementById('btn-cycle-vision');
-      if (btnVision) {
-        btnVision.addEventListener('click', () => {
-          visionModes.forEach(cls => cls && document.body.classList.remove(cls));
-          currentVisionIdx = (currentVisionIdx + 1) % visionModes.length;
-          const activeCls = visionModes[currentVisionIdx];
-          if (activeCls) document.body.classList.add(activeCls);
-          const labels = ['🕶️ Óptica: Estándar', '📺 Óptica: CRT Scanlines', '🟢 Óptica: Visión Nocturna', '🔥 Óptica: Infrarrojo Térmico', '🎬 Óptica: Cine Anamórfico'];
-          showToast(labels[currentVisionIdx]);
-        });
-      }
-
-      /* -------------------------------------------------------------------------- */
-      /* 5. SOPORTE EXTENDIDO DE TABS Y SECUENCIADOR DE MACROS                      */
-      /* -------------------------------------------------------------------------- */
-      const dockTabs = document.querySelectorAll('.dock-tab');
-      const tabPanes = document.querySelectorAll('.tab-pane');
-      const bottomDock = document.getElementById('bottom-dock');
-
-      dockTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          const target = tab.getAttribute('data-tab');
-          dockTabs.forEach(t => t.classList.toggle('active', t === tab));
-          tabPanes.forEach(pane => {
-            pane.classList.toggle('active', pane.id === `tab-pane-${target}`);
-          });
-          if (bottomDock && bottomDock.classList.contains('collapsed')) {
-            bottomDock.classList.remove('collapsed');
-          }
-          CyberAudio.beep(620, 0.04);
-        });
-      });
-
-      // Lógica del Secuenciador de Coreografías
-      const macroTimeline = document.getElementById('macro-timeline');
-      const macroStatusBadge = document.getElementById('macro-status-badge');
-      let macroQueue = [
-        { id: 'btn-anim-playBow', label: '🙇 Reverencia' },
-        { id: 'btn-anim-spin', label: '🔄 Girar' },
-        { id: 'btn-anim-backflip', label: '🤸 Voltereta' },
-        { id: 'btn-emo-happy', label: '😊 Feliz' }
-      ];
-      let macroLoop = false;
-      let macroRunning = false;
-
-      function renderMacroTimeline(activeIndex = -1) {
-        if (!macroTimeline) return;
-        macroTimeline.innerHTML = '';
-        if (macroQueue.length === 0) {
-          macroTimeline.innerHTML = '<small style="color:#64748b;">Cola vacía. Añade pasos abajo...</small>';
-          return;
-        }
-        macroQueue.forEach((item, idx) => {
-          const chip = document.createElement('span');
-          chip.className = 'macro-step-chip' + (idx === activeIndex ? ' active-step' : '');
-          chip.textContent = `${idx + 1}. ${item.label}`;
-          chip.title = 'Clic para quitar este paso';
-          chip.style.cursor = 'pointer';
-          chip.addEventListener('click', () => {
-            if (!macroRunning) {
-              macroQueue.splice(idx, 1);
-              renderMacroTimeline();
-            }
-          });
-          macroTimeline.appendChild(chip);
-        });
-      }
-      renderMacroTimeline();
-
-      document.querySelectorAll('[data-macro-add]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const targetId = btn.getAttribute('data-macro-add');
-          macroQueue.push({ id: targetId, label: btn.textContent.replace('+ ', '') });
-          renderMacroTimeline();
-          CyberAudio.beep(760, 0.04);
-        });
-      });
-
-      async function runMacroSequence() {
-        if (macroRunning || macroQueue.length === 0) return;
-        macroRunning = true;
-        if (macroStatusBadge) macroStatusBadge.textContent = 'EJECUTANDO...';
-        showToast('🎬 Ejecutando secuencia de coreografía...');
-
-        do {
-          for (let i = 0; i < macroQueue.length; i++) {
-            if (!macroRunning) break;
-            renderMacroTimeline(i);
-            const targetBtn = document.getElementById(macroQueue[i].id);
-            if (targetBtn) targetBtn.click();
-            CyberAudio.beep(540 + i * 70, 0.06);
-            await new Promise(r => setTimeout(r, 1750));
-          }
-        } while (macroLoop && macroRunning);
-
-        macroRunning = false;
-        renderMacroTimeline(-1);
-        if (macroStatusBadge) macroStatusBadge.textContent = 'LISTO';
-      }
-
-      const btnMacroPlay = document.getElementById('btn-macro-play');
-      const btnMacroLoop = document.getElementById('btn-macro-loop');
-      const btnMacroClear = document.getElementById('btn-macro-clear');
-
-      if (btnMacroPlay) btnMacroPlay.addEventListener('click', runMacroSequence);
-      if (btnMacroLoop) {
-        btnMacroLoop.addEventListener('click', () => {
-          macroLoop = !macroLoop;
-          btnMacroLoop.textContent = `🔁 Bucle: ${macroLoop ? 'ON' : 'OFF'}`;
-        });
-      }
-      if (btnMacroClear) {
-        btnMacroClear.addEventListener('click', () => {
-          macroRunning = false;
-          macroQueue = [];
-          renderMacroTimeline();
-        });
-      }
-
-      // Presets compuestos
-      const loadPresetMacro = (steps, name) => {
-        macroRunning = false;
-        macroQueue = steps;
-        renderMacroTimeline();
-        showToast(`⚡ Protocolo cargado: ${name}`);
-        runMacroSequence();
-      };
-
-      document.getElementById('preset-macro-show')?.addEventListener('click', () => {
-        loadPresetMacro([
-          { id: 'btn-call-pack', label: '📣 Manada' },
-          { id: 'btn-anim-playBow', label: '🙇 Reverencia' },
-          { id: 'btn-anim-backflip', label: '🤸 Voltereta' },
-          { id: 'btn-anim-dance', label: '🪩 Bailar' },
-          { id: 'btn-emo-proud', label: '😎 Orgulloso' }
-        ], 'Show Acrobático');
-      });
-
-      document.getElementById('preset-macro-guard')?.addEventListener('click', () => {
-        loadPresetMacro([
-          { id: 'btn-emo-alert', label: '⚠️ Alerta' },
-          { id: 'btn-anim-sniff', label: '🔍 Olfatear' },
-          { id: 'btn-anim-sneak', label: '🕵️ Sigilo' },
-          { id: 'btn-anim-bark', label: '🗣️ Ladrar' }
-        ], 'Patrulla Táctica');
-      });
-
-      document.getElementById('preset-macro-fiesta')?.addEventListener('click', () => {
-        loadPresetMacro([
-          { id: 'btn-trigger-disco', label: '🪩 Disco' },
-          { id: 'btn-emo-party', label: '🎉 Fiestero' },
-          { id: 'btn-anim-dance', label: '🕺 Bailar' },
-          { id: 'btn-anim-spin', label: '🔄 Girar' },
-          { id: 'btn-anim-howl', label: '🐺 Aullar' }
-        ], 'Fiesta Total');
-      });
-
-      document.getElementById('preset-macro-training')?.addEventListener('click', () => {
-        loadPresetMacro([
-          { id: 'btn-slalom-rings', label: '⭕ Aros' },
-          { id: 'btn-anim-jump', label: '🦘 Saltar' },
-          { id: 'btn-throw-fetch', label: '🎾 Pelota' },
-          { id: 'btn-praise-dog', label: '❤️ Elogiar' }
-        ], 'Entrenamiento');
-      });
-
-      /* -------------------------------------------------------------------------- */
-      /* 6. TELEMETRÍA FPS EN VIVO & INTERCEPTOR DE RED FREELLMAPI                  */
-      /* -------------------------------------------------------------------------- */
-      const tChart = document.getElementById('telemetry-chart-canvas');
-      const tCtx = tChart ? tChart.getContext('2d') : null;
-      const fpsHistory = new Array(60).fill(60);
-      let frameCount = 0;
-      let lastFpsTime = performance.now();
-      let apiCallCount = 0;
-      let lastAiPing = '--';
-
-      function updateTelemetryLoop(now) {
-        frameCount++;
-        const delta = now - lastFpsTime;
-        if (delta >= 500) {
-          const fps = Math.min(144, Math.round((frameCount * 1000) / delta));
-          const frameMs = (delta / frameCount).toFixed(1);
-          frameCount = 0;
-          lastFpsTime = now;
-
-          fpsHistory.push(fps);
-          fpsHistory.shift();
-
-          const hudFps = document.getElementById('hud-fps-counter');
-          const valFps = document.getElementById('t-val-fps');
-          const valMs = document.getElementById('t-val-ms');
-          const heapLabel = document.getElementById('telemetry-heap-label');
-
-          if (hudFps) hudFps.textContent = `${fps} FPS`;
-          if (valFps) valFps.textContent = fps;
-          if (valMs) valMs.textContent = frameMs;
-          if (heapLabel && performance.memory) {
-            const mb = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
-            heapLabel.textContent = `MEM: ${mb} MB`;
-          }
-
-          if (tCtx) {
-            tCtx.clearRect(0, 0, tChart.width, tChart.height);
-            tCtx.strokeStyle = '#00f2fe';
-            tCtx.lineWidth = 2;
-            tCtx.beginPath();
-            fpsHistory.forEach((v, i) => {
-              const x = (i / (fpsHistory.length - 1)) * tChart.width;
-              const y = tChart.height - Math.min(1, v / 90) * (tChart.height - 10) - 5;
-              if (i === 0) tCtx.moveTo(x, y);
-              else tCtx.lineTo(x, y);
-            });
-            tCtx.stroke();
-          }
-        }
-        requestAnimationFrame(updateTelemetryLoop);
-      }
-      requestAnimationFrame(updateTelemetryLoop);
-
-      // Abrir pestaña de telemetría al hacer clic en el pill superior
-      document.getElementById('cyber-perf-pill')?.addEventListener('click', () => {
-        const telemetryTab = document.querySelector('.dock-tab[data-tab="telemetry"]');
-        if (telemetryTab) telemetryTab.click();
-      });
-
-      // Interceptor no destructivo de window.fetch para monitorear FreeLLMAPI
-      const originalFetch = window.fetch.bind(window);
-      window.fetch = async (...args) => {
-        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-        const isLlmCall = url.includes('chat/completions') || url.includes('31415');
-        const t0 = performance.now();
-
-        try {
-          const response = await originalFetch(...args);
-          if (isLlmCall) {
-            const ping = Math.round(performance.now() - t0);
-            apiCallCount++;
-            lastAiPing = `${ping}ms`;
-            document.getElementById('hud-ai-ping').textContent = `IA: ${ping}ms`;
-            document.getElementById('t-val-ping').textContent = `${ping} ms`;
-            document.getElementById('t-val-calls').textContent = apiCallCount;
-
-            const clone = response.clone();
-            clone.json().then(data => {
-              const logEl = document.getElementById('llm-inspector-log');
-              const content = data?.choices?.[0]?.message?.content || JSON.stringify(data);
-              if (logEl) {
-                logEl.textContent = `[${new Date().toLocaleTimeString()} | ${ping}ms | Modelo: ${data?.model || 'auto'}]\n${content}`;
-              }
-            }).catch(() => { });
-          }
-          return response;
-        } catch (err) {
-          if (isLlmCall) {
-            document.getElementById('hud-ai-ping').textContent = 'IA: OFFLINE';
-          }
-          throw err;
-        }
-      };
-
-      // Sonido sutil cuando el pensamiento del robot cambia
-      const thoughtText = document.getElementById('thought-bubble-text');
-      if (thoughtText) {
-        const obs = new MutationObserver(() => CyberAudio.chibiChirp());
-        obs.observe(thoughtText, { childList: true, characterData: true, subtree: true });
-      }
-
-      /* -------------------------------------------------------------------------- */
-      /* 7. PALETA DE COMANDOS RÁPIDA (CTRL + K)                                    */
-      /* -------------------------------------------------------------------------- */
-      const cmdModal = document.getElementById('modal-cmd-palette');
-      const cmdInput = document.getElementById('cmd-palette-input');
-      const cmdResults = document.getElementById('cmd-palette-results');
-
-      const commandCatalog = [
-        { name: '🐾 Poseer a Sparky (Explorador)', tag: 'Robot', run: () => document.querySelector('[data-robot="Sparky"]')?.click() },
-        { name: '⚡ Poseer a Bolt (Velocista)', tag: 'Robot', run: () => document.querySelector('[data-robot="Bolt"]')?.click() },
-        { name: '🔍 Poseer a Pixel (Hacker)', tag: 'Robot', run: () => document.querySelector('[data-robot="Pixel"]')?.click() },
-        { name: '💖 Poseer a Luna (Soñadora)', tag: 'Robot', run: () => document.querySelector('[data-robot="Luna"]')?.click() },
-        { name: '🤸 Poseer a Rusty (Acróbata)', tag: 'Robot', run: () => document.querySelector('[data-robot="Rusty"]')?.click() },
-        { name: '🎾 Lanzar Pelota (Fetch)', tag: 'Juego (G)', run: () => document.getElementById('btn-throw-fetch')?.click() },
-        { name: '🪩 Activar Fiesta Disco', tag: 'Evento', run: () => document.getElementById('btn-trigger-disco')?.click() },
-        { name: '📣 Llamar a toda la Manada', tag: 'Manada', run: () => document.getElementById('btn-call-pack')?.click() },
-        { name: '🏊 Ir a Nadar al Lago', tag: 'Acción', run: () => document.getElementById('btn-lake-swim')?.click() },
-        { name: '💎 Cavar Tesoro Oculto', tag: 'Acción', run: () => document.getElementById('btn-dig-treasure')?.click() },
-        { name: '🏁 Iniciar Carrera de Velocidad', tag: 'Juego', run: () => document.getElementById('btn-speed-race')?.click() },
-        { name: '🤸 Hacer Voltereta Mortal (Backflip)', tag: 'Acrobacia (F)', run: () => document.getElementById('btn-anim-backflip')?.click() },
-        { name: '🐺 Aullar en Manada', tag: 'Acrobacia', run: () => document.getElementById('btn-anim-howl')?.click() },
-        { name: '🌦️ Cambiar Clima Dinámico', tag: 'Clima', run: () => document.getElementById('btn-cycle-weather')?.click() },
-        { name: '🕶️ Cambiar Modo de Visión Óptica', tag: 'Shader', run: () => document.getElementById('btn-cycle-vision')?.click() },
-        { name: '🧠 Forzar Decisión Cognitiva IA', tag: 'FreeLLMAPI', run: () => document.getElementById('btn-manual-think')?.click() },
-        { name: '⚙️ Configurar Router FreeLLMAPI', tag: 'Ajustes', run: () => document.getElementById('btn-open-settings')?.click() }
-      ];
-
-      function renderCmdList(filter = '') {
-        if (!cmdResults) return;
-        cmdResults.innerHTML = '';
-        const q = filter.toLowerCase().trim();
-        const matches = commandCatalog.filter(c => c.name.toLowerCase().includes(q) || c.tag.toLowerCase().includes(q));
-        matches.forEach((cmd, idx) => {
-          const item = document.createElement('div');
-          item.className = 'cmd-result-item' + (idx === 0 ? ' selected' : '');
-          item.innerHTML = `<span>${cmd.name}</span><span class="cmd-shortcut-kbd">${cmd.tag}</span>`;
-          item.addEventListener('click', () => {
-            cmd.run();
-            cmdModal.classList.add('hidden');
-            CyberAudio.beep(920, 0.06);
-          });
-          cmdResults.appendChild(item);
-        });
-      }
-
-      function openCmdPalette() {
-        if (!cmdModal) return;
-        cmdModal.classList.remove('hidden');
-        cmdInput.value = '';
-        renderCmdList('');
-        setTimeout(() => cmdInput.focus(), 40);
-      }
-
-      document.getElementById('btn-open-cmd-palette')?.addEventListener('click', openCmdPalette);
-      document.getElementById('btn-close-cmd-palette')?.addEventListener('click', () => cmdModal.classList.add('hidden'));
-
-      window.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-          e.preventDefault();
-          if (cmdModal.classList.contains('hidden')) openCmdPalette();
-          else cmdModal.classList.add('hidden');
-        } else if (e.key === 'Escape' && cmdModal && !cmdModal.classList.contains('hidden')) {
-          cmdModal.classList.add('hidden');
-        }
-      });
-
-      if (cmdInput) {
-        cmdInput.addEventListener('input', () => renderCmdList(cmdInput.value));
-        cmdInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            const first = cmdResults.querySelector('.cmd-result-item');
-            if (first) first.click();
-          }
-        });
-      }
-    })();
+  <!-- Pure Rust WebAssembly + WebGL2 / WebGPU Engine -->
+  <script type="module">
+    import init from './pkg/robochibi_web.js';
+    init().catch((err) => {
+      console.error('WASM init failed:', err);
+      const sub = document.getElementById('loading-subtext');
+      if (sub) sub.textContent = 'Error WebGL2/WebGPU WASM: ' + err;
+    });
   </script>
 </body>
 

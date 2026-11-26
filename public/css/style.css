@@ -102,30 +102,12 @@ html {
   transition: all 0.4s ease;
 }
 
-body.fx-crt #cyber-optical-overlay {
-  background:
-    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.32) 50%),
-    radial-gradient(circle, transparent 58%, rgba(0, 15, 30, 0.68) 100%);
-  background-size: 100% 4px, 100% 100%;
-}
-
-body.fx-nightvision #canvas-container {
-  filter: hue-rotate(75deg) saturate(2.2) brightness(1.18) contrast(1.25);
-}
-
 body.fx-nightvision #cyber-optical-overlay {
-  background: radial-gradient(circle, rgba(34, 255, 136, 0.06) 0%, rgba(0, 40, 15, 0.58) 100%);
-  box-shadow: inset 0 0 85px rgba(34, 255, 136, 0.35);
-}
-
-body.fx-thermal #canvas-container {
-  filter: invert(0.85) hue-rotate(180deg) saturate(3) contrast(1.35);
+  box-shadow: inset 0 0 85px rgba(34, 255, 136, 0.25);
 }
 
 body.fx-cinema #cyber-optical-overlay {
-  border-top: 42px solid #04060c;
-  border-bottom: 42px solid #04060c;
-  box-shadow: inset 0 0 65px rgba(0, 0, 0, 0.85);
+  box-shadow: inset 0 0 65px rgba(0, 0, 0, 0.45);
 }
 
 /* ==========================================================================
@@ -228,7 +210,7 @@ body.fx-cinema #cyber-optical-overlay {
   max-width: 96%;
   margin: 6px auto 0 auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(0, 242, 254, 0.1);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .topbar-left {
@@ -485,10 +467,10 @@ body.fx-cinema #cyber-optical-overlay {
   gap: 8px;
 }
 
-. desktop-extra-btns {
+.desktop-extra-btns {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cam-controls {
@@ -2194,8 +2176,37 @@ body.hand-tool-active.is-grabbing canvas {
   transform: rotate(180deg);
 }
 
-.roblox-cam-pill,
+.roblox-cam-pill {
+  display: none;
+}
+
 .menu-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gfx-switch-btn {
+  border-color: rgba(0, 242, 254, 0.45) !important;
+  color: #00f2fe !important;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+  color: #f8fafc;
+  gap: 12px;
+  font-family: 'Outfit', sans-serif;
+}
+
+#loading-screen.hidden {
   display: none;
 }
 

@@ -1,0 +1,9 @@
+[package]
+name = "robochibi-native"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+robochibi-core = { path = "../robochibi-core" }
+robochibi-audio = { path = "../robochibi-audio" }
+robochibi-render = { path = "../robochibi-render" }
