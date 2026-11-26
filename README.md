@@ -78,3 +78,21 @@ O desde la terminal en `E:\RoboChibiLand`:
 node server.js
 ```
 El navegador se abrirá automáticamente en `http://localhost:3000`.
+
+
+---
+
+## 🦀 Arquitectura Rust 3.0 (WebGL2 / WebGPU / Vulkan)
+
+El proyecto ahora está reescrito en un workspace de Rust optimizado (`crates/`):
+- **`robochibi-core`**: Motor de simulación 3D, física, 5 perritos robots con mallas mejoradas, 12 expresiones OLED, IA local/FreeLLMsAPI y mundo interactivo.
+- **`robochibi-render`**: Renderizador `wgpu` con instancing, mapa de sombras, reflejos del lago, cámara PIP de ojos y post-procesado WGSL (Normal, CRT, Visión Nocturna, Térmica, Cine).
+- **`robochibi-audio`**: Sintetizador DSP estéreo en tiempo real (ladridos por formantes, pasos por superficie, viento, lluvia, lago, ritmo disco 128 BPM y reverb/limitador).
+- **`robochibi-web`**: Cliente WebAssembly (`public/pkg/`) con soporte para **WebGL2** y **WebGPU** (`?gfx=webgl` o `?gfx=webgpu`).
+- **`robochibi-native`**: Cliente nativo de escritorio con **Vulkan** (`--gfx vulkan`, con respaldo DX12/OpenGL), interfaz `egui` y audio `cpal`.
+- **`robochibi-server`**: Servidor HTTP + WebSocket en Rust (`axum` + `tokio`) con persistencia atómica de `data/memory.json` y proxy para FreeLLMsAPI.
+
+### Modos de Ejecución
+* **Web (Servidor Rust + WASM WebGL2/WebGPU):** Ejecuta `iniciar.bat` o `cargo run --release -p robochibi-server` y abre `http://localhost:3000`.
+* **Nativo Desktop (Vulkan):** Ejecuta `iniciar_nativo_vulkan.bat` o `cargo run --release -p robochibi-native -- --gfx vulkan`.
+* **Recompilar WASM:** Ejecuta `.\build_web.ps1` (requiere `wasm32-unknown-unknown` y `wasm-bindgen`).

@@ -356,9 +356,14 @@ fn start_raf_loop(state: Rc<RefCell<WebAppState>>) {
                 st.surface_config.width = target_w;
                 st.surface_config.height = target_h;
                 let sfc = st.surface_config.clone();
-                let dev = &st.device;
-                st.surface.configure(dev, &sfc);
-                st.renderer.resize(dev, target_w, target_h);
+                let WebAppState {
+                    ref device,
+                    ref surface,
+                    ref mut renderer,
+                    ..
+                } = *st;
+                surface.configure(device, &sfc);
+                renderer.resize(device, target_w, target_h);
             }
 
             // Step simulation
@@ -605,10 +610,12 @@ fn start_raf_loop(state: Rc<RefCell<WebAppState>>) {
                         }
                     }
                     IncomingNetEvent::LlmPingResult { ok, ms, detail } => {
-                        st.hud.set_text(
-                            "hud-ai-ping",
-                            if ok { &format!("IA: {ms}ms") } else { "IA: OFFLINE" },
-                        );
+                        let ping_txt = if ok {
+                            format!("IA: {ms}ms")
+                        } else {
+                            "IA: OFFLINE".to_string()
+                        };
+                        st.hud.set_text("hud-ai-ping", &ping_txt);
                         st.hud.set_text("t-val-ping", &format!("{ms} ms"));
                         st.hud.set_text("api-test-status", &detail);
                         st.hud.set_text("llm-inspector-log", &detail);
@@ -658,14 +665,16 @@ fn start_raf_loop(state: Rc<RefCell<WebAppState>>) {
                             label: Some("web_frame_encoder"),
                         });
 
-                st.renderer.render(
-                    &st.device,
-                    &st.queue,
-                    &mut encoder,
-                    &target_view,
-                    &st.engine,
-                    render_pip,
-                );
+                {
+                    let WebAppState {
+                        ref mut renderer,
+                        ref device,
+                        ref queue,
+                        ref engine,
+                        ..
+                    } = *st;
+                    renderer.render(device, queue, &mut encoder, &target_view, engine, render_pip);
+                }
 
                 // Schedule Eye PIP readback every 3 frames when visible & idle
                 st.pip_frame_div = st.pip_frame_div.wrapping_add(1);
@@ -698,7 +707,7 @@ fn start_raf_loop(state: Rc<RefCell<WebAppState>>) {
                 }
 
                 st.queue.submit(Some(encoder.finish()));
-                frame.present();
+                st.queue.present(frame);
 
                 if trigger_pip_copy {
                     *st.pip_in_flight.borrow_mut() = true;

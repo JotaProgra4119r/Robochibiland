@@ -2,8 +2,18 @@
 name = "robochibi-native"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [dependencies]
 robochibi-core = { path = "../robochibi-core" }
 robochibi-audio = { path = "../robochibi-audio" }
 robochibi-render = { path = "../robochibi-render" }
+wgpu = { workspace = true }
+glam = { workspace = true }
+log = { workspace = true }
+winit = "0.30"
+egui = "0.37"
+egui-wgpu = "0.37"
+egui-winit = "0.37"
+cpal = "0.18"
+tokio = { version = "1", features = ["rt"] }
