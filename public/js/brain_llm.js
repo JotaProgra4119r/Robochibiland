@@ -1,20 +1,43 @@
-// FreeLLMsAPI & Cognitive Engine with Zero-Duplicate Chat Dispatch, Managed Timers & Smart Obstacle Steering
+// Cognitive Engine & FreeLLMAPI Router with Zero-Alloc Navigation, Managed Timers & EventBus Dispatch
+import * as THREE from 'three';
 import { EMOTIONS } from './emotions.js';
 import { roboAudio } from './audio.js';
-import * as THREE from 'three';
+import { eventBus as defaultEventBus } from './core/EventBus.js';
+import { appState } from './core/AppState.js';
+import { TMP, dampAngle, TimerRegistry } from './core/Scratch.js';
 
-function lerpAngle(current, target, t) {
-  const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-  return current + diff * Math.min(1, t);
-}
+const TRICK_TITLES = [
+  'Tornado Cibernético',
+  'Súper Combo Lunar',
+  'Acrobacia Rayo',
+  'Baile Sónico'
+];
+const TRICK_MOVES = ['jump', 'spin', 'backflip', 'wave', 'dance', 'roll', 'howl'];
+const DIRECT_ANIMS = new Set([
+  'walk', 'run', 'sit', 'lieDown', 'jump', 'wagTail', 'bark', 'sniff', 'scratch',
+  'backflip', 'spin', 'roll', 'wave', 'recharge', 'dig', 'howl', 'dance', 'sneak',
+  'playBow', 'headTilt', 'bellyRub', 'beg', 'shakeOff', 'nuzzle', 'dizzy',
+  'swimming', 'patrolLook', 'scentTrack'
+]);
+const INTERACTION_TO_ACTION = {
+  bounce_trampoline: 'go_trampoline',
+  kick_ball: 'go_ball',
+  eat_snack: 'go_snack',
+  drink_water: 'go_fountain',
+  ride_carousel: 'go_carousel',
+  dance_disco: 'go_disco',
+  recharge: 'go_doghouse',
+  cross_bridge: 'go_bridge',
+  ride_seesaw: 'go_seesaw'
+};
 
 export class RobotBrain {
-  constructor(robot, vision, world, packManager, particleSystem) {
-    this.robot = robot;
-    this.vision = vision;
-    this.world = world;
+  constructor(packManager, world, particles, vision, eventBus = defaultEventBus) {
     this.packManager = packManager;
-    this.particleSystem = particleSystem;
+    this.world = world;
+    this.particleSystem = particles;
+    this.vision = vision;
+    this.eventBus = eventBus;
 
     let storedModel = localStorage.getItem('freellm_model');
     if (!storedModel || storedModel === 'gpt-3.5-turbo') {
@@ -22,12 +45,7 @@ export class RobotBrain {
       localStorage.setItem('freellm_model', 'auto');
     }
 
-    let storedKey = localStorage.getItem('freellm_apikey');
-    if (!storedKey) {
-      storedKey = 'freellmapi-dc6415f70139118055e4065b767a1d8acb930795eb3d1384';
-      localStorage.setItem('freellm_apikey', storedKey);
-    }
-
+    const storedKey = localStorage.getItem('freellm_apikey') || '';
     let storedEndpoint = localStorage.getItem('freellm_endpoint');
     if (!storedEndpoint) {
       storedEndpoint = 'http://127.0.0.1:31415/v1/chat/completions';
@@ -46,56 +64,120 @@ export class RobotBrain {
 
     this.thinkCooldown = 0;
     this.isThinking = false;
-    this.lastThought = "Iniciando mis sensores en el prado verde...";
-    this.onChatResponse = null;
-
-    // Managed intervals & timeouts so switching robots or starting new actions never leaves orphan timers
-    this.activeIntervals = [];
-    this.activeTimeouts = [];
-
-    this.isVoiceEnabled = true;
-
+    this.isNavigating = false;
+    this.navSpeed = 4.8;
+    this.navTimer = 0;
+    this.navMaxTime = 16.0;
+    this.navStuckTime = 0;
+    this.onArrivalCallback = null;
+    this.lastThought = 'Iniciando mis sensores en el prado verde...';
+    this.isVoiceEnabled = appState.isVoiceEnabled !== false;
     this.memoryData = null;
+
+    // Pre-allocated navigation scratch & obstacle list (zero per-frame allocations)
+    this._navTarget = new THREE.Vector3();
+    this._navLastPos = new THREE.Vector3();
+    this._nearObstacles = [];
+    this._timers = new TimerRegistry();
+    this._unsubs = [];
+    this._disposed = false;
+
+    this._unsubs.push(
+      this.eventBus.on('robot:switched', ({ robot }) => {
+        this.onRobotSwitched(robot);
+      }),
+      this.eventBus.on('input:action', ({ action, payload }) => {
+        if (action === 'remote_chat_command' && payload && payload.text) {
+          this.handleUserCommand(payload.text, payload.targetRobot);
+        } else if (action === 'brain_action' && payload && payload.action) {
+          this.executeAction(payload.action, payload.interaction || null);
+        }
+      }),
+      this.eventBus.on('app:dispose', () => {
+        this.dispose();
+      })
+    );
+
     this.loadMemoryFromDisk();
   }
 
-  registerInterval(fn, ms) {
-    const id = setInterval(fn, ms);
-    this.activeIntervals.push(id);
-    return id;
+  getActiveRobot() {
+    if (this.packManager) {
+      if (this.packManager.playerDog) return this.packManager.playerDog;
+      if (typeof this.packManager.getDog === 'function') {
+        const d = this.packManager.getDog(appState.activeRobotName);
+        if (d) return d;
+      }
+      if (this.packManager.currentControlledRobot) return this.packManager.currentControlledRobot;
+    }
+    return this._robotRef || null;
   }
 
-  registerTimeout(fn, ms) {
-    const id = setTimeout(() => {
-      this.activeTimeouts = this.activeTimeouts.filter(t => t !== id);
-      fn();
-    }, ms);
-    this.activeTimeouts.push(id);
-    return id;
+  _getAnim(dog) {
+    return dog ? (dog.animController || dog.anim || null) : null;
   }
 
-  clearActiveTimers() {
-    this.activeIntervals.forEach(id => clearInterval(id));
-    this.activeIntervals = [];
-    this.activeTimeouts.forEach(id => clearTimeout(id));
-    this.activeTimeouts = [];
+  _setDogVelocityY(dog, vy) {
+    if (!dog) return;
+    if (dog.physics) {
+      dog.physics.velocityY = vy;
+      dog.physics.isGrounded = false;
+    } else {
+      dog.velocityY = vy;
+    }
+  }
+
+  _getProfile(dog) {
+    if (!dog) return { name: 'Sparky', title: 'Explorador', description: '', speedMultiplier: 1.0, voicePitch: 1.0 };
+    return dog.profile || {
+      name: dog.name || 'Sparky',
+      title: dog.title || 'RoboPup',
+      description: dog.description || 'Cachorro robot curioso',
+      speedMultiplier: dog.speedMultiplier || 1.0,
+      voicePitch: dog.voicePitch || 1.0
+    };
+  }
+
+  _getRandomThought(dog) {
+    if (!dog) return 'Explorando con alegría.';
+    if (typeof dog.getRandomPersonalThought === 'function') return dog.getRandomPersonalThought();
+    const thoughts = dog.profile?.thoughts || dog.thoughts;
+    if (Array.isArray(thoughts) && thoughts.length > 0) {
+      return thoughts[Math.floor(Math.random() * thoughts.length)];
+    }
+    return 'Explorando felizmente el prado verde.';
+  }
+
+  onRobotSwitched(newRobot) {
+    this.cancelNavigation();
+    this._robotRef = newRobot;
+    if (!newRobot) return;
+    this.lastThought = this._getRandomThought(newRobot);
+    this.eventBus.emit('robot:thought', {
+      name: newRobot.name,
+      thought: this.lastThought,
+      emotion: newRobot.currentEmotion ? newRobot.currentEmotion.id : 'HAPPY',
+      action: null
+    });
   }
 
   cancelNavigation() {
-    this.clearActiveTimers();
+    this._timers.clearAll();
     if (this.isNavigating) {
       this.isNavigating = false;
-      this.navTarget = null;
       this.onArrivalCallback = null;
-      if (this.robot && this.robot.clearMission) {
-        this.robot.clearMission();
+      appState.navigation.active = false;
+      appState.navigation.target = null;
+      appState.navigation.mode = null;
+      const dog = this.getActiveRobot();
+      if (dog && typeof dog.clearMission === 'function') {
+        dog.clearMission();
       }
     }
   }
 
-  // FIXED: Proper regex for stripping [tags] and emojis without eating normal characters
   speakThought(text, pitch = 1.0) {
-    if (!this.isVoiceEnabled || !('speechSynthesis' in window) || !text) return;
+    if (!this.isVoiceEnabled || !appState.isVoiceEnabled || !('speechSynthesis' in window) || !text) return;
     try {
       window.speechSynthesis.cancel();
       const clean = String(text)
@@ -111,19 +193,14 @@ export class RobotBrain {
       utter.volume = 0.8;
 
       const voices = window.speechSynthesis.getVoices();
-      const es = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
-      if (es) utter.voice = es;
-
+      for (let i = 0; i < voices.length; i++) {
+        if (voices[i].lang && voices[i].lang.toLowerCase().startsWith('es')) {
+          utter.voice = voices[i];
+          break;
+        }
+      }
       window.speechSynthesis.speak(utter);
-    } catch (e) { }
-  }
-
-  setRobot(newRobot) {
-    this.cancelNavigation();
-    this.robot = newRobot;
-    this.lastThought = newRobot.getRandomPersonalThought();
-    const thoughtEl = document.getElementById('thought-bubble-text');
-    if (thoughtEl) thoughtEl.textContent = this.lastThought;
+    } catch (e) {}
   }
 
   saveConfig() {
@@ -131,7 +208,7 @@ export class RobotBrain {
     localStorage.setItem('freellm_apikey', this.config.apiKey);
     localStorage.setItem('freellm_model', this.config.model);
     localStorage.setItem('freellm_system_prompt', this.config.systemPrompt || '');
-    localStorage.setItem('freellm_interval', this.config.intervalSeconds.toString());
+    localStorage.setItem('freellm_interval', String(this.config.intervalSeconds));
   }
 
   async loadMemoryFromDisk() {
@@ -139,64 +216,69 @@ export class RobotBrain {
       const res = await fetch('/api/memory');
       if (res.ok) {
         this.memoryData = await res.json();
-        this.updateMemoryUI();
+        this.eventBus.emit('brain:memoryUpdated', { memoryData: this.memoryData });
         return;
       }
-    } catch (e) { }
+    } catch (e) {}
 
     const localSaved = localStorage.getItem('robo_chibi_memory_local');
     if (localSaved) {
       try {
         this.memoryData = JSON.parse(localSaved);
-        this.updateMemoryUI();
+        this.eventBus.emit('brain:memoryUpdated', { memoryData: this.memoryData });
         return;
-      } catch (e) { }
+      } catch (e) {}
     }
 
     this.memoryData = {
-      robot_name: "Manada Chibi CyberPups",
-      model_type: "Chibi-CyberPup v2.0 Multi-Possess",
-      personality: "5 Personalidades Únicas (Sparky, Bolt, Pixel, Luna, Rusty)",
+      robot_name: 'Manada Chibi CyberPups',
+      model_type: 'Chibi-CyberPup v2.5 Modular',
+      personality: '5 Personalidades Únicas (Sparky, Bolt, Pixel, Luna, Rusty)',
       discovered_places: [
-        { name: "Prado Esmeralda", emotion_felt: "Feliz" },
-        { name: "Lago de Cristal", emotion_felt: "Curioso" },
-        { name: "Parque de Juegos", emotion_felt: "Emocionado" },
-        { name: "Trampolín de Salto", emotion_felt: "Juguetón" },
-        { name: "Pista Disco", emotion_felt: "Feliz" }
+        { name: 'Prado Esmeralda', emotion_felt: 'Feliz' },
+        { name: 'Lago de Cristal', emotion_felt: 'Curioso' },
+        { name: 'Parque de Juegos', emotion_felt: 'Emocionado' },
+        { name: 'Trampolín de Salto', emotion_felt: 'Juguetón' },
+        { name: 'Pista Disco', emotion_felt: 'Feliz' }
       ],
       friends: [
-        { name: "Sparky", trait: "Curioso y explorador" },
-        { name: "Bolt", trait: "Velocista fanático de las pelotas" },
-        { name: "Pixel", trait: "Hacker y observador del lago" },
-        { name: "Luna", trait: "Soñadora y cariñosa" },
-        { name: "Rusty", trait: "Acróbata del parque" }
+        { name: 'Sparky', trait: 'Curioso y explorador' },
+        { name: 'Bolt', trait: 'Velocista fanático de las pelotas' },
+        { name: 'Pixel', trait: 'Hacker y observador del lago' },
+        { name: 'Luna', trait: 'Soñadora y cariñosa' },
+        { name: 'Rusty', trait: 'Acróbata del parque' }
       ],
       learned_movements: [
-        { name: "Baile de la Alegría", sequence: ["spin", "wagTail", "bark", "jump"] },
-        { name: "Salto Curioso", sequence: ["sniff", "jump", "wagTail"] },
-        { name: "Voltereta Eléctrica", sequence: ["jump", "backflip", "wagTail"] }
+        { name: 'Baile de la Alegría', sequence: ['spin', 'wagTail', 'bark', 'jump'] },
+        { name: 'Salto Curioso', sequence: ['sniff', 'jump', 'wagTail'] },
+        { name: 'Voltereta Eléctrica', sequence: ['jump', 'backflip', 'wagTail'] }
       ],
       journal: [
-        { time: new Date().toISOString(), emotion: "Curioso", thought: "La manada de perritos robots está explorando el mundo 3D juntos." }
+        { time: new Date().toISOString(), emotion: 'Curioso', thought: 'La manada de perritos robots está explorando el mundo 3D juntos.' }
       ]
     };
-    this.updateMemoryUI();
+    this.eventBus.emit('brain:memoryUpdated', { memoryData: this.memoryData });
   }
 
   async addJournalEntry(emotion, thought) {
-    if (!this.memoryData) return;
-    const author = this.robot ? this.robot.name : 'Sparky';
+    if (!this.memoryData || this._disposed) return;
+    const dog = this.getActiveRobot();
+    const author = dog ? dog.name : 'Sparky';
     const entry = {
       author,
       time: new Date().toISOString(),
-      emotion: emotion,
-      thought: thought
+      emotion,
+      thought
     };
     if (!Array.isArray(this.memoryData.journal)) this.memoryData.journal = [];
     this.memoryData.journal.push(entry);
     if (this.memoryData.journal.length > 80) this.memoryData.journal.shift();
 
-    localStorage.setItem('robo_chibi_memory_local', JSON.stringify(this.memoryData));
+    try {
+      localStorage.setItem('robo_chibi_memory_local', JSON.stringify(this.memoryData));
+    } catch (e) {}
+
+    this.eventBus.emit('brain:memoryUpdated', { memoryData: this.memoryData });
 
     try {
       await fetch('/api/memory/journal', {
@@ -204,13 +286,13 @@ export class RobotBrain {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emotion, thought: `[${author}] ${thought}` })
       });
-    } catch (e) { }
-    this.updateMemoryUI();
+    } catch (e) {}
   }
 
   async addLearnedTrick(name, description, sequence) {
-    if (!this.memoryData) return;
-    const author = this.robot ? this.robot.name : 'Sparky';
+    if (!this.memoryData || this._disposed) return;
+    const dog = this.getActiveRobot();
+    const author = dog ? dog.name : 'Sparky';
     const trick = {
       name,
       description,
@@ -221,7 +303,11 @@ export class RobotBrain {
     if (!Array.isArray(this.memoryData.learned_movements)) this.memoryData.learned_movements = [];
     this.memoryData.learned_movements.push(trick);
 
-    localStorage.setItem('robo_chibi_memory_local', JSON.stringify(this.memoryData));
+    try {
+      localStorage.setItem('robo_chibi_memory_local', JSON.stringify(this.memoryData));
+    } catch (e) {}
+
+    this.eventBus.emit('brain:memoryUpdated', { memoryData: this.memoryData });
 
     try {
       await fetch('/api/memory/trick', {
@@ -229,149 +315,189 @@ export class RobotBrain {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(trick)
       });
-    } catch (e) { }
-    this.updateMemoryUI();
+    } catch (e) {}
   }
 
-  updateMemoryUI() {
-    const memoryDisplay = document.getElementById('memory-display');
-    if (memoryDisplay && this.memoryData) {
-      memoryDisplay.textContent = JSON.stringify(this.memoryData, null, 2);
-    }
-
-    const tricksList = document.getElementById('learned-tricks-list');
-    if (tricksList && this.memoryData && this.memoryData.learned_movements) {
-      tricksList.innerHTML = '';
-      this.memoryData.learned_movements.forEach((trick) => {
-        const btn = document.createElement('button');
-        btn.className = 'trick-btn';
-        btn.innerHTML = `✨ <strong>${trick.name}</strong> <small>(${trick.created_by || 'IA'})</small><br><small>${trick.sequence.join(' ➔ ')}</small>`;
-        btn.onclick = () => {
-          this.executeMovementSequence(trick.sequence);
-        };
-        tricksList.appendChild(btn);
-      });
-    }
-  }
-
-  update(delta) {
+  update(dt) {
+    if (this._disposed) return;
     if (this.config.autoThink) {
-      this.thinkCooldown -= delta;
+      this.thinkCooldown -= dt;
       if (this.thinkCooldown <= 0 && !this.isThinking) {
         this.thinkCooldown = Math.max(5, this.config.intervalSeconds);
-        this.think();
+        this.triggerFreeWillThought();
       }
     }
   }
 
-  // FIXED: Zero-latency physical dispatch without duplicating chat messages or restarting running actions
+  handleUserCommand(text, targetDogName = null) {
+    if (!text || this._disposed) return;
+    if (
+      targetDogName &&
+      targetDogName !== 'ALL' &&
+      this.packManager &&
+      typeof this.packManager.setPlayerDog === 'function' &&
+      appState.activeRobotName !== targetDogName
+    ) {
+      this.packManager.setPlayerDog(targetDogName);
+    }
+    this.think(text);
+  }
+
+  triggerFreeWillThought() {
+    if (this._disposed || this.isThinking) return;
+    this.think(null);
+  }
+
+  async pingLlm() {
+    const t0 = performance.now();
+    try {
+      const res = await fetch('/api/llm/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: this.config.endpoint,
+          apiKey: this.config.apiKey,
+          model: this.config.model,
+          messages: [{ role: 'user', content: 'Di "OK" en 2 palabras' }],
+          max_tokens: 16
+        })
+      });
+      const latencyMs = Math.round(performance.now() - t0);
+      const data = await res.json();
+      appState.telemetry.apiCalls++;
+      if (res.ok && data.choices && data.choices.length > 0) {
+        const reply = data.choices[0].message?.content || 'Conectado';
+        appState.telemetry.aiPingMs = latencyMs;
+        this.eventBus.emit('telemetry:llm', {
+          latencyMs,
+          model: data.model || this.config.model,
+          ok: true,
+          preview: reply,
+          totalCalls: appState.telemetry.apiCalls
+        });
+        return { ok: true, latencyMs, model: data.model || this.config.model, reply };
+      }
+      const errMsg = data.error?.message || data.error || 'Error de autenticación/endpoint';
+      this.eventBus.emit('telemetry:llm', {
+        latencyMs,
+        model: this.config.model,
+        ok: false,
+        preview: errMsg,
+        totalCalls: appState.telemetry.apiCalls
+      });
+      return { ok: false, latencyMs, error: errMsg };
+    } catch (err) {
+      const latencyMs = Math.round(performance.now() - t0);
+      this.eventBus.emit('telemetry:llm', {
+        latencyMs,
+        model: this.config.model,
+        ok: false,
+        preview: err.message,
+        totalCalls: appState.telemetry.apiCalls
+      });
+      return { ok: false, latencyMs, error: err.message };
+    }
+  }
+
   async think(customUserPrompt = null) {
-    if (this.isThinking) return;
+    if (this.isThinking || this._disposed) return;
+    const dog = this.getActiveRobot();
+    if (!dog) return;
+
     this.isThinking = true;
+    this.eventBus.emit('brain:status', { thinking: true });
 
     let dispatchedAction = null;
+    const profile = this._getProfile(dog);
 
     if (customUserPrompt) {
-      const immediateDecision = this.extractIntentFromText(null, customUserPrompt);
-      if (immediateDecision && immediateDecision.action) {
-        dispatchedAction = immediateDecision.action;
-        this.executeAction(immediateDecision.action, immediateDecision.interaction);
-        if (immediateDecision.emotion && EMOTIONS[immediateDecision.emotion]) {
-          this.robot.setEmotion(EMOTIONS[immediateDecision.emotion]);
+      const immediate = this.extractIntentFromText(null, customUserPrompt, dog);
+      if (immediate && immediate.action && !immediate.invent_movement) {
+        dispatchedAction = immediate.action;
+        this.executeAction(immediate.action, immediate.interaction);
+        if (immediate.emotion && EMOTIONS[immediate.emotion]) {
+          dog.setEmotion(EMOTIONS[immediate.emotion]);
         }
-        roboAudio.playBoop(this.robot.profile ? this.robot.profile.voicePitch : 1.0);
+        roboAudio.playBoop(profile.voicePitch || 1.0);
       }
     }
 
-    const thinkStatusEl = document.getElementById('think-status');
-    if (thinkStatusEl) {
-      thinkStatusEl.textContent = '🧠 Pensando...';
-      thinkStatusEl.classList.add('pulse');
-    }
+    const body = this.vision && typeof this.vision.getBodyState === 'function'
+      ? this.vision.getBodyState(dog)
+      : {
+          name: dog.name,
+          position: {
+            x: Number(dog.group.position.x.toFixed(1)),
+            y: Number(dog.group.position.y.toFixed(1)),
+            z: Number(dog.group.position.z.toFixed(1))
+          },
+          current_area: this.vision ? this.vision.getCurrentLocationName(dog.group.position) : 'Prado Esmeralda',
+          current_emotion: dog.currentEmotion ? dog.currentEmotion.name : 'Feliz'
+        };
 
-    const body = this.vision.getBodyState();
-    const visibleObjects = this.vision.getVisualSnapshot(this.packManager ? this.packManager.pack : []);
+    const visibleObjects = this.vision && typeof this.vision.getVisualSnapshot === 'function'
+      ? this.vision.getVisualSnapshot(dog)
+      : [];
 
-    const recentMemories = (this.memoryData && this.memoryData.journal)
+    const recentMemories = (this.memoryData && Array.isArray(this.memoryData.journal))
       ? this.memoryData.journal.slice(-2).map(j => `[${j.author || 'Perrito'}]: ${j.thought}`)
       : [];
 
     const sensoryContext = {
-      robot_active: this.robot.name,
-      title: this.robot.profile.title,
+      robot_active: dog.name,
+      title: profile.title,
       body,
       canine_drives: {
-        energy: Math.round(this.robot.energy || 100),
-        affection: Math.round(this.robot.affection || 88),
-        hydration: Math.round(this.robot.hydration || 90),
-        curiosity: Math.round(this.robot.curiosity || 85),
-        playfulness: Math.round(this.robot.playfulness || 80)
+        energy: Math.round(dog.energy ?? 100),
+        affection: Math.round(dog.affection ?? 88),
+        hydration: Math.round(dog.hydration ?? 90),
+        curiosity: Math.round(dog.curiosity ?? 85),
+        playfulness: Math.round(dog.playfulness ?? 80)
       },
       sees: visibleObjects,
-      holding_in_mouth: this.robot.carriedObject ? 'Pelota de juego' : 'nada',
+      holding_in_mouth: dog.carriedObject ? 'Pelota de juego' : 'nada',
       recent_memories: recentMemories,
       user_command: customUserPrompt || null
     };
 
     let decision = null;
-
     if (this.config.apiKey && this.config.endpoint) {
       try {
-        decision = await this.callLLM(sensoryContext);
+        decision = await this.callLLM(sensoryContext, dog);
       } catch (err) {
-        console.warn("Fallo en FreeLLMsAPI, usando cerebro heurístico:", err);
-        decision = this.heuristicDecision(sensoryContext);
+        console.warn('[RobotBrain] Fallback heurístico:', err.message);
+        decision = this.heuristicDecision(sensoryContext, dog);
       }
     } else {
-      decision = this.heuristicDecision(sensoryContext);
+      decision = this.heuristicDecision(sensoryContext, dog);
     }
 
-    this.applyDecision(decision, dispatchedAction);
+    if (!this._disposed) {
+      this.applyDecision(decision, dispatchedAction, dog);
+    }
 
     this.isThinking = false;
-    if (thinkStatusEl) {
-      thinkStatusEl.textContent = 'Listo';
-      thinkStatusEl.classList.remove('pulse');
-    }
+    this.eventBus.emit('brain:status', { thinking: false });
   }
 
-  async callLLM(sensoryContext) {
-    const p = this.robot.profile;
+  async callLLM(sensoryContext, dog) {
+    const p = this._getProfile(dog);
     let systemPrompt = `Eres ${p.name} (${p.title}), un perrito robot inteligente con cognición canina avanzada, etología y libre albedrío en un mundo virtual 3D.
 Tu personalidad: ${p.description}.
 Tus impulsos biológicos caninos actuales son: ${JSON.stringify(sensoryContext.canine_drives)}.
-Lugares interactivos en el mundo:
-- "lago": Lago de Cristal con agua fresca reflectante y bote flotante.
-- "trampolin": Cama elástica para dar súper saltos en el aire.
-- "carrusel": Carrusel mecánico giratorio para pasear.
-- "porteria": Cancha con pelota de fútbol interactiva.
-- "disco": Pista de baile con luces neón y música.
-- "snack": Estación de galletas cibernéticas que recargan energía al 100%.
-- "casita": Estación de recarga y descanso.
-- "manada": Tus amigos perros robots (Sparky, Bolt, Pixel, Luna, Rusty).
-
-Acciones y comportamientos caninos que puedes ejecutar:
-- Conducta canina natural: playBow, headTilt, bellyRub, beg, shakeOff, nuzzle, fetch_ball, praise_burst, chorus_howl, scent_track.
-- Movimientos: walk, run, sit, lieDown, jump, wagTail, bark, sniff, scratch, backflip, spin, roll, wave, recharge, dig, howl, dance, sneak.
-- Navegación: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_soccer_goal, go_disco, go_snack, go_doghouse, go_fountain, go_bridge, go_seesaw, go_ballpit, go_slide, go_tunnel, go_target, go_pinata, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
-- Emociones: HAPPY, CURIOUS, LOVING, EXCITED, SLEEPY, ALERT, MISCHIEVOUS, PROUD, SCARED, HUNGRY, PARTY, CONFUSED.
-
-Responde SIEMPRE con un objeto JSON válido con este formato exacto:
-{
-  "thought": "Tu pensamiento o ladrido en primera persona acorde a tu psicología canina",
-  "emotion": "HAPPY",
-  "action": "playBow",
-  "interaction": "bounce_trampoline | kick_ball | eat_snack | drink_water | none",
-  "invent_movement": {"name": "Nombre Truco", "sequence": ["jump", "spin", "backflip"]},
-  "remember": "recuerdo clave para guardar en disco"
-}`;
+Lugares interactivos: "lago", "trampolin", "carrusel", "porteria", "disco", "snack", "casita", "manada".
+Conducta canina: playBow, headTilt, bellyRub, beg, shakeOff, nuzzle, fetch_ball, praise_burst, chorus_howl, scent_track.
+Movimientos: walk, run, sit, lieDown, jump, wagTail, bark, sniff, scratch, backflip, spin, roll, wave, recharge, dig, howl, dance, sneak.
+Navegación: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_disco, go_snack, go_doghouse, go_fountain, go_bridge, go_seesaw, go_ballpit, go_slide, go_tunnel, go_target, go_pinata, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
+Emociones: HAPPY, CURIOUS, LOVING, EXCITED, SLEEPY, ALERT, MISCHIEVOUS, PROUD, SCARED, HUNGRY, PARTY, CONFUSED.
+Responde SIEMPRE JSON válido exacto:
+{"thought":"...","emotion":"HAPPY","action":"playBow","interaction":"none","invent_movement":null,"remember":"..."}`;
 
     if (this.config.systemPrompt && this.config.systemPrompt.trim()) {
       systemPrompt = `${this.config.systemPrompt.trim()}\n\n${systemPrompt}`;
     }
 
-    const userPrompt = JSON.stringify(sensoryContext);
-
+    const t0 = performance.now();
     const res = await fetch('/api/llm/proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -381,25 +507,46 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
         model: this.config.model,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: JSON.stringify(sensoryContext) }
         ],
         max_tokens: 280,
         temperature: 0.7
       })
     });
 
-    if (!res.ok) throw new Error(`Proxy error ${res.status}`);
+    const latencyMs = Math.round(performance.now() - t0);
+    appState.telemetry.apiCalls++;
+
+    if (!res.ok) {
+      this.eventBus.emit('telemetry:llm', {
+        latencyMs,
+        model: this.config.model,
+        ok: false,
+        preview: `HTTP ${res.status}`,
+        totalCalls: appState.telemetry.apiCalls
+      });
+      throw new Error(`Proxy error ${res.status}`);
+    }
 
     const data = await res.json();
     const content = data.choices && data.choices[0] && data.choices[0].message
       ? data.choices[0].message.content
       : '';
 
-    return this.parseLLMResponse(content, sensoryContext.user_command);
+    appState.telemetry.aiPingMs = latencyMs;
+    this.eventBus.emit('telemetry:llm', {
+      latencyMs,
+      model: data.model || this.config.model,
+      ok: true,
+      preview: content,
+      totalCalls: appState.telemetry.apiCalls
+    });
+
+    return this.parseLLMResponse(content, sensoryContext.user_command, dog);
   }
 
   cleanThought(raw) {
-    if (!raw) return "¡Guau guau! ¡Entendido!";
+    if (!raw) return '¡Guau guau! ¡Entendido!';
     let s = String(raw).trim();
     const tMatch = s.match(/(?:^|[{,\s])["']?thought["']?\s*:\s*["']?([^"',}\n]+)["']?/i);
     if (tMatch) {
@@ -411,11 +558,11 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       s = s.replace(/,?\s*["']?interaction["']?\s*:\s*[^,}\n]+/gi, '');
       s = s.replace(/[{}"\\]/g, '').trim();
     }
-    return s || "¡Guau guau!";
+    return s || '¡Guau guau!';
   }
 
-  parseLLMResponse(content, userCommand) {
-    if (!content) return this.heuristicDecision({ user_command: userCommand });
+  parseLLMResponse(content, userCommand, dog) {
+    if (!content) return this.heuristicDecision({ user_command: userCommand }, dog);
 
     let jsonStr = '';
     const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -433,33 +580,29 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     if (jsonStr) {
       try {
         parsed = JSON.parse(jsonStr);
-      } catch (e) { }
+      } catch (e) {}
     }
 
     if (parsed && typeof parsed === 'object') {
-      const decision = {
+      const emotionKey = (parsed.emotion || 'HAPPY').toUpperCase();
+      return {
         thought: this.cleanThought(parsed.thought || content.substring(0, 120)),
-        emotion: (parsed.emotion || 'HAPPY').toUpperCase(),
+        emotion: EMOTIONS[emotionKey] ? emotionKey : 'HAPPY',
         action: parsed.action || 'wagTail',
         interaction: parsed.interaction || null,
         invent_movement: parsed.invent_movement || null,
         remember: parsed.remember || null
       };
-
-      if (!EMOTIONS[decision.emotion]) {
-        decision.emotion = 'HAPPY';
-      }
-      return decision;
     }
 
-    return this.extractIntentFromText(content, userCommand);
+    return this.extractIntentFromText(content, userCommand, dog);
   }
 
-  extractIntentFromText(text, userCommand) {
+  extractIntentFromText(text, userCommand, dog = this.getActiveRobot()) {
     const combined = `${userCommand || ''} ${text || ''}`.toLowerCase();
-    const p = this.robot.profile;
+    const p = this._getProfile(dog);
 
-    let thought = text ? this.cleanThought(text) : `¡Guau! ¡Enseguida lo hago!`;
+    let thought = text ? this.cleanThought(text) : '¡Guau! ¡Enseguida lo hago!';
     let emotion = 'HAPPY';
     let action = 'wagTail';
     let interaction = null;
@@ -467,18 +610,25 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     let remember = null;
 
     if (/buen chico|buena chica|good boy|good girl|hermoso|precioso|te quiero|te amo|lindo perro|crack|campe[oó]n|bien hecho|buen perrito/i.test(combined)) {
-      action = 'praise_burst';
-      emotion = 'LOVING';
-      thought = `¡Guau guau! ❤️ ¡Gracias humano! ¡Me siento el cachorro más feliz y leal del mundo!`;
-      remember = 'Mi humano me dijo "buen chico"; sentí una gran felicidad.';
-      return { thought, emotion, action, interaction: null, invent_movement: null, remember };
+      return {
+        thought: '¡Guau guau! ❤️ ¡Gracias humano! ¡Me siento el cachorro más feliz y leal del mundo!',
+        emotion: 'LOVING',
+        action: 'praise_burst',
+        interaction: null,
+        invent_movement: null,
+        remember: 'Mi humano me dijo "buen chico"; sentí una gran felicidad.'
+      };
     }
 
     if (/busca la pelota|trae la pelota|ve por la pelota|juega a la pelota|fetch|ve por el bal[oó]n|tr[aá]emela/i.test(combined)) {
-      action = 'fetch_ball';
-      emotion = 'EXCITED';
-      thought = `¡Allá voy! ¡Voy a perseguir la pelota a toda velocidad, la atraparé y te la traeré a tus pies!`;
-      return { thought, emotion, action, interaction: null, invent_movement: null, remember: 'Jugamos a traer la pelota.' };
+      return {
+        thought: '¡Allá voy! ¡Voy a perseguir la pelota a toda velocidad, la atraparé y te la traeré a tus pies!',
+        emotion: 'EXCITED',
+        action: 'fetch_ball',
+        interaction: null,
+        invent_movement: null,
+        remember: 'Jugamos a traer la pelota.'
+      };
     }
 
     if (/juguemos|a jugar|reverencia|postura de juego|play bow/i.test(combined)) {
@@ -488,7 +638,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     } else if (/ladea la cabeza|qu[eé] dices|escucha|atento|head tilt/i.test(combined)) {
       action = 'headTilt';
       emotion = 'CURIOUS';
-      thought = 'Ladeo mi cabecita a 25 grados y oriento mis orejas para escucharte con atención.';
+      thought = 'Ladeo mi cabecita y oriento mis orejas para escucharte con atención.';
     } else if (/panza arriba|barriga|cosquillas|belly rub|acaricia la panza/i.test(combined)) {
       action = 'bellyRub';
       emotion = 'LOVING';
@@ -504,7 +654,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     } else if (/hocico|beso|mimos|boop|nuzzle/i.test(combined)) {
       action = 'nuzzle';
       emotion = 'LOVING';
-      thought = 'Acerco mi hocico húmedo suavemente para darte un cariñoso "boop".';
+      thought = 'Acerco mi hocico suavemente para darte un cariñoso "boop".';
     } else if (/a[uú]llen todos|aullido de manada|coro|chorus/i.test(combined)) {
       action = 'chorus_howl';
       emotion = 'EXCITED';
@@ -687,17 +837,11 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     }
 
     if (/aprende|inventa|nuevo truco|coreograf[ií]a/i.test(combined)) {
-      const trickTitles = [
-        `Tornado Cibernético de ${p.name}`,
-        `Súper Combo Lunar de ${p.name}`,
-        `Acrobacia Rayo de ${p.name}`,
-        `Baile Sónico de ${p.name}`
-      ];
-      const moves = ['jump', 'spin', 'backflip', 'wave', 'dance', 'roll', 'howl'];
-      const chosenTitle = trickTitles[Math.floor(Math.random() * trickTitles.length)];
+      const baseTitle = TRICK_TITLES[Math.floor(Math.random() * TRICK_TITLES.length)];
+      const chosenTitle = `${baseTitle} de ${p.name}`;
       const seq = [
-        moves[Math.floor(Math.random() * moves.length)],
-        moves[Math.floor(Math.random() * moves.length)],
+        TRICK_MOVES[Math.floor(Math.random() * TRICK_MOVES.length)],
+        TRICK_MOVES[Math.floor(Math.random() * TRICK_MOVES.length)],
         'wagTail'
       ];
       invent = { name: chosenTitle, sequence: seq };
@@ -715,17 +859,16 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     };
   }
 
-  heuristicDecision(ctx) {
-    const p = this.robot.profile;
-    let thought = this.robot.getRandomPersonalThought();
+  heuristicDecision(ctx, dog = this.getActiveRobot()) {
+    const p = this._getProfile(dog);
+    let thought = this._getRandomThought(dog);
     let emotion = 'HAPPY';
     let action = 'wagTail';
     let interaction = null;
-    let remember = null;
     let invent = null;
 
     if (ctx.user_command) {
-      return this.extractIntentFromText('', ctx.user_command);
+      return this.extractIntentFromText('', ctx.user_command, dog);
     } else if (p.name === 'Bolt') {
       thought = '¡Mis propulsores están al máximo! ¡A toda velocidad hacia la pelota!';
       emotion = 'EXCITED';
@@ -748,7 +891,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
     }
 
     if (Math.random() < 0.2) {
-      const trickNames = [`Salto Estelar de ${p.name}`, `Giro Veloz ${p.name}`, `Ola Robótica`];
+      const trickNames = [`Salto Estelar de ${p.name}`, `Giro Veloz ${p.name}`, 'Ola Robótica'];
       const sequences = [
         ['jump', 'backflip', 'wagTail'],
         ['dance', 'spin', 'wave'],
@@ -766,38 +909,39 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       action,
       interaction,
       invent_movement: invent,
-      remember
+      remember: null
     };
   }
 
-  applyDecision(dec, alreadyDispatchedAction = null) {
-    if (!dec) return;
+  applyDecision(dec, alreadyDispatchedAction = null, dog = this.getActiveRobot()) {
+    if (!dec || !dog) return;
 
     if (dec.emotion && EMOTIONS[dec.emotion]) {
-      this.robot.setEmotion(EMOTIONS[dec.emotion]);
+      dog.setEmotion(EMOTIONS[dec.emotion]);
       if (this.particleSystem) {
-        this.particleSystem.spawnBurst(this.robot.group.position, dec.emotion);
+        this.particleSystem.spawnBurst(dog.group.position, dec.emotion);
       }
+      this.eventBus.emit('robot:emotion', { name: dog.name, emotion: dec.emotion });
     }
 
-    this.lastThought = dec.thought || "Explorando...";
-    const thoughtEl = document.getElementById('thought-bubble-text');
-    if (thoughtEl) thoughtEl.textContent = this.lastThought;
+    this.lastThought = dec.thought || 'Explorando...';
+    this.eventBus.emit('robot:thought', {
+      name: dog.name,
+      thought: this.lastThought,
+      emotion: dec.emotion || 'HAPPY',
+      action: dec.action || null
+    });
 
-    const worldBubble = document.getElementById('world-speech-bubble');
-    if (worldBubble) {
-      worldBubble.textContent = `🐾 ${this.robot.name}: "${this.lastThought}"`;
-      worldBubble.classList.remove('hidden');
-      clearTimeout(this.bubbleTimeout);
-      this.bubbleTimeout = setTimeout(() => {
-        worldBubble.classList.add('hidden');
-      }, 5500);
-    }
-
-    if (dec.invent_movement && dec.invent_movement.name && dec.invent_movement.sequence) {
-      this.addLearnedTrick(dec.invent_movement.name, `Inventado por ${this.robot.name}`, dec.invent_movement.sequence);
-      roboAudio.playTrickSuccess();
+    let ranSequence = false;
+    if (dec.invent_movement && dec.invent_movement.name && Array.isArray(dec.invent_movement.sequence)) {
+      this.addLearnedTrick(
+        dec.invent_movement.name,
+        `Inventado por ${dog.name}`,
+        dec.invent_movement.sequence
+      );
+      roboAudio.playSuccess();
       this.executeMovementSequence(dec.invent_movement.sequence);
+      ranSequence = true;
     }
 
     if (dec.remember) {
@@ -806,75 +950,92 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       this.addJournalEntry(dec.emotion || 'Curioso', dec.thought);
     }
 
-    if (this.onChatResponse && dec.thought) {
-      this.onChatResponse(this.robot.name, dec.thought, dec.action);
-    }
-
     if (dec.thought) {
-      this.speakThought(dec.thought, this.robot.profile ? this.robot.profile.voicePitch : 1.0);
+      this.eventBus.emit('chat:message', {
+        author: dog.name,
+        message: dec.thought,
+        role: 'robot',
+        targetDog: dog.name,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      this.speakThought(dec.thought, this._getProfile(dog).voicePitch || 1.0);
     }
 
-    // Only execute physical action if it wasn't already started at 0ms latency
-    if (dec.action && dec.action !== alreadyDispatchedAction) {
+    if (!ranSequence && dec.action && dec.action !== alreadyDispatchedAction) {
       this.executeAction(dec.action, dec.interaction);
     }
   }
 
   executeAction(action, interaction = null) {
-    if (!action) return;
-    this.clearActiveTimers();
-    const activeBot = this.robot;
+    if (this._disposed) return;
+    let resolvedAction = action;
+    if ((!resolvedAction || resolvedAction === 'none' || resolvedAction === 'idle') && interaction && INTERACTION_TO_ACTION[interaction]) {
+      resolvedAction = INTERACTION_TO_ACTION[interaction];
+    }
+    if (!resolvedAction) return;
 
-    // Call Pack assemble!
-    if (action === 'call_pack') {
-      if (this.packManager && this.packManager.callPackToPlayer) {
+    this._timers.clearAll();
+    const activeBot = this.getActiveRobot();
+    if (!activeBot) return;
+    const anim = this._getAnim(activeBot);
+    const pitch = this._getProfile(activeBot).voicePitch || 1.0;
+
+    this.eventBus.emit('robot:action', { name: activeBot.name, action: resolvedAction, source: 'ai' });
+
+    if (resolvedAction === 'call_pack') {
+      if (this.packManager && typeof this.packManager.callPackToPlayer === 'function') {
         this.packManager.callPackToPlayer(activeBot);
-        roboAudio.playHowl();
-        activeBot.animController.play('howl', 2.5);
-        this.addJournalEntry('Orgulloso', '¡Llamé a toda mi manada y nos reunimos en formación!');
-        return;
+      } else {
+        this.eventBus.emit('pack:assemble', { leader: activeBot });
       }
+      roboAudio.playHowl(pitch);
+      if (anim) anim.play('howl', 2.5);
+      this.addJournalEntry('Orgulloso', '¡Llamé a toda mi manada y nos reunimos en formación!');
+      return;
     }
 
-    // 1. Oxytocin Praise Burst
-    if (action === 'praise_burst') {
-      activeBot.praise();
+    if (resolvedAction === 'praise_burst') {
+      activeBot.setEmotion(EMOTIONS.LOVING);
+      activeBot.affection = Math.min(100, (activeBot.affection || 85) + 25);
+      activeBot.curiosity = Math.min(100, (activeBot.curiosity || 80) + 10);
+      activeBot.energy = Math.min(100, (activeBot.energy || 80) + 15);
+      activeBot.tailHelicopterTimer = 4.0;
+      roboAudio.playHappyJingle();
       if (this.particleSystem) {
         this.particleSystem.spawnBurst(activeBot.group.position, 'LOVING');
       }
-      activeBot.animController.play(Math.random() < 0.5 ? 'bellyRub' : 'playBow', 3.0);
+      if (anim) anim.play(Math.random() < 0.5 ? 'bellyRub' : 'playBow', 3.0);
       this.addJournalEntry('Cariñoso', '¡Mi humano me elogió! Sentí una oleada de amor y lealtad perruna.');
       return;
     }
 
-    // 2. Fetch & Bring Back (Cognitive Retrieval Loop)
-    if (action === 'fetch_ball') {
-      let ball = this.world.soccerBall;
-      if (!ball && this.world.balls && this.world.balls.length > 0) {
+    if (resolvedAction === 'fetch_ball') {
+      let ball = this.world?.soccerBall || null;
+      if (!ball && this.world?.balls?.length > 0) {
         ball = this.world.balls[0];
       }
       if (!ball) return;
 
-      const humanPos = activeBot.group.position.clone();
+      const returnPos = activeBot.group.position.clone();
       activeBot.setEmotion(EMOTIONS.EXCITED);
       roboAudio.playYip(1.3);
 
       this.navigateToward(ball.mesh.position, 7.2, 'run', () => {
-        activeBot.grabObject(ball.mesh);
+        if (typeof activeBot.grabObject === 'function') activeBot.grabObject(ball.mesh);
         ball.carriedBy = activeBot;
-        roboAudio.playGrumble ? roboAudio.playGrumble(1.1) : roboAudio.playBoop(1.4);
+        roboAudio.playGrumble(1.1);
         this.addJournalEntry('Juguetón', '¡Atrapé la pelota en mi hocico! Llevándosela a mi humano.');
 
-        this.navigateToward(humanPos, 6.6, 'run', () => {
-          const droppedMesh = activeBot.dropObject();
+        this.navigateToward(returnPos, 6.6, 'run', () => {
+          const droppedMesh = typeof activeBot.dropObject === 'function' ? activeBot.dropObject() : null;
           ball.carriedBy = null;
-          if (droppedMesh) {
+          if (droppedMesh && this.world?.scene) {
             this.world.scene.add(droppedMesh);
             droppedMesh.position.copy(activeBot.group.position);
             droppedMesh.position.y = this.world.getHeightAt(droppedMesh.position.x, droppedMesh.position.z) + ball.radius;
             ball.velocity.set(0, 0, 0);
           }
-          activeBot.animController.play('playBow', 2.8);
+          if (anim) anim.play('playBow', 2.8);
           activeBot.setEmotion(EMOTIONS.HAPPY);
           roboAudio.playHappyJingle();
           this.addJournalEntry('Feliz', '¡Te traje la pelota y la dejé a tus pies! ¡Lánzamela otra vez!');
@@ -883,48 +1044,51 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 3. Chorus Howl
-    if (action === 'chorus_howl') {
-      roboAudio.playHowl();
-      activeBot.animController.play('howl', 3.0);
+    if (resolvedAction === 'chorus_howl') {
+      roboAudio.playHowl(pitch);
+      if (anim) anim.play('howl', 3.0);
       activeBot.setEmotion(EMOTIONS.EXCITED);
-      if (this.packManager && this.packManager.pack) {
-        this.packManager.pack.forEach((otherBot, idx) => {
-          this.registerTimeout(() => {
-            otherBot.animController.play('howl', 2.8);
-            otherBot.setEmotion(EMOTIONS.EXCITED);
-            otherBot.lookAt(activeBot.group.position);
-          }, 350 + idx * 300);
-        });
+      const dogs = this.packManager?.dogs || (this.packManager?.pack || []);
+      for (let idx = 0; idx < dogs.length; idx++) {
+        const otherBot = dogs[idx];
+        if (!otherBot || otherBot === activeBot) continue;
+        this._timers.setTimeout(() => {
+          const otherAnim = this._getAnim(otherBot);
+          if (otherAnim) otherAnim.play('howl', 2.8);
+          otherBot.setEmotion(EMOTIONS.EXCITED);
+          otherBot.lookAt(activeBot.group.position);
+        }, 350 + idx * 300);
       }
       this.addJournalEntry('Emocionado', '¡Iniciamos un coro de aullidos en manada bajo el cielo virtual!');
       return;
     }
 
-    // 4. Scent Tracking
-    if (action === 'scent_track') {
-      activeBot.animController.play('sniff', 3.0);
+    if (resolvedAction === 'scent_track') {
+      if (anim) anim.play('sniff', 3.0);
       activeBot.setEmotion(EMOTIONS.CURIOUS);
       roboAudio.playBoop(1.1);
 
       let nearestPos = null;
       let minDist = Infinity;
       const rPos = activeBot.group.position;
-      const candidates = [];
-      if (this.world.snacks) this.world.snacks.forEach(s => candidates.push(s.group.position));
-      if (this.world.balls) this.world.balls.forEach(b => candidates.push(b.mesh.position));
-
-      candidates.forEach(pos => {
-        const d = rPos.distanceTo(pos);
-        if (d < minDist && d > 1.2) {
-          minDist = d;
-          nearestPos = pos;
+      if (this.world?.snacks) {
+        for (let i = 0; i < this.world.snacks.length; i++) {
+          const p = this.world.snacks[i].group.position;
+          const d = rPos.distanceTo(p);
+          if (d < minDist && d > 1.2) { minDist = d; nearestPos = p; }
         }
-      });
+      }
+      if (this.world?.balls) {
+        for (let i = 0; i < this.world.balls.length; i++) {
+          const p = this.world.balls[i].mesh.position;
+          const d = rPos.distanceTo(p);
+          if (d < minDist && d > 1.2) { minDist = d; nearestPos = p; }
+        }
+      }
 
       if (nearestPos) {
         this.navigateToward(nearestPos, 3.8, 'walk', () => {
-          activeBot.animController.play('wagTail', 2.0);
+          if (anim) anim.play('wagTail', 2.0);
           activeBot.setEmotion(EMOTIONS.HAPPY);
           roboAudio.playHappyJingle();
           this.addJournalEntry('Curioso', '¡Mi olfato cibernético siguió el rastro y encontré un objeto en el prado!');
@@ -933,8 +1097,7 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 5. Patrol Perimeter
-    if (action === 'patrol_perimeter') {
+    if (resolvedAction === 'patrol_perimeter') {
       const waypoints = [
         new THREE.Vector3(70, 0, 70),
         new THREE.Vector3(70, 0, -70),
@@ -944,53 +1107,45 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       let wpIdx = 0;
       const visitNext = () => {
         if (wpIdx >= waypoints.length) {
-          activeBot.animController.play('wagTail', 2.0);
+          if (anim) anim.play('wagTail', 2.0);
           activeBot.setEmotion(EMOTIONS.PROUD);
           this.addJournalEntry('Alerta', '¡Ronda de patrullaje perimetral completada sin novedades!');
           return;
         }
         const wp = waypoints[wpIdx++];
         this.navigateToward(wp, 4.2, 'walk', () => {
-          activeBot.animController.play('patrolLook', 2.8);
+          if (anim) anim.play('patrolLook', 2.8);
           activeBot.setEmotion(EMOTIONS.ALERT);
           roboAudio.playBoop(1.2);
-          this.registerTimeout(visitNext, 2900);
+          this._timers.setTimeout(visitNext, 2900);
         });
       };
       visitNext();
       return;
     }
 
-    // 6. Chase Its Own Tail
-    if (action === 'chase_tail') {
+    if (resolvedAction === 'chase_tail') {
       activeBot.setEmotion(EMOTIONS.EXCITED);
-      activeBot.animController.play('chaseTail', 3.8);
+      if (anim) anim.play('chaseTail', 3.6);
       roboAudio.playYip(1.4);
-      let spinTime = 0;
-      const spinInterval = this.registerInterval(() => {
-        spinTime += 0.05;
-        activeBot.group.rotation.y += 0.42;
-        if (spinTime >= 3.6) {
-          clearInterval(spinInterval);
-          activeBot.setEmotion(EMOTIONS.CONFUSED);
-          activeBot.animController.play('dizzy', 2.5);
-          if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'CONFUSED');
-          roboAudio.playConfused();
-          this.addJournalEntry('Juguetón', '¡Giré tanto persiguiéndome la cola que me mareé y caí sentado!');
-        }
-      }, 50);
+      this._timers.setTimeout(() => {
+        activeBot.setEmotion(EMOTIONS.CONFUSED);
+        if (anim) anim.play('dizzy', 2.5);
+        if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'CONFUSED');
+        roboAudio.playConfused();
+        this.addJournalEntry('Juguetón', '¡Giré tanto persiguiéndome la cola que me mareé y caí sentado!');
+      }, 3600);
       return;
     }
 
-    // 7. Slalom Agility Rings
-    if (action === 'slalom_rings') {
-      if (this.world.slalomRings && this.world.slalomRings.length > 0) {
+    if (resolvedAction === 'slalom_rings') {
+      if (this.world?.slalomRings?.length > 0) {
         let rIdx = 0;
         const rings = this.world.slalomRings;
         const jumpThroughNext = () => {
           if (rIdx >= rings.length) {
             activeBot.setEmotion(EMOTIONS.PROUD);
-            activeBot.animController.play('backflip', 1.6);
+            if (anim) anim.play('backflip', 1.6);
             roboAudio.playGoalFanfare();
             this.addJournalEntry('Orgulloso', '¡Completé el circuito de aros de agilidad con saltos perfectos!');
             return;
@@ -998,15 +1153,14 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
           const ring = rings[rIdx++];
           this.navigateToward(ring.entryPos, 6.2, 'run', () => {
             roboAudio.playTrampoline();
-            activeBot.animController.play('jump', 1.2);
+            if (anim) anim.play('jump', 1.2);
             let p = 0;
-            const leapInterval = this.registerInterval(() => {
+            const leapId = this._timers.setInterval(() => {
               p += 0.08;
               activeBot.group.position.lerpVectors(ring.entryPos, ring.exitPos, p);
-              const leapH = 1.6 * (4 * p * (1 - p));
-              activeBot.group.position.y = ring.entryPos.y + leapH;
+              activeBot.group.position.y = ring.entryPos.y + 1.6 * (4 * p * (1 - p));
               if (p >= 1.0) {
-                clearInterval(leapInterval);
+                this._timers.clear(leapId);
                 jumpThroughNext();
               }
             }, 35);
@@ -1017,22 +1171,26 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 8. Soccer Kick Shot to Goal
-    if (action === 'soccer_kick') {
-      const ball = this.world.soccerBall;
-      const goalPos = new THREE.Vector3(25, 1, 40);
+    if (resolvedAction === 'soccer_kick') {
+      const ball = this.world?.soccerBall;
       if (ball) {
+        const goalPos = TMP.v5.set(25, 1, 40);
         const ballPos = ball.mesh.position;
-        const kickDir = new THREE.Vector3().subVectors(goalPos, ballPos).normalize();
-        const approachPos = new THREE.Vector3().subVectors(ballPos, kickDir.clone().multiplyScalar(2.0));
+        const kickDir = TMP.v6.subVectors(goalPos, ballPos).normalize();
+        const approachPos = new THREE.Vector3().subVectors(ballPos, kickDir).addScaledVector(kickDir, -1.0);
         approachPos.y = this.world.getHeightAt(approachPos.x, approachPos.z);
+        const savedKickDir = kickDir.clone();
 
         this.navigateToward(approachPos, 7.0, 'run', () => {
-          activeBot.lookAt(goalPos);
-          activeBot.animController.play('jump', 1.2);
+          activeBot.lookAt(new THREE.Vector3(25, 1, 40));
+          if (anim) anim.play('jump', 1.2);
           roboAudio.playBark(1.3);
-          ball.velocity.copy(kickDir.multiplyScalar(26));
-          ball.velocity.y = 8.5;
+          if (typeof this.world.kickBall === 'function') {
+            this.world.kickBall(ball, savedKickDir, 26);
+          } else {
+            ball.velocity.copy(savedKickDir).multiplyScalar(26);
+            ball.velocity.y = 8.5;
+          }
           activeBot.setEmotion(EMOTIONS.PROUD);
           this.addJournalEntry('Orgulloso', '¡Alineé el tiro y rematé el balón directo al centro de la portería!');
         });
@@ -1040,21 +1198,20 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 9. Trampoline Consecutive Bounces
-    if (action === 'trampoline_trick') {
-      const trampPos = new THREE.Vector3(38, 0, 22);
+    if (resolvedAction === 'trampoline_trick') {
+      const trampPos = this.world?.trampolinePos || new THREE.Vector3(38, 0, 22);
       this.navigateToward(trampPos, 6.0, 'run', () => {
         let bounces = 0;
         const doBounce = () => {
           bounces++;
-          const force = 5.5 + bounces * 1.8;
-          activeBot.velocityY = force;
+          const force = 6.5 + bounces * 1.8;
+          this._setDogVelocityY(activeBot, force);
           activeBot.group.position.y += 0.25;
           roboAudio.playTrampoline();
-          activeBot.animController.play('backflip', 1.5);
+          if (anim) anim.play('backflip', 1.5);
           activeBot.setEmotion(EMOTIONS.EXCITED);
           if (bounces < 3) {
-            this.registerTimeout(doBounce, 1300);
+            this._timers.setTimeout(doBounce, 1300);
           } else {
             this.addJournalEntry('Juguetón', '¡Hice 3 rebotes consecutivos cada vez más altos con piruetas 360°!');
           }
@@ -1064,27 +1221,28 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 10. Agility Slide
-    if (action === 'slide_down') {
+    if (resolvedAction === 'slide_down' || resolvedAction === 'go_slide') {
       const slidePos = new THREE.Vector3(-18, 0, -32);
       this.navigateToward(slidePos, 5.8, 'run', () => {
-        if (this.world.slide) {
+        if (this.world?.slide) {
           activeBot.isSliding = true;
           activeBot.group.position.copy(this.world.slide.topPos);
           activeBot.lookAt(new THREE.Vector3(-18, 0, -20));
-          activeBot.animController.play('headTilt', 1.2);
-          this.registerTimeout(() => {
-            this.world.logActivity(`🎢 ¡${activeBot.name} se lanzó por el tobogán a gran velocidad!`);
+          if (anim) anim.play('headTilt', 1.0);
+          this._timers.setTimeout(() => {
+            this.eventBus.emit('world:activity', {
+              text: `🎢 ¡${activeBot.name} se lanzó por el tobogán a gran velocidad!`,
+              level: 'info'
+            });
             let p = 0;
-            activeBot.animController.play('roll', 2.0);
-            const iv = this.registerInterval(() => {
+            if (anim) anim.play('roll', 2.0);
+            const slideId = this._timers.setInterval(() => {
               p += 0.08;
-              activeBot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, p);
-              activeBot.group.position.y = THREE.MathUtils.lerp(this.world.slide.topPos.y, this.world.slide.endPos.y, p);
+              activeBot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, Math.min(1, p));
               if (p >= 1.0) {
-                clearInterval(iv);
+                this._timers.clear(slideId);
                 activeBot.isSliding = false;
-                activeBot.animController.play('backflip', 1.5);
+                if (anim) anim.play('backflip', 1.5);
                 roboAudio.playHappyJingle();
                 this.addJournalEntry('Juguetón', '¡Me deslicé por el tobogán y aterricé en la colchoneta con estilo!');
               }
@@ -1095,23 +1253,22 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 11. Lake Swimming & Drying Shake-Off
-    if (action === 'lake_swim' || action === 'go_lake') {
+    if (resolvedAction === 'lake_swim' || resolvedAction === 'go_lake') {
       const beachPos = new THREE.Vector3(-55, 0, -55);
       this.navigateToward(beachPos, 5.2, 'run', () => {
         const swimPos = new THREE.Vector3(-66, -0.52, -66);
         this.navigateToward(swimPos, 3.2, 'swimming', () => {
           roboAudio.playSplash();
           activeBot.isInWater = true;
-          activeBot.animController.play('swimming');
+          if (anim) anim.play('swimming');
           activeBot.setEmotion(EMOTIONS.HAPPY);
           this.addJournalEntry('Feliz', '¡Nadando en el Lago de Cristal moviendo las patitas bajo la superficie!');
 
-          this.registerTimeout(() => {
+          this._timers.setTimeout(() => {
             this.navigateToward(beachPos, 3.5, 'swimming', () => {
               activeBot.isInWater = false;
               activeBot.wasInWater = false;
-              activeBot.animController.play('shakeOff', 2.0);
+              if (anim) anim.play('shakeOff', 2.0);
               roboAudio.playSplash();
               if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'HAPPY');
               this.addJournalEntry('Feliz', '¡Salí del agua a tierra firme y me sacudí con fuerza para secarme!');
@@ -1122,83 +1279,91 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 12. Play Tag
-    if (action === 'play_tag') {
-      if (this.packManager && this.packManager.startTagGame) {
+    if (resolvedAction === 'play_tag') {
+      if (this.packManager && typeof this.packManager.startTagGame === 'function') {
         this.packManager.startTagGame(activeBot);
-        return;
+      } else {
+        this.eventBus.emit('pack:tagGame', { initiator: activeBot });
       }
+      return;
     }
 
-    // 13. Speed Race (Both Pack and Player Robot race to the destination!)
-    if (action === 'speed_race') {
-      if (this.packManager && this.packManager.startSpeedRace) {
-        const raceDest = this.packManager.startSpeedRace(activeBot);
-        if (raceDest) {
-          this.navigateToward(raceDest, 7.2, 'run', () => {
-            activeBot.animController.play('backflip', 1.8);
-            activeBot.setEmotion(EMOTIONS.PROUD);
-          });
-        }
-        return;
+    if (resolvedAction === 'speed_race') {
+      let raceDest = null;
+      if (this.packManager && typeof this.packManager.startSpeedRace === 'function') {
+        raceDest = this.packManager.startSpeedRace(activeBot);
+      } else {
+        raceDest = new THREE.Vector3(25, 0, 40);
+        this.eventBus.emit('pack:speedRace', { initiator: activeBot, destination: raceDest });
       }
+      if (raceDest) {
+        this.navigateToward(raceDest, 7.2, 'run', () => {
+          if (anim) anim.play('backflip', 1.8);
+          activeBot.setEmotion(EMOTIONS.PROUD);
+        });
+      }
+      return;
     }
 
-    // 14. Pack Gossip
-    if (action === 'pack_gossip') {
-      if (this.packManager && this.packManager.startPackGossip) {
+    if (resolvedAction === 'pack_gossip') {
+      if (this.packManager && typeof this.packManager.startPackGossip === 'function') {
         this.packManager.startPackGossip(activeBot);
-        activeBot.animController.play('wagTail', 3.0);
-        return;
+      } else {
+        this.eventBus.emit('pack:gossip', { initiator: activeBot });
       }
+      if (anim) anim.play('wagTail', 3.0);
+      return;
     }
 
-    // 15. Dig Treasure
-    if (action === 'dig_treasure') {
+    if (resolvedAction === 'dig_treasure') {
       let nearestSpot = null;
       let minD = Infinity;
       const rPos = activeBot.group.position;
-      if (this.world.treasureSpots) {
-        this.world.treasureSpots.forEach(s => {
+      if (this.world?.treasureSpots) {
+        for (let i = 0; i < this.world.treasureSpots.length; i++) {
+          const s = this.world.treasureSpots[i];
           if (!s.dug) {
             const d = Math.hypot(rPos.x - s.x, rPos.z - s.z);
             if (d < minD) { minD = d; nearestSpot = s; }
           }
-        });
+        }
       }
-      const targetP = nearestSpot ? new THREE.Vector3(nearestSpot.x, 0, nearestSpot.z) : new THREE.Vector3(rPos.x + 2, 0, rPos.z + 2);
+      const targetP = nearestSpot
+        ? new THREE.Vector3(nearestSpot.x, 0, nearestSpot.z)
+        : new THREE.Vector3(rPos.x + 2, 0, rPos.z + 2);
       this.navigateToward(targetP, 4.8, 'run', () => {
-        activeBot.animController.play('dig', 3.2);
+        if (anim) anim.play('dig', 3.2);
         activeBot.setEmotion(EMOTIONS.CURIOUS);
         roboAudio.playBoop(1.2);
         if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'CURIOUS');
-        this.registerTimeout(() => {
-          if (nearestSpot && this.world.revealDugTreasure) {
+        this._timers.setTimeout(() => {
+          if (nearestSpot && this.world && typeof this.world.revealDugTreasure === 'function') {
             this.world.revealDugTreasure(activeBot, nearestSpot);
           }
-          activeBot.animController.play('wagTail', 2.0);
+          if (anim) anim.play('wagTail', 2.0);
           activeBot.setEmotion(EMOTIONS.PROUD);
         }, 3200);
       });
       return;
     }
 
-    // 16. Hunt Butterfly
-    if (action === 'hunt_butterfly') {
+    if (resolvedAction === 'hunt_butterfly') {
       let targetBfly = null;
       let minD = Infinity;
       const rPos = activeBot.group.position;
-      if (this.world.butterflies && this.world.butterflies.length > 0) {
-        this.world.butterflies.forEach(b => {
-          const d = rPos.distanceTo(b.sprite.position);
-          if (d < minD) { minD = d; targetBfly = b; }
-        });
+      if (this.world?.butterflies?.length > 0) {
+        for (let i = 0; i < this.world.butterflies.length; i++) {
+          const b = this.world.butterflies[i];
+          const bPos = b.sprite ? b.sprite.position : b.position;
+          if (!bPos) continue;
+          const d = rPos.distanceTo(bPos);
+          if (d < minD) { minD = d; targetBfly = bPos; }
+        }
       }
       if (targetBfly) {
-        const dest = new THREE.Vector3(targetBfly.sprite.position.x, 0, targetBfly.sprite.position.z);
-        this.navigateToward(dest, 3.2, 'sneak', () => {
-          activeBot.animController.play('jump', 1.4);
-          activeBot.velocityY = 6.5;
+        this.navigateToward(new THREE.Vector3(targetBfly.x, 0, targetBfly.z), 3.2, 'sneak', () => {
+          if (anim) anim.play('jump', 1.4);
+          this._setDogVelocityY(activeBot, 6.5);
           activeBot.group.position.y += 0.2;
           roboAudio.playYip(1.5);
           activeBot.setEmotion(EMOTIONS.EXCITED);
@@ -1208,32 +1373,24 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // 17. Pine Tree Shade Nap
-    if (action === 'shade_nap') {
-      const shadePos = new THREE.Vector3(-22, 0, 18);
-      this.navigateToward(shadePos, 4.0, 'walk', () => {
-        let rotAngle = 0;
-        const circleIv = this.registerInterval(() => {
-          rotAngle += 0.25;
-          activeBot.group.rotation.y += 0.25;
-          if (rotAngle >= Math.PI * 4) {
-            clearInterval(circleIv);
-            activeBot.animController.play('lieDown', 6.0);
-            activeBot.setEmotion(EMOTIONS.SLEEPY);
-            if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'SLEEPY');
-            activeBot.energy = 100;
-            this.addJournalEntry('Somnoliento', 'Di dos vueltas sobre mí mismo y me eché a dormir una rica siesta bajo la sombra del pino.');
-          }
-        }, 50);
+    if (resolvedAction === 'shade_nap') {
+      this.navigateToward(new THREE.Vector3(-22, 0, 18), 4.0, 'walk', () => {
+        if (anim) anim.play('spin', 1.2);
+        this._timers.setTimeout(() => {
+          if (anim) anim.play('lieDown', 6.0);
+          activeBot.setEmotion(EMOTIONS.SLEEPY);
+          if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'SLEEPY');
+          activeBot.energy = 100;
+          this.addJournalEntry('Somnoliento', 'Di dos vueltas sobre mí mismo y me eché a dormir una rica siesta bajo la sombra del pino.');
+        }, 1250);
       });
       return;
     }
 
-    // 18. Beg for Pets to Camera
-    if (action === 'beg_pets') {
+    if (resolvedAction === 'beg_pets') {
       const curPos = activeBot.group.position;
       activeBot.lookAt(new THREE.Vector3(curPos.x + 1, curPos.y + 1, curPos.z + 2));
-      activeBot.animController.play('bellyRub', 4.0);
+      if (anim) anim.play('bellyRub', 4.0);
       activeBot.setEmotion(EMOTIONS.LOVING);
       if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'LOVING');
       roboAudio.playBoop(1.4);
@@ -1241,231 +1398,299 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    // Direct movement animations
-    const directAnims = [
-      'walk', 'run', 'sit', 'lieDown', 'jump', 'wagTail', 'bark', 'sniff', 'scratch',
-      'backflip', 'spin', 'roll', 'wave', 'recharge', 'dig', 'howl', 'dance', 'sneak',
-      'playBow', 'headTilt', 'bellyRub', 'beg', 'shakeOff', 'nuzzle', 'dizzy', 'swimming', 'patrolLook', 'scentTrack'
-    ];
-    if (directAnims.includes(action)) {
-      if (activeBot.animController) {
-        if (action === 'jump') {
-          activeBot.velocityY = 7.0;
-          activeBot.group.position.y += 0.15;
-        }
-        activeBot.animController.play(action, 2.5);
+    if (DIRECT_ANIMS.has(resolvedAction)) {
+      if (resolvedAction === 'jump') {
+        this._setDogVelocityY(activeBot, 7.0);
+        activeBot.group.position.y += 0.15;
+        roboAudio.playJump(pitch);
+      } else if (resolvedAction === 'bark') {
+        roboAudio.playBark(pitch);
       }
+      if (anim) anim.play(resolvedAction, 2.5);
       return;
     }
 
-    // Interactive Navigations
-    if (action === 'go_playground') {
+    if (resolvedAction === 'go_playground') {
       this.navigateToward(new THREE.Vector3(50, 0, 40), 5.5, 'run', () => {
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        activeBot.animController.play('wagTail', 2.0);
+        if (anim) anim.play('wagTail', 2.0);
       });
-    } else if (action === 'go_trampoline') {
-      const trampPos = new THREE.Vector3(38, 0, 22);
+    } else if (resolvedAction === 'go_trampoline') {
+      const trampPos = this.world?.trampolinePos || new THREE.Vector3(38, 0, 22);
       this.navigateToward(trampPos, 5.8, 'run', () => {
-        this.world.launchTrampoline(activeBot);
-        activeBot.velocityY = 8.5;
+        if (this.world && typeof this.world.launchTrampoline === 'function') {
+          this.world.launchTrampoline(activeBot);
+        }
+        this._setDogVelocityY(activeBot, 8.5);
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        activeBot.animController.play('backflip', 1.8);
+        if (anim) anim.play('backflip', 1.8);
         this.addJournalEntry('Juguetón', '¡Reboté súper alto en el trampolín cibernético!');
       });
-    } else if (action === 'go_carousel') {
-      const carouselPos = new THREE.Vector3(62, 0, 26);
+    } else if (resolvedAction === 'go_carousel') {
+      const carouselPos = this.world?.carouselGroup?.position || new THREE.Vector3(62, 0, 26);
       this.navigateToward(carouselPos, 4.8, 'walk', () => {
         activeBot.setEmotion(EMOTIONS.HAPPY);
-        activeBot.animController.play('spin', 3.0);
+        if (anim) anim.play('spin', 3.0);
         this.addJournalEntry('Feliz', 'Me subí al carrusel a dar alegres vueltas.');
       });
-    } else if (action === 'go_ball') {
-      let ballPos = new THREE.Vector3(42, 0.5, 38);
-      if (this.world && this.world.soccerBall) {
-        ballPos = this.world.soccerBall.mesh.position;
-      }
+    } else if (resolvedAction === 'go_ball') {
+      const ball = this.world?.soccerBall || this.world?.balls?.[0] || null;
+      const ballPos = ball ? ball.mesh.position : new THREE.Vector3(42, 0.5, 38);
       this.navigateToward(ballPos, 6.4, 'run', () => {
-        if (this.world && this.world.soccerBall) {
-          const ball = this.world.soccerBall;
-          const goalPos = new THREE.Vector3(25, 1, 40);
-          const kickDir = new THREE.Vector3().subVectors(goalPos, ball.mesh.position).normalize();
-          ball.velocity.copy(kickDir.multiplyScalar(22));
-          ball.velocity.y = 7;
+        if (ball) {
+          const kickDir = new THREE.Vector3(25, 1, 40).sub(ball.mesh.position).normalize();
+          if (typeof this.world.kickBall === 'function') {
+            this.world.kickBall(ball, kickDir, 22);
+          } else {
+            ball.velocity.copy(kickDir).multiplyScalar(22);
+            ball.velocity.y = 7;
+          }
           roboAudio.playBark(1.2);
-          activeBot.animController.play('jump', 1.2);
+          if (anim) anim.play('jump', 1.2);
           activeBot.setEmotion(EMOTIONS.PROUD);
           this.addJournalEntry('Orgulloso', '¡Pateé la pelota de fútbol con toda la potencia hacia la portería!');
         }
       });
-    } else if (action === 'go_disco') {
-      const discoPos = new THREE.Vector3(52, 0, 56);
-      this.navigateToward(discoPos, 5.4, 'run', () => {
-        this.world.triggerDiscoParty();
+    } else if (resolvedAction === 'go_disco') {
+      this.navigateToward(new THREE.Vector3(52, 0, 56), 5.4, 'run', () => {
+        if (this.world && typeof this.world.triggerDiscoParty === 'function') {
+          this.world.triggerDiscoParty();
+        }
         activeBot.setEmotion(EMOTIONS.PARTY);
-        activeBot.animController.play('dance', 3.5);
+        if (anim) anim.play('dance', 3.5);
         this.addJournalEntry('Fiestero', '¡Llegué a la pista disco a poner el mejor ambiente!');
       });
-    } else if (action === 'go_snack') {
-      let snackPos = new THREE.Vector3(46, 0, 48);
-      if (this.world.snacks && this.world.snacks.length > 0) {
-        snackPos = this.world.snacks[0].group.position;
-      }
+    } else if (resolvedAction === 'go_snack') {
+      const snackPos = this.world?.snacks?.length > 0
+        ? this.world.snacks[0].group.position
+        : new THREE.Vector3(46, 0, 48);
       this.navigateToward(snackPos, 5.8, 'run', () => {
         activeBot.energy = 100;
         roboAudio.playSnackMunch();
         activeBot.setEmotion(EMOTIONS.HUNGRY);
-        activeBot.animController.play('sniff', 2.0);
+        if (anim) anim.play('sniff', 2.0);
         this.addJournalEntry('Glotón', '¡Me comí una rica ciborgalleta y recargué mi energía al 100%!');
       });
-    } else if (action === 'go_doghouse') {
-      const housePos = new THREE.Vector3(72, 0, 52);
-      this.navigateToward(housePos, 4.2, 'walk', () => {
+    } else if (resolvedAction === 'go_doghouse') {
+      this.navigateToward(new THREE.Vector3(72, 0, 52), 4.2, 'walk', () => {
         activeBot.energy = 100;
         activeBot.setEmotion(EMOTIONS.SLEEPY);
-        activeBot.animController.play('lieDown', 3.0);
+        if (anim) anim.play('lieDown', 3.0);
         this.addJournalEntry('Somnoliento', 'Descansando plácidamente en la estación de recarga.');
       });
-    } else if (action === 'go_fountain') {
-      const fPos = new THREE.Vector3(12, 0, 10);
-      this.navigateToward(fPos, 5.0, 'walk', () => {
-        if (activeBot.quenchThirst) activeBot.quenchThirst(40);
+    } else if (resolvedAction === 'go_fountain') {
+      this.navigateToward(new THREE.Vector3(12, 0, 10), 5.0, 'walk', () => {
+        if (typeof activeBot.quenchThirst === 'function') activeBot.quenchThirst();
+        else activeBot.hydration = 100;
         roboAudio.playSplash();
         activeBot.setEmotion(EMOTIONS.HAPPY);
-        activeBot.animController.play('wagTail', 2.5);
+        if (anim) anim.play('wagTail', 2.5);
         this.addJournalEntry('Feliz', 'Bebí agua fresca y deliciosa en la fuente cibernética.');
       });
-    } else if (action === 'go_bridge') {
-      const bPos = new THREE.Vector3(-46, 0, -48);
-      this.navigateToward(bPos, 4.8, 'walk', () => {
+    } else if (resolvedAction === 'go_bridge') {
+      this.navigateToward(new THREE.Vector3(-46, 0, -48), 4.8, 'walk', () => {
         activeBot.setEmotion(EMOTIONS.CURIOUS);
-        activeBot.animController.play('headTilt', 2.0);
+        if (anim) anim.play('headTilt', 2.0);
         this.addJournalEntry('Curioso', 'Crucé el puente de madera sobre el arroyo del lago.');
       });
-    } else if (action === 'go_seesaw') {
-      const sPos = new THREE.Vector3(48, 0, 32);
-      this.navigateToward(sPos, 5.2, 'run', () => {
+    } else if (resolvedAction === 'go_seesaw') {
+      this.navigateToward(new THREE.Vector3(48, 0, 32), 5.2, 'run', () => {
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        activeBot.animController.play('jump', 1.8);
+        if (anim) anim.play('playBow', 2.2);
         this.addJournalEntry('Juguetón', 'Me subí al balancín cibernético para balancearme con mis amigos.');
       });
-    } else if (action === 'go_ballpit') {
-      const pitPos = new THREE.Vector3(-32, 0, 48);
-      this.navigateToward(pitPos, 5.6, 'run', () => {
+    } else if (resolvedAction === 'go_ballpit') {
+      this.navigateToward(new THREE.Vector3(-32, 0, 48), 5.6, 'run', () => {
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        activeBot.animController.play('jump', 1.8);
+        this._setDogVelocityY(activeBot, 6.2);
+        if (anim) anim.play('jump', 1.8);
+        roboAudio.playSplash();
+        if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, 'EXCITED');
         this.addJournalEntry('Juguetón', '¡Me zambullí de lleno en la piscina de pelotas!');
       });
-    } else if (action === 'go_slide') {
-      this.executeAction('slide_down');
-    } else if (action === 'go_tunnel') {
-      const tunnelPos = new THREE.Vector3(22, 0, -50);
-      this.navigateToward(tunnelPos, 5.4, 'run', () => {
+    } else if (resolvedAction === 'go_tunnel') {
+      this.navigateToward(new THREE.Vector3(22, 0, -50), 5.4, 'run', () => {
         activeBot.setEmotion(EMOTIONS.CURIOUS);
-        activeBot.animController.play('sneak', 2.0);
+        if (anim) anim.play('sneak', 2.0);
         this.addJournalEntry('Curioso', '¡Pasé a toda velocidad por el túnel de agilidad!');
       });
-    } else if (action === 'go_target') {
-      const targetPos = new THREE.Vector3(76, 0, 18);
-      this.navigateToward(targetPos, 5.6, 'run', () => {
+    } else if (resolvedAction === 'go_target') {
+      this.navigateToward(new THREE.Vector3(70, 0, 18), 5.6, 'run', () => {
+        activeBot.lookAt(new THREE.Vector3(76, 3.2, 18));
         activeBot.setEmotion(EMOTIONS.PROUD);
-        activeBot.animController.play('bark', 2.0);
-        this.addJournalEntry('Orgulloso', '¡Llegué a la diana de tiro al blanco a probar mi puntería!');
+        if (anim) anim.play('bark', 1.6);
+        const ball = this.world?.soccerBall || this.world?.balls?.[0];
+        if (ball && this.world) {
+          ball.mesh.position.set(68, 1.5, 18);
+          const dir = new THREE.Vector3(1, 0.25, 0).normalize();
+          if (typeof this.world.kickBall === 'function') {
+            this.world.kickBall(ball, dir, 24);
+          } else {
+            ball.velocity.copy(dir).multiplyScalar(24);
+          }
+        }
+        this.addJournalEntry('Orgulloso', '¡Apunté y lancé el balón hacia la diana de tiro!');
       });
-    } else if (action === 'go_pinata') {
-      const pinataPos = new THREE.Vector3(-42, 0, 14);
-      this.navigateToward(pinataPos, 6.0, 'run', () => {
+    } else if (resolvedAction === 'go_pinata') {
+      this.navigateToward(new THREE.Vector3(-42, 0, 14), 6.0, 'run', () => {
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        activeBot.velocityY = 6.5;
+        this._setDogVelocityY(activeBot, 6.8);
         activeBot.group.position.y += 0.35;
-        activeBot.animController.play('jump', 1.5);
+        if (anim) anim.play('jump', 1.5);
         this.addJournalEntry('Juguetón', '¡Salté a golpear la piñata de galletas!');
       });
-    } else if (action.startsWith('go_robot_')) {
-      const targetName = action.replace('go_robot_', '');
-      if (this.packManager && this.packManager.allRobots[targetName]) {
-        const targetBot = this.packManager.allRobots[targetName];
+    } else if (resolvedAction.startsWith('go_robot_')) {
+      const targetName = resolvedAction.replace('go_robot_', '');
+      const targetBot = typeof this.packManager?.getDog === 'function'
+        ? this.packManager.getDog(targetName)
+        : this.packManager?.allRobots?.[targetName];
+      if (targetBot) {
         this.navigateToward(targetBot.group.position, 5.2, 'run', () => {
           activeBot.lookAt(targetBot.group.position);
-          activeBot.animController.play('wave', 2.0);
+          if (anim) anim.play('wave', 2.0);
           activeBot.setEmotion(EMOTIONS.LOVING);
           targetBot.lookAt(activeBot.group.position);
-          targetBot.animController.play('wagTail', 2.0);
+          const tAnim = this._getAnim(targetBot);
+          if (tAnim) tAnim.play('wagTail', 2.0);
           targetBot.setEmotion(EMOTIONS.HAPPY);
-          roboAudio.playBark(activeBot.profile.voicePitch || 1.0);
+          roboAudio.playBark(pitch);
           this.addJournalEntry('Cariñoso', `Fui a saludar a mi amigo ${targetName} y jugamos juntos.`);
         });
       }
+    } else {
+      // Safe fallback for unrecognized action labels
+      if (anim) anim.play('wagTail', 2.0);
     }
   }
 
   executeMovementSequence(sequence) {
-    if (this.robot.animController) {
-      this.robot.animController.playSequence(sequence, () => {
-        this.robot.setEmotion(EMOTIONS.HAPPY);
-        roboAudio.playHappyJingle();
-      });
+    const dog = this.getActiveRobot();
+    const anim = this._getAnim(dog);
+    if (!anim) return;
+
+    const onDone = () => {
+      dog.setEmotion(EMOTIONS.HAPPY);
+      roboAudio.playHappyJingle();
+    };
+    if (typeof anim.queueSequence === 'function') {
+      anim.queueSequence(sequence, onDone);
+    } else if (typeof anim.playSequence === 'function') {
+      anim.playSequence(sequence, onDone);
     }
   }
 
-  navigateToward(targetPos, speed = 4.8, anim = 'walk', onArrival = null) {
-    if (this.robot.animController) this.robot.animController.play(anim);
-    this.navTarget = targetPos.clone();
-    this.navSpeed = speed * (this.robot.profile ? this.robot.profile.speedMultiplier : 1.0);
+  navigateToward(targetPos, speed = 4.8, animName = 'walk', onArrival = null) {
+    const dog = this.getActiveRobot();
+    if (!dog || !targetPos) return;
+    const anim = this._getAnim(dog);
+    if (anim) anim.play(animName);
+
+    this._navTarget.copy(targetPos);
+    const mult = this._getProfile(dog).speedMultiplier || 1.0;
+    this.navSpeed = speed * mult;
     this.isNavigating = true;
     this.navTimer = 0;
     this.navMaxTime = 16.0;
     this.navStuckTime = 0;
-    this.navLastPos = this.robot.group.position.clone();
+    this._navLastPos.copy(dog.group.position);
     this.onArrivalCallback = onArrival;
-    this.robot.startMission(anim, anim, targetPos, 16.0, onArrival);
+
+    appState.navigation.active = true;
+    appState.navigation.target = this._navTarget;
+    appState.navigation.mode = animName;
+
+    if (typeof dog.startMission === 'function') {
+      dog.startMission(animName, animName, this._navTarget, 16.0, onArrival);
+    }
   }
 
-  updateNavigation(delta) {
-    if (!this.isNavigating || !this.navTarget) return;
+  // Zero-alloc steering helper using TMP.v3 / TMP.v4 and pre-allocated this._nearObstacles
+  _computeSteeringDir(pos, desiredDir) {
+    if (!this.world || typeof this.world.getNearObstacles !== 'function') return desiredDir;
+    const lookAhead = 2.4;
+    const probeX = pos.x + desiredDir.x * lookAhead;
+    const probeZ = pos.z + desiredDir.z * lookAhead;
 
-    this.navTimer += delta;
+    this._nearObstacles.length = 0;
+    this.world.getNearObstacles(probeX, probeZ, this._nearObstacles);
+
+    for (let i = 0; i < this._nearObstacles.length; i++) {
+      const obs = this._nearObstacles[i];
+      if (obs.yMin !== undefined && obs.yMax !== undefined) {
+        if (pos.y + 1.1 < obs.yMin || pos.y > obs.yMax) continue;
+      }
+      const dx = probeX - obs.x;
+      const dz = probeZ - obs.z;
+      const r = (obs.radius || Math.max(obs.halfW || 1, obs.halfD || 1)) + 1.1;
+      const dist = Math.hypot(dx, dz);
+      if (dist < r && dist > 0.001) {
+        TMP.v3.set(dx / dist, 0, dz / dist);
+        desiredDir.addScaledVector(TMP.v3, 1.35).normalize();
+        break;
+      }
+    }
+    return desiredDir;
+  }
+
+  updateNavigation(dt) {
+    if (!this.isNavigating || this._disposed) return;
+    const dog = this.getActiveRobot();
+    if (!dog) return;
+    const anim = this._getAnim(dog);
+
+    this.navTimer += dt;
     if (this.navTimer >= this.navMaxTime) {
       this.isNavigating = false;
-      this.robot.clearMission();
-      if (this.robot.animController) this.robot.animController.play('idle');
-      this.world.logActivity(`🐾 ${this.robot.name} completó su misión y queda libre para explorar.`);
+      appState.navigation.active = false;
+      appState.navigation.target = null;
+      appState.navigation.mode = null;
+      if (typeof dog.clearMission === 'function') dog.clearMission();
+      if (anim) anim.play('idle');
+      this.eventBus.emit('world:activity', {
+        text: `🐾 ${dog.name} completó su misión y queda libre para explorar.`,
+        level: 'info'
+      });
       return;
     }
 
-    const curPos = this.robot.group.position;
-    const diff = new THREE.Vector3().subVectors(this.navTarget, curPos);
+    const curPos = dog.group.position;
+    const diff = TMP.v1.subVectors(this._navTarget, curPos);
     diff.y = 0;
     const dist = diff.length();
 
-    if (this.navLastPos) {
-      const moved = Math.hypot(curPos.x - this.navLastPos.x, curPos.z - this.navLastPos.z);
-      this.navLastPos.copy(curPos);
-      if (moved < 0.045) {
-        this.navStuckTime += delta;
-        if (this.navStuckTime > 0.65) {
-          const tangent = new THREE.Vector3(-diff.z, 0, diff.x).normalize();
-          curPos.addScaledVector(tangent, delta * 4.2);
-        }
-        if (this.navStuckTime > 2.2) {
-          this.isNavigating = false;
-          this.robot.clearMission();
-          if (this.onArrivalCallback) {
-            const cb = this.onArrivalCallback;
-            this.onArrivalCallback = null;
-            cb();
-          }
-          return;
-        }
-      } else {
-        this.navStuckTime = Math.max(0, this.navStuckTime - delta * 2);
+    const moved = Math.hypot(curPos.x - this._navLastPos.x, curPos.z - this._navLastPos.z);
+    this._navLastPos.copy(curPos);
+    const actualSpeed = moved / Math.max(dt, 0.001);
+    if (actualSpeed < this.navSpeed * 0.25) {
+      this.navStuckTime += dt;
+      if (this.navStuckTime > 0.65 && dist > 0.001) {
+        TMP.v2.set(-diff.z, 0, diff.x).normalize();
+        curPos.addScaledVector(TMP.v2, dt * 4.2);
       }
+      if (this.navStuckTime > 2.2) {
+        this.isNavigating = false;
+        appState.navigation.active = false;
+        appState.navigation.target = null;
+        appState.navigation.mode = null;
+        if (typeof dog.clearMission === 'function') dog.clearMission();
+        if (this.onArrivalCallback) {
+          const cb = this.onArrivalCallback;
+          this.onArrivalCallback = null;
+          cb();
+        }
+        return;
+      }
+    } else {
+      this.navStuckTime = Math.max(0, this.navStuckTime - dt * 2);
     }
 
     if (dist < 2.0) {
       this.isNavigating = false;
-      this.robot.clearMission();
-      if (this.robot.animController) this.robot.animController.play('idle');
+      appState.navigation.active = false;
+      appState.navigation.target = null;
+      appState.navigation.mode = null;
+      if (typeof dog.clearMission === 'function') dog.clearMission();
+      if (anim) anim.play('idle');
       if (this.onArrivalCallback) {
         const cb = this.onArrivalCallback;
         this.onArrivalCallback = null;
@@ -1474,30 +1699,45 @@ Responde SIEMPRE con un objeto JSON válido con este formato exacto:
       return;
     }
 
-    diff.normalize();
-
-    // Proactive obstacle feeler steering
-    if (this.packManager && this.packManager.computeAvoidanceDir) {
-      const steered = this.packManager.computeAvoidanceDir(curPos, diff);
-      diff.copy(steered);
-    }
+    diff.divideScalar(dist);
+    this._computeSteeringDir(curPos, diff);
 
     const targetAngle = Math.atan2(diff.x, diff.z);
-    this.robot.group.rotation.y = lerpAngle(this.robot.group.rotation.y, targetAngle, delta * 7);
+    dog.group.rotation.y = dampAngle(dog.group.rotation.y, targetAngle, 7, dt);
 
-    curPos.addScaledVector(diff, this.navSpeed * delta);
+    curPos.addScaledVector(diff, this.navSpeed * dt);
     if (this.world) {
-      if (this.world.resolveObstacleCollisions) {
+      if (typeof this.world.resolveObstacleCollisions === 'function') {
         this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
       }
-      // World boundary clamping
-      const MAP_LIMIT = 110;
-      curPos.x = THREE.MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
-      curPos.z = THREE.MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
-      if (!this.robot.isInWater) {
+      if (typeof this.world.clampToWorld === 'function') {
+        this.world.clampToWorld(curPos, 0.75);
+      } else {
+        curPos.x = THREE.MathUtils.clamp(curPos.x, -110, 110);
+        curPos.z = THREE.MathUtils.clamp(curPos.z, -110, 110);
+      }
+      const vy = dog.physics ? dog.physics.velocityY : (dog.velocityY || 0);
+      if (!dog.isInWater && !(vy > 0) && (!dog.physics || dog.physics.isGrounded !== false)) {
         curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
       }
-      this.world.handleRobotInteractions(this.robot);
+      if (typeof this.world.handleRobotInteractions === 'function') {
+        this.world.handleRobotInteractions(dog, anim, dt);
+      }
     }
+  }
+
+  dispose() {
+    this._disposed = true;
+    this.cancelNavigation();
+    this._timers.clearAll();
+    for (let i = 0; i < this._unsubs.length; i++) {
+      this._unsubs[i]();
+    }
+    this._unsubs.length = 0;
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch (e) {}
+    this._nearObstacles.length = 0;
+    this.onArrivalCallback = null;
   }
 }

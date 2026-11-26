@@ -1,7 +1,16 @@
-// Procedural Web Audio API Sound Synthesizer (Enhanced Studio Edition)
-// Master Compressor, Subtle Spatial Reverb, Multi-Oscillator Formants & Complete SFX Suite
+// Procedural Web Audio API Sound Synthesizer (Master Compressor, Spatial Reverb, Rate-Limited SFX & Clean Dispose)
+import { appState } from './core/AppState.js';
+import { TimerRegistry } from './core/Scratch.js';
 
-class RoboAudioEngine {
+const HAPPY_NOTES = [523.25, 659.25, 783.99, 1046.5];
+const FANFARE_NOTES = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+const MUNCH_OFFSETS = [0, 0.085, 0.17];
+const PENTATONIC_NOTES = [440, 523.25, 587.33, 659.25, 783.99, 880];
+const TRICK_NOTES = [440, 554.37, 659.25, 880, 1108.73];
+const WAVE_NOTES = [659.25, 880, 1046.5];
+const CHIRP_NOTES = [520, 780, 1040];
+
+export class RoboAudio {
   constructor() {
     this.ctx = null;
     this.masterGain = null;
@@ -9,17 +18,25 @@ class RoboAudioEngine {
     this.reverbNode = null;
     this.reverbGain = null;
     this.noiseBuffer = null;
-    this.muted = false;
+    this.muted = !!appState.isMuted;
     this.initialized = false;
+    this._timers = new TimerRegistry();
+    this._lastStepMs = 0;
+    this._lastBeatMs = 0;
   }
 
   init() {
-    if (this.initialized) return;
+    if (this.initialized && this.ctx) {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      return;
+    }
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      this.ctx = new AudioContext();
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) return;
+      this.ctx = new AudioContextCtor();
 
-      // Master Dynamics Compressor for warm, punchy, clip-free sound
       this.compressor = this.ctx.createDynamicsCompressor();
       this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
       this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
@@ -28,10 +45,9 @@ class RoboAudioEngine {
       this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
 
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.85, this.ctx.currentTime);
 
-      // Subtle synthetic impulse reverb for spatial depth
-      this.reverbNode = this.createImpulseReverb(0.45, 2.8);
+      this.reverbNode = this._createImpulseReverb(0.45, 2.8);
       this.reverbGain = this.ctx.createGain();
       this.reverbGain.gain.setValueAtTime(0.18, this.ctx.currentTime);
 
@@ -41,15 +57,14 @@ class RoboAudioEngine {
       this.reverbGain.connect(this.compressor);
       this.compressor.connect(this.ctx.destination);
 
-      // Pre-generate reusable pink/white noise buffer
-      this.noiseBuffer = this.createNoiseBuffer(1.0);
+      this.noiseBuffer = this._createNoiseBuffer(1.0);
       this.initialized = true;
     } catch (e) {
-      console.warn("AudioContext no soportado:", e);
+      console.warn('[RoboAudio] AudioContext no soportado:', e);
     }
   }
 
-  createImpulseReverb(duration = 0.4, decay = 2.5) {
+  _createImpulseReverb(duration = 0.4, decay = 2.5) {
     const rate = this.ctx.sampleRate;
     const length = Math.floor(rate * duration);
     const impulse = this.ctx.createBuffer(2, length, rate);
@@ -64,7 +79,7 @@ class RoboAudioEngine {
     return convolver;
   }
 
-  createNoiseBuffer(duration = 1.0) {
+  _createNoiseBuffer(duration = 1.0) {
     const bufferSize = Math.floor(this.ctx.sampleRate * duration);
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const output = buffer.getChannelData(0);
@@ -85,23 +100,29 @@ class RoboAudioEngine {
 
   ensureContext() {
     this.init();
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
   }
 
   get out() {
-    return this.masterGain || this.ctx.destination;
+    return this.masterGain || (this.ctx ? this.ctx.destination : null);
+  }
+
+  setMuted(bool) {
+    this.muted = !!bool;
+    appState.isMuted = this.muted;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.85, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  _ready() {
+    if (this.muted || appState.isMuted) return false;
+    this.init();
+    return !!(this.ctx && this.out);
   }
 
   playBark(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
-
-    // Dual-oscillator formant bark (warm & expressive)
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const formant = this.ctx.createBiquadFilter();
@@ -141,10 +162,7 @@ class RoboAudioEngine {
   }
 
   playBoop(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const sub = this.ctx.createOscillator();
@@ -174,10 +192,7 @@ class RoboAudioEngine {
   }
 
   playJump(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -197,15 +212,100 @@ class RoboAudioEngine {
     osc.stop(now + 0.18);
   }
 
-  playHappyJingle() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
+  playFootstep(pitch = 1.0) {
+    const tMs = performance.now();
+    if (tMs - this._lastStepMs < 110) return;
+    this._lastStepMs = tMs;
+    if (!this._ready()) return;
 
-    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
     const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
 
-    notes.forEach((freq, idx) => {
+    osc.type = 'triangle';
+    const base = (115 + Math.random() * 35) * pitch;
+    osc.frequency.setValueAtTime(base * 1.6, now);
+    osc.frequency.exponentialRampToValueAtTime(base * 0.6, now + 0.045);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(650, now);
+
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.out);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  playStep(pitch = 1.0) {
+    this.playFootstep(pitch);
+  }
+
+  playTrampoline() {
+    if (!this._ready()) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const lfo = this.ctx.createOscillator();
+    const lfoGain = this.ctx.createGain();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(680, now + 0.18);
+    osc.frequency.exponentialRampToValueAtTime(340, now + 0.42);
+
+    lfo.frequency.setValueAtTime(28, now);
+    lfoGain.gain.setValueAtTime(45, now);
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.28, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc.connect(gain);
+    gain.connect(this.out);
+
+    osc.start(now);
+    lfo.start(now);
+    osc.stop(now + 0.45);
+    lfo.stop(now + 0.45);
+  }
+
+  playSuccess() {
+    if (!this._ready()) return;
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < TRICK_NOTES.length; i++) {
+      const f = TRICK_NOTES[i];
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const t = now + i * 0.055;
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, t);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.2, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(gain);
+      gain.connect(this.out);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    }
+  }
+
+  playTrickSuccess() {
+    this.playSuccess();
+  }
+
+  playHappyJingle() {
+    if (!this._ready()) return;
+    const now = this.ctx.currentTime;
+    for (let idx = 0; idx < HAPPY_NOTES.length; idx++) {
+      const freq = HAPPY_NOTES[idx];
       const osc = this.ctx.createOscillator();
       const harm = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -228,14 +328,11 @@ class RoboAudioEngine {
       harm.start(startTime);
       osc.stop(startTime + 0.19);
       harm.stop(startTime + 0.19);
-    });
+    }
   }
 
   playCurious() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -256,42 +353,8 @@ class RoboAudioEngine {
     osc.stop(now + 0.32);
   }
 
-  playStep() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-
-    // Soft padded robotic servo tap
-    const osc = this.ctx.createOscillator();
-    const filter = this.ctx.createBiquadFilter();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    const base = 115 + Math.random() * 35;
-    osc.frequency.setValueAtTime(base * 1.6, now);
-    osc.frequency.exponentialRampToValueAtTime(base * 0.6, now + 0.045);
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(650, now);
-
-    gain.gain.setValueAtTime(0.05, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.out);
-
-    osc.start(now);
-    osc.stop(now + 0.05);
-  }
-
   playSplash() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx || !this.noiseBuffer) return;
-
+    if (!this._ready() || !this.noiseBuffer) return;
     const now = this.ctx.currentTime;
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.noiseBuffer;
@@ -316,55 +379,16 @@ class RoboAudioEngine {
     noise.stop(now + 0.35);
   }
 
-  playTrampoline() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const lfo = this.ctx.createOscillator();
-    const lfoGain = this.ctx.createGain();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(160, now);
-    osc.frequency.exponentialRampToValueAtTime(680, now + 0.18);
-    osc.frequency.exponentialRampToValueAtTime(340, now + 0.42);
-
-    // Vibrato spring wobble
-    lfo.frequency.setValueAtTime(28, now);
-    lfoGain.gain.setValueAtTime(45, now);
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.28, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-    osc.connect(gain);
-    gain.connect(this.out);
-
-    osc.start(now);
-    lfo.start(now);
-    osc.stop(now + 0.45);
-    lfo.stop(now + 0.45);
-  }
-
   playGoalFanfare() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
-    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
-
-    notes.forEach((freq, idx) => {
+    for (let idx = 0; idx < FANFARE_NOTES.length; idx++) {
+      const freq = FANFARE_NOTES[idx];
       const osc = this.ctx.createOscillator();
       const sub = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const startTime = now + idx * 0.09;
-      const dur = idx === notes.length - 1 ? 0.55 : 0.28;
+      const dur = idx === FANFARE_NOTES.length - 1 ? 0.55 : 0.28;
 
       osc.type = 'triangle';
       sub.type = 'sawtooth';
@@ -388,16 +412,14 @@ class RoboAudioEngine {
       sub.start(startTime);
       osc.stop(startTime + dur);
       sub.stop(startTime + dur);
-    });
+    }
   }
 
   playSnackMunch() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
-    [0, 0.085, 0.17].forEach((offset, i) => {
+    for (let i = 0; i < MUNCH_OFFSETS.length; i++) {
+      const offset = MUNCH_OFFSETS[i];
       const osc = this.ctx.createOscillator();
       const filter = this.ctx.createBiquadFilter();
       const gain = this.ctx.createGain();
@@ -418,17 +440,17 @@ class RoboAudioEngine {
 
       osc.start(now + offset);
       osc.stop(now + offset + 0.07);
-    });
+    }
   }
 
   playDanceBeat() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
+    // Rate-limit to ~180ms so per-frame world updates cannot flood WebAudio nodes
+    const tMs = performance.now();
+    if (tMs - this._lastBeatMs < 180) return;
+    this._lastBeatMs = tMs;
+    if (!this._ready()) return;
 
     const now = this.ctx.currentTime;
-
-    // Punchy electronic kick
     const kick = this.ctx.createOscillator();
     const kickGain = this.ctx.createGain();
     kick.type = 'sine';
@@ -441,13 +463,11 @@ class RoboAudioEngine {
     kick.start(now);
     kick.stop(now + 0.15);
 
-    // Warm filtered funk synth pluck
     const synth = this.ctx.createOscillator();
     const filter = this.ctx.createBiquadFilter();
     const synthGain = this.ctx.createGain();
     synth.type = 'sawtooth';
-    const pentatonic = [440, 523.25, 587.33, 659.25, 783.99, 880];
-    const note = pentatonic[Math.floor(Math.random() * pentatonic.length)];
+    const note = PENTATONIC_NOTES[Math.floor(Math.random() * PENTATONIC_NOTES.length)];
     synth.frequency.setValueAtTime(note, now + 0.05);
 
     filter.type = 'lowpass';
@@ -464,39 +484,12 @@ class RoboAudioEngine {
     synth.stop(now + 0.22);
   }
 
-  // Alias used in robot.js PARTY emotion
   playDiscoBeat() {
     this.playDanceBeat();
   }
 
-  playTrickSuccess() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
-    const notes = [440, 554.37, 659.25, 880, 1108.73];
-    const now = this.ctx.currentTime;
-    notes.forEach((f, i) => {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const t = now + i * 0.055;
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(f, t);
-      gain.gain.setValueAtTime(0.001, t);
-      gain.gain.linearRampToValueAtTime(0.2, t + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      osc.connect(gain);
-      gain.connect(this.out);
-      osc.start(t);
-      osc.stop(t + 0.2);
-    });
-  }
-
   playHowl(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const harm = this.ctx.createOscillator();
@@ -543,12 +536,10 @@ class RoboAudioEngine {
   }
 
   playWaveSound(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
-    [659.25, 880, 1046.5].forEach((freq, idx) => {
+    for (let idx = 0; idx < WAVE_NOTES.length; idx++) {
+      const freq = WAVE_NOTES[idx];
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const t = now + idx * 0.065;
@@ -561,14 +552,11 @@ class RoboAudioEngine {
       gain.connect(this.out);
       osc.start(t);
       osc.stop(t + 0.15);
-    });
+    }
   }
 
   playConfused() {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -588,10 +576,7 @@ class RoboAudioEngine {
   }
 
   playWhine(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -612,10 +597,7 @@ class RoboAudioEngine {
   }
 
   playYip(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -636,10 +618,7 @@ class RoboAudioEngine {
   }
 
   playGrumble(pitch = 1.0) {
-    if (this.muted) return;
-    this.ensureContext();
-    if (!this.ctx) return;
-
+    if (!this._ready()) return;
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const filter = this.ctx.createBiquadFilter();
@@ -666,6 +645,51 @@ class RoboAudioEngine {
   playPlayfulGrumble(pitch = 1.0) {
     this.playGrumble(pitch);
   }
+
+  playUiBeep(freq = 680, duration = 0.06, type = 'sine', vol = 0.06) {
+    if (!this._ready()) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.connect(gain);
+    gain.connect(this.out);
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+
+  playChirp() {
+    if (!this._ready()) return;
+    for (let i = 0; i < CHIRP_NOTES.length; i++) {
+      const f = CHIRP_NOTES[i];
+      this._timers.setTimeout(() => this.playUiBeep(f, 0.07, 'triangle', 0.05), i * 55);
+    }
+  }
+
+  dispose() {
+    this._timers.clearAll();
+    try {
+      if (this.masterGain) this.masterGain.disconnect();
+      if (this.reverbNode) this.reverbNode.disconnect();
+      if (this.reverbGain) this.reverbGain.disconnect();
+      if (this.compressor) this.compressor.disconnect();
+      if (this.ctx && this.ctx.state !== 'closed') {
+        this.ctx.close().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[RoboAudio] dispose warning:', e);
+    }
+    this.ctx = null;
+    this.masterGain = null;
+    this.compressor = null;
+    this.reverbNode = null;
+    this.reverbGain = null;
+    this.noiseBuffer = null;
+    this.initialized = false;
+  }
 }
 
-export const roboAudio = new RoboAudioEngine();
+export const roboAudio = new RoboAudio();

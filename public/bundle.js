@@ -1,8 +1,6 @@
 (() => {
   // node_modules/three/build/three.core.js
   var REVISION = "186";
-  var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2, ROTATE: 0, DOLLY: 1, PAN: 2 };
-  var TOUCH = { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 };
   var CullFaceNone = 0;
   var CullFaceBack = 1;
   var CullFaceFront = 2;
@@ -57,6 +55,8 @@
   var CustomToneMapping = 5;
   var AgXToneMapping = 6;
   var NeutralToneMapping = 7;
+  var AttachedBindMode = "attached";
+  var DetachedBindMode = "detached";
   var UVMapping = 300;
   var CubeReflectionMapping = 301;
   var CubeRefractionMapping = 302;
@@ -157,6 +157,7 @@
   var GreaterEqualCompare = 518;
   var AlwaysCompare = 519;
   var StaticDrawUsage = 35044;
+  var DynamicDrawUsage = 35048;
   var GLSL3 = "300 es";
   var WebGLCoordinateSystem = 2e3;
   var WebGPUCoordinateSystem = 2001;
@@ -11004,507 +11005,6 @@
       this.dispatchEvent({ type: "dispose" });
     }
   };
-  var InterleavedBuffer = class {
-    /**
-     * Constructs a new interleaved buffer.
-     *
-     * @param {TypedArray} array - A typed array with a shared buffer storing attribute data.
-     * @param {number} stride - The number of typed-array elements per vertex.
-     */
-    constructor(array, stride) {
-      this.isInterleavedBuffer = true;
-      this.array = array;
-      this.stride = stride;
-      this.count = array !== void 0 ? array.length / stride : 0;
-      this.usage = StaticDrawUsage;
-      this.updateRanges = [];
-      this.version = 0;
-      this.uuid = generateUUID();
-    }
-    /**
-     * A callback function that is executed after the renderer has transferred the attribute array
-     * data to the GPU.
-     */
-    onUploadCallback() {
-    }
-    /**
-     * Flag to indicate that this attribute has changed and should be re-sent to
-     * the GPU. Set this to `true` when you modify the value of the array.
-     *
-     * @type {number}
-     * @default false
-     * @param {boolean} value
-     */
-    set needsUpdate(value) {
-      if (value === true) this.version++;
-    }
-    /**
-     * Sets the usage of this interleaved buffer.
-     *
-     * @param {(StaticDrawUsage|DynamicDrawUsage|StreamDrawUsage|StaticReadUsage|DynamicReadUsage|StreamReadUsage|StaticCopyUsage|DynamicCopyUsage|StreamCopyUsage)} value - The usage to set.
-     * @return {InterleavedBuffer} A reference to this interleaved buffer.
-     */
-    setUsage(value) {
-      this.usage = value;
-      return this;
-    }
-    /**
-     * Adds a range of data in the data array to be updated on the GPU.
-     *
-     * @param {number} start - Position at which to start update.
-     * @param {number} count - The number of components to update.
-     */
-    addUpdateRange(start, count) {
-      this.updateRanges.push({ start, count });
-    }
-    /**
-     * Clears the update ranges.
-     */
-    clearUpdateRanges() {
-      this.updateRanges.length = 0;
-    }
-    /**
-     * Copies the values of the given interleaved buffer to this instance.
-     *
-     * @param {InterleavedBuffer} source - The interleaved buffer to copy.
-     * @return {InterleavedBuffer} A reference to this instance.
-     */
-    copy(source) {
-      this.array = new source.array.constructor(source.array);
-      this.count = source.count;
-      this.stride = source.stride;
-      this.usage = source.usage;
-      return this;
-    }
-    /**
-     * Copies a vector from the given interleaved buffer to this one. The start
-     * and destination position in the attribute buffers are represented by the
-     * given indices.
-     *
-     * @param {number} index1 - The destination index into this interleaved buffer.
-     * @param {InterleavedBuffer} interleavedBuffer - The interleaved buffer to copy from.
-     * @param {number} index2 - The source index into the given interleaved buffer.
-     * @return {InterleavedBuffer} A reference to this instance.
-     */
-    copyAt(index1, interleavedBuffer, index2) {
-      index1 *= this.stride;
-      index2 *= interleavedBuffer.stride;
-      for (let i = 0, l = this.stride; i < l; i++) {
-        this.array[index1 + i] = interleavedBuffer.array[index2 + i];
-      }
-      return this;
-    }
-    /**
-     * Sets the given array data in the interleaved buffer.
-     *
-     * @param {(TypedArray|Array)} value - The array data to set.
-     * @param {number} [offset=0] - The offset in this interleaved buffer's array.
-     * @return {InterleavedBuffer} A reference to this instance.
-     */
-    set(value, offset = 0) {
-      this.array.set(value, offset);
-      return this;
-    }
-    /**
-     * Returns a new interleaved buffer with copied values from this instance.
-     *
-     * @param {Object} [data] - An object with shared array buffers that allows to retain shared structures.
-     * @return {InterleavedBuffer} A clone of this instance.
-     */
-    clone(data) {
-      if (data.arrayBuffers === void 0) {
-        data.arrayBuffers = {};
-      }
-      if (this.array.buffer._uuid === void 0) {
-        this.array.buffer._uuid = generateUUID();
-      }
-      if (data.arrayBuffers[this.array.buffer._uuid] === void 0) {
-        data.arrayBuffers[this.array.buffer._uuid] = this.array.slice(0).buffer;
-      }
-      const array = new this.array.constructor(data.arrayBuffers[this.array.buffer._uuid]);
-      const ib = new this.constructor(array, this.stride);
-      ib.setUsage(this.usage);
-      return ib;
-    }
-    /**
-     * Sets the given callback function that is executed after the Renderer has transferred
-     * the array data to the GPU. Can be used to perform clean-up operations after
-     * the upload when data are not needed anymore on the CPU side.
-     *
-     * @param {Function} callback - The `onUpload()` callback.
-     * @return {InterleavedBuffer} A reference to this instance.
-     */
-    onUpload(callback) {
-      this.onUploadCallback = callback;
-      return this;
-    }
-    /**
-     * Serializes the interleaved buffer into JSON.
-     *
-     * @param {Object} [data] - An optional value holding meta information about the serialization.
-     * @return {Object} A JSON object representing the serialized interleaved buffer.
-     */
-    toJSON(data) {
-      if (data.arrayBuffers === void 0) {
-        data.arrayBuffers = {};
-      }
-      if (this.array.buffer._uuid === void 0) {
-        this.array.buffer._uuid = generateUUID();
-      }
-      if (data.arrayBuffers[this.array.buffer._uuid] === void 0) {
-        data.arrayBuffers[this.array.buffer._uuid] = Array.from(new Uint32Array(this.array.buffer));
-      }
-      const json = {
-        uuid: this.uuid,
-        buffer: this.array.buffer._uuid,
-        type: this.array.constructor.name,
-        stride: this.stride
-      };
-      json.usage = this.usage;
-      return json;
-    }
-  };
-  var _vector$8 = /* @__PURE__ */ new Vector3();
-  var InterleavedBufferAttribute = class _InterleavedBufferAttribute {
-    /**
-     * Constructs a new interleaved buffer attribute.
-     *
-     * @param {InterleavedBuffer} interleavedBuffer - The buffer holding the interleaved data.
-     * @param {number} itemSize - The item size.
-     * @param {number} offset - The attribute offset into the buffer.
-     * @param {boolean} [normalized=false] - Whether the data are normalized or not.
-     */
-    constructor(interleavedBuffer, itemSize, offset, normalized = false) {
-      this.isInterleavedBufferAttribute = true;
-      this.name = "";
-      this.data = interleavedBuffer;
-      this.itemSize = itemSize;
-      this.offset = offset;
-      this.normalized = normalized;
-    }
-    /**
-     * The item count of this buffer attribute.
-     *
-     * @type {number}
-     * @readonly
-     */
-    get count() {
-      return this.data.count;
-    }
-    /**
-     * The array holding the interleaved buffer attribute data.
-     *
-     * @type {TypedArray}
-     */
-    get array() {
-      return this.data.array;
-    }
-    /**
-     * Flag to indicate that this attribute has changed and should be re-sent to
-     * the GPU. Set this to `true` when you modify the value of the array.
-     *
-     * @type {number}
-     * @default false
-     * @param {boolean} value
-     */
-    set needsUpdate(value) {
-      this.data.needsUpdate = value;
-    }
-    /**
-     * Applies the given 4x4 matrix to the given attribute. Only works with
-     * item size `3`.
-     *
-     * @param {Matrix4} m - The matrix to apply.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    applyMatrix4(m) {
-      for (let i = 0, l = this.data.count; i < l; i++) {
-        _vector$8.fromBufferAttribute(this, i);
-        _vector$8.applyMatrix4(m);
-        this.setXYZ(i, _vector$8.x, _vector$8.y, _vector$8.z);
-      }
-      return this;
-    }
-    /**
-     * Applies the given 3x3 normal matrix to the given attribute. Only works with
-     * item size `3`.
-     *
-     * @param {Matrix3} m - The normal matrix to apply.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    applyNormalMatrix(m) {
-      for (let i = 0, l = this.count; i < l; i++) {
-        _vector$8.fromBufferAttribute(this, i);
-        _vector$8.applyNormalMatrix(m);
-        this.setXYZ(i, _vector$8.x, _vector$8.y, _vector$8.z);
-      }
-      return this;
-    }
-    /**
-     * Applies the given 4x4 matrix to the given attribute. Only works with
-     * item size `3` and with direction vectors.
-     *
-     * @param {Matrix4} m - The matrix to apply.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    transformDirection(m) {
-      for (let i = 0, l = this.count; i < l; i++) {
-        _vector$8.fromBufferAttribute(this, i);
-        _vector$8.transformDirection(m);
-        this.setXYZ(i, _vector$8.x, _vector$8.y, _vector$8.z);
-      }
-      return this;
-    }
-    /**
-     * Returns the given component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} component - The component index.
-     * @return {number} The returned value.
-     */
-    getComponent(index, component) {
-      let value = this.array[index * this.data.stride + this.offset + component];
-      if (this.normalized) value = denormalize(value, this.array);
-      return value;
-    }
-    /**
-     * Sets the given value to the given component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} component - The component index.
-     * @param {number} value - The value to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setComponent(index, component, value) {
-      if (this.normalized) value = normalize(value, this.array);
-      this.data.array[index * this.data.stride + this.offset + component] = value;
-      return this;
-    }
-    /**
-     * Sets the x component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} x - The value to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setX(index, x) {
-      if (this.normalized) x = normalize(x, this.array);
-      this.data.array[index * this.data.stride + this.offset] = x;
-      return this;
-    }
-    /**
-     * Sets the y component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} y - The value to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setY(index, y) {
-      if (this.normalized) y = normalize(y, this.array);
-      this.data.array[index * this.data.stride + this.offset + 1] = y;
-      return this;
-    }
-    /**
-     * Sets the z component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} z - The value to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setZ(index, z) {
-      if (this.normalized) z = normalize(z, this.array);
-      this.data.array[index * this.data.stride + this.offset + 2] = z;
-      return this;
-    }
-    /**
-     * Sets the w component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} w - The value to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setW(index, w) {
-      if (this.normalized) w = normalize(w, this.array);
-      this.data.array[index * this.data.stride + this.offset + 3] = w;
-      return this;
-    }
-    /**
-     * Returns the x component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @return {number} The x component.
-     */
-    getX(index) {
-      let x = this.data.array[index * this.data.stride + this.offset];
-      if (this.normalized) x = denormalize(x, this.array);
-      return x;
-    }
-    /**
-     * Returns the y component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @return {number} The y component.
-     */
-    getY(index) {
-      let y = this.data.array[index * this.data.stride + this.offset + 1];
-      if (this.normalized) y = denormalize(y, this.array);
-      return y;
-    }
-    /**
-     * Returns the z component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @return {number} The z component.
-     */
-    getZ(index) {
-      let z = this.data.array[index * this.data.stride + this.offset + 2];
-      if (this.normalized) z = denormalize(z, this.array);
-      return z;
-    }
-    /**
-     * Returns the w component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @return {number} The w component.
-     */
-    getW(index) {
-      let w = this.data.array[index * this.data.stride + this.offset + 3];
-      if (this.normalized) w = denormalize(w, this.array);
-      return w;
-    }
-    /**
-     * Sets the x and y component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} x - The value for the x component to set.
-     * @param {number} y - The value for the y component to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setXY(index, x, y) {
-      index = index * this.data.stride + this.offset;
-      if (this.normalized) {
-        x = normalize(x, this.array);
-        y = normalize(y, this.array);
-      }
-      this.data.array[index + 0] = x;
-      this.data.array[index + 1] = y;
-      return this;
-    }
-    /**
-     * Sets the x, y and z component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} x - The value for the x component to set.
-     * @param {number} y - The value for the y component to set.
-     * @param {number} z - The value for the z component to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setXYZ(index, x, y, z) {
-      index = index * this.data.stride + this.offset;
-      if (this.normalized) {
-        x = normalize(x, this.array);
-        y = normalize(y, this.array);
-        z = normalize(z, this.array);
-      }
-      this.data.array[index + 0] = x;
-      this.data.array[index + 1] = y;
-      this.data.array[index + 2] = z;
-      return this;
-    }
-    /**
-     * Sets the x, y, z and w component of the vector at the given index.
-     *
-     * @param {number} index - The index into the buffer attribute.
-     * @param {number} x - The value for the x component to set.
-     * @param {number} y - The value for the y component to set.
-     * @param {number} z - The value for the z component to set.
-     * @param {number} w - The value for the w component to set.
-     * @return {InterleavedBufferAttribute} A reference to this instance.
-     */
-    setXYZW(index, x, y, z, w) {
-      index = index * this.data.stride + this.offset;
-      if (this.normalized) {
-        x = normalize(x, this.array);
-        y = normalize(y, this.array);
-        z = normalize(z, this.array);
-        w = normalize(w, this.array);
-      }
-      this.data.array[index + 0] = x;
-      this.data.array[index + 1] = y;
-      this.data.array[index + 2] = z;
-      this.data.array[index + 3] = w;
-      return this;
-    }
-    /**
-     * Returns a new buffer attribute with copied values from this instance.
-     *
-     * If no parameter is provided, cloning an interleaved buffer attribute will de-interleave buffer data.
-     *
-     * @param {Object} [data] - An object with interleaved buffers that allows to retain the interleaved property.
-     * @return {BufferAttribute|InterleavedBufferAttribute} A clone of this instance.
-     */
-    clone(data) {
-      if (data === void 0) {
-        log("InterleavedBufferAttribute.clone(): Cloning an interleaved buffer attribute will de-interleave buffer data.");
-        const array = [];
-        for (let i = 0; i < this.count; i++) {
-          const index = i * this.data.stride + this.offset;
-          for (let j = 0; j < this.itemSize; j++) {
-            array.push(this.data.array[index + j]);
-          }
-        }
-        return new BufferAttribute(new this.array.constructor(array), this.itemSize, this.normalized);
-      } else {
-        if (data.interleavedBuffers === void 0) {
-          data.interleavedBuffers = {};
-        }
-        if (data.interleavedBuffers[this.data.uuid] === void 0) {
-          data.interleavedBuffers[this.data.uuid] = this.data.clone(data);
-        }
-        return new _InterleavedBufferAttribute(data.interleavedBuffers[this.data.uuid], this.itemSize, this.offset, this.normalized);
-      }
-    }
-    /**
-     * Serializes the buffer attribute into JSON.
-     *
-     * If no parameter is provided, cloning an interleaved buffer attribute will de-interleave buffer data.
-     *
-     * @param {Object} [data] - An optional value holding meta information about the serialization.
-     * @return {Object} A JSON object representing the serialized buffer attribute.
-     */
-    toJSON(data) {
-      if (data === void 0) {
-        log("InterleavedBufferAttribute.toJSON(): Serializing an interleaved buffer attribute will de-interleave buffer data.");
-        const array = [];
-        for (let i = 0; i < this.count; i++) {
-          const index = i * this.data.stride + this.offset;
-          for (let j = 0; j < this.itemSize; j++) {
-            array.push(this.data.array[index + j]);
-          }
-        }
-        return {
-          itemSize: this.itemSize,
-          type: this.array.constructor.name,
-          array,
-          normalized: this.normalized
-        };
-      } else {
-        if (data.interleavedBuffers === void 0) {
-          data.interleavedBuffers = {};
-        }
-        if (data.interleavedBuffers[this.data.uuid] === void 0) {
-          data.interleavedBuffers[this.data.uuid] = this.data.toJSON(data);
-        }
-        return {
-          isInterleavedBufferAttribute: true,
-          itemSize: this.itemSize,
-          data: this.data.uuid,
-          offset: this.offset,
-          normalized: this.normalized
-        };
-      }
-    }
-  };
   var _vector1 = /* @__PURE__ */ new Vector3();
   var _vector2 = /* @__PURE__ */ new Vector3();
   var _normalMatrix = /* @__PURE__ */ new Matrix3();
@@ -12345,175 +11845,6 @@
       if (value === true) this.version++;
     }
   };
-  var SpriteMaterial = class extends Material {
-    /**
-     * Constructs a new sprite material.
-     *
-     * @param {Object} [parameters] - An object with one or more properties
-     * defining the material's appearance. Any property of the material
-     * (including any property from inherited materials) can be passed
-     * in here. Color values can be passed any type of value accepted
-     * by {@link Color#set}.
-     */
-    constructor(parameters) {
-      super();
-      this.isSpriteMaterial = true;
-      this.type = "SpriteMaterial";
-      this.color = new Color(16777215);
-      this.map = null;
-      this.alphaMap = null;
-      this.rotation = 0;
-      this.sizeAttenuation = true;
-      this.transparent = true;
-      this.fog = true;
-      this.setValues(parameters);
-    }
-    copy(source) {
-      super.copy(source);
-      this.color.copy(source.color);
-      this.map = source.map;
-      this.alphaMap = source.alphaMap;
-      this.rotation = source.rotation;
-      this.sizeAttenuation = source.sizeAttenuation;
-      this.fog = source.fog;
-      return this;
-    }
-  };
-  var _geometry;
-  var _intersectPoint = /* @__PURE__ */ new Vector3();
-  var _worldScale = /* @__PURE__ */ new Vector3();
-  var _mvPosition = /* @__PURE__ */ new Vector3();
-  var _alignedPosition = /* @__PURE__ */ new Vector2();
-  var _rotatedPosition = /* @__PURE__ */ new Vector2();
-  var _viewWorldMatrix = /* @__PURE__ */ new Matrix4();
-  var _vA$1 = /* @__PURE__ */ new Vector3();
-  var _vB$1 = /* @__PURE__ */ new Vector3();
-  var _vC$1 = /* @__PURE__ */ new Vector3();
-  var _uvA = /* @__PURE__ */ new Vector2();
-  var _uvB = /* @__PURE__ */ new Vector2();
-  var _uvC = /* @__PURE__ */ new Vector2();
-  var Sprite = class extends Object3D {
-    /**
-     * Constructs a new sprite.
-     *
-     * @param {(SpriteMaterial|SpriteNodeMaterial)} [material] - The sprite material.
-     */
-    constructor(material = new SpriteMaterial()) {
-      super();
-      this.isSprite = true;
-      this.type = "Sprite";
-      if (_geometry === void 0) {
-        _geometry = new BufferGeometry();
-        const float32Array = new Float32Array([
-          -0.5,
-          -0.5,
-          0,
-          0,
-          0,
-          0.5,
-          -0.5,
-          0,
-          1,
-          0,
-          0.5,
-          0.5,
-          0,
-          1,
-          1,
-          -0.5,
-          0.5,
-          0,
-          0,
-          1
-        ]);
-        const interleavedBuffer = new InterleavedBuffer(float32Array, 5);
-        _geometry.setIndex([0, 1, 2, 0, 2, 3]);
-        _geometry.setAttribute("position", new InterleavedBufferAttribute(interleavedBuffer, 3, 0, false));
-        _geometry.setAttribute("uv", new InterleavedBufferAttribute(interleavedBuffer, 2, 3, false));
-      }
-      this.geometry = _geometry;
-      this.material = material;
-      this.center = new Vector2(0.5, 0.5);
-      this.count = 1;
-    }
-    /**
-     * Returns `true` if this sprite intersects the given frustum.
-     *
-     * @param {Frustum|FrustumArray} frustum - The frustum to test.
-     * @return {boolean} Whether this sprite intersects the given frustum or not.
-     */
-    intersectsFrustum(frustum) {
-      return frustum.intersectsSprite(this);
-    }
-    /**
-     * Computes intersection points between a casted ray and this sprite.
-     *
-     * @param {Raycaster} raycaster - The raycaster.
-     * @param {Array<Object>} intersects - The target array that holds the intersection points.
-     */
-    raycast(raycaster, intersects2) {
-      if (raycaster.camera === null) {
-        error('Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
-      }
-      _worldScale.setFromMatrixScale(this.matrixWorld);
-      _viewWorldMatrix.copy(raycaster.camera.matrixWorld);
-      this.modelViewMatrix.multiplyMatrices(raycaster.camera.matrixWorldInverse, this.matrixWorld);
-      _mvPosition.setFromMatrixPosition(this.modelViewMatrix);
-      if (raycaster.camera.isPerspectiveCamera && this.material.sizeAttenuation === false) {
-        _worldScale.multiplyScalar(-_mvPosition.z);
-      }
-      const rotation = this.material.rotation;
-      let sin, cos;
-      if (rotation !== 0) {
-        cos = Math.cos(rotation);
-        sin = Math.sin(rotation);
-      }
-      const center = this.center;
-      transformVertex(_vA$1.set(-0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-      transformVertex(_vB$1.set(0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-      transformVertex(_vC$1.set(0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-      _uvA.set(0, 0);
-      _uvB.set(1, 0);
-      _uvC.set(1, 1);
-      let intersect2 = raycaster.ray.intersectTriangle(_vA$1, _vB$1, _vC$1, false, _intersectPoint);
-      if (intersect2 === null) {
-        transformVertex(_vB$1.set(-0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
-        _uvB.set(0, 1);
-        intersect2 = raycaster.ray.intersectTriangle(_vA$1, _vC$1, _vB$1, false, _intersectPoint);
-        if (intersect2 === null) {
-          return;
-        }
-      }
-      const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
-      if (distance < raycaster.near || distance > raycaster.far) return;
-      intersects2.push({
-        distance,
-        point: _intersectPoint.clone(),
-        uv: Triangle.getInterpolation(_intersectPoint, _vA$1, _vB$1, _vC$1, _uvA, _uvB, _uvC, new Vector2()),
-        face: null,
-        object: this
-      });
-    }
-    copy(source, recursive) {
-      super.copy(source, recursive);
-      if (source.center !== void 0) this.center.copy(source.center);
-      this.material = source.material;
-      return this;
-    }
-  };
-  function transformVertex(vertexPosition, mvPosition, center, scale, sin, cos) {
-    _alignedPosition.subVectors(vertexPosition, center).addScalar(0.5).multiply(scale);
-    if (sin !== void 0) {
-      _rotatedPosition.x = cos * _alignedPosition.x - sin * _alignedPosition.y;
-      _rotatedPosition.y = sin * _alignedPosition.x + cos * _alignedPosition.y;
-    } else {
-      _rotatedPosition.copy(_alignedPosition);
-    }
-    vertexPosition.copy(mvPosition);
-    vertexPosition.x += _rotatedPosition.x;
-    vertexPosition.y += _rotatedPosition.y;
-    vertexPosition.applyMatrix4(_viewWorldMatrix);
-  }
   var _vector$7 = /* @__PURE__ */ new Vector3();
   var _segCenter = /* @__PURE__ */ new Vector3();
   var _segDir = /* @__PURE__ */ new Vector3();
@@ -13283,6 +12614,195 @@
     }
     return intersection;
   }
+  var _baseVector = /* @__PURE__ */ new Vector4();
+  var _skinIndex = /* @__PURE__ */ new Vector4();
+  var _skinWeight = /* @__PURE__ */ new Vector4();
+  var _vector4 = /* @__PURE__ */ new Vector4();
+  var _matrix4 = /* @__PURE__ */ new Matrix4();
+  var _vertex = /* @__PURE__ */ new Vector3();
+  var _sphere$5 = /* @__PURE__ */ new Sphere();
+  var _inverseMatrix$2 = /* @__PURE__ */ new Matrix4();
+  var _ray$2 = /* @__PURE__ */ new Ray();
+  var SkinnedMesh = class extends Mesh {
+    /**
+     * Constructs a new skinned mesh.
+     *
+     * @param {BufferGeometry} [geometry] - The mesh geometry.
+     * @param {Material|Array<Material>} [material] - The mesh material.
+     */
+    constructor(geometry, material) {
+      super(geometry, material);
+      this.isSkinnedMesh = true;
+      this.type = "SkinnedMesh";
+      this.bindMode = AttachedBindMode;
+      this.bindMatrix = new Matrix4();
+      this.bindMatrixInverse = new Matrix4();
+      this.boundingBox = null;
+      this.boundingSphere = null;
+    }
+    /**
+     * Computes the bounding box of the skinned mesh, and updates {@link SkinnedMesh#boundingBox}.
+     * The bounding box is not automatically computed by the engine; this method must be called by your app.
+     * If the skinned mesh is animated, the bounding box should be recomputed per frame in order to reflect
+     * the current animation state.
+     */
+    computeBoundingBox() {
+      const geometry = this.geometry;
+      if (this.boundingBox === null) {
+        this.boundingBox = new Box3();
+      }
+      this.boundingBox.makeEmpty();
+      const positionAttribute = geometry.getAttribute("position");
+      for (let i = 0; i < positionAttribute.count; i++) {
+        this.getVertexPosition(i, _vertex);
+        this.boundingBox.expandByPoint(_vertex);
+      }
+    }
+    /**
+     * Computes the bounding sphere of the skinned mesh, and updates {@link SkinnedMesh#boundingSphere}.
+     * The bounding sphere is automatically computed by the engine once when it is needed, e.g., for ray casting
+     * and view frustum culling. If the skinned mesh is animated, the bounding sphere should be recomputed
+     * per frame in order to reflect the current animation state.
+     */
+    computeBoundingSphere() {
+      const geometry = this.geometry;
+      if (this.boundingSphere === null) {
+        this.boundingSphere = new Sphere();
+      }
+      this.boundingSphere.makeEmpty();
+      const positionAttribute = geometry.getAttribute("position");
+      for (let i = 0; i < positionAttribute.count; i++) {
+        this.getVertexPosition(i, _vertex);
+        this.boundingSphere.expandByPoint(_vertex);
+      }
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.bindMode = source.bindMode;
+      this.bindMatrix.copy(source.bindMatrix);
+      this.bindMatrixInverse.copy(source.bindMatrixInverse);
+      this.skeleton = source.skeleton;
+      if (source.boundingBox !== null) this.boundingBox = source.boundingBox.clone();
+      if (source.boundingSphere !== null) this.boundingSphere = source.boundingSphere.clone();
+      return this;
+    }
+    raycast(raycaster, intersects2) {
+      const material = this.material;
+      const matrixWorld = this.matrixWorld;
+      if (material === void 0) return;
+      if (this.boundingSphere === null) this.computeBoundingSphere();
+      _sphere$5.copy(this.boundingSphere);
+      _sphere$5.applyMatrix4(matrixWorld);
+      if (raycaster.ray.intersectsSphere(_sphere$5) === false) return;
+      _inverseMatrix$2.copy(matrixWorld).invert();
+      _ray$2.copy(raycaster.ray).applyMatrix4(_inverseMatrix$2);
+      if (this.boundingBox !== null) {
+        if (_ray$2.intersectsBox(this.boundingBox) === false) return;
+      }
+      this._computeIntersections(raycaster, intersects2, _ray$2);
+    }
+    getVertexPosition(index, target) {
+      super.getVertexPosition(index, target);
+      this.applyBoneTransform(index, target);
+      return target;
+    }
+    /**
+     * Binds the given skeleton to the skinned mesh.
+     *
+     * @param {Skeleton} skeleton - The skeleton to bind.
+     * @param {Matrix4} [bindMatrix] - The bind matrix. If no bind matrix is provided,
+     * the skinned mesh's world matrix will be used instead.
+     */
+    bind(skeleton, bindMatrix) {
+      this.skeleton = skeleton;
+      if (bindMatrix === void 0) {
+        this.updateMatrixWorld(true);
+        this.skeleton.calculateInverses();
+        bindMatrix = this.matrixWorld;
+      }
+      this.bindMatrix.copy(bindMatrix);
+      this.bindMatrixInverse.copy(bindMatrix).invert();
+    }
+    /**
+     * This method sets the skinned mesh in the rest pose).
+     */
+    pose() {
+      this.skeleton.pose();
+    }
+    /**
+     * Normalizes the skin weights which are defined as a buffer attribute
+     * in the skinned mesh's geometry.
+     */
+    normalizeSkinWeights() {
+      const vector = new Vector4();
+      const skinWeight = this.geometry.attributes.skinWeight;
+      for (let i = 0, l = skinWeight.count; i < l; i++) {
+        vector.fromBufferAttribute(skinWeight, i);
+        const scale = 1 / vector.manhattanLength();
+        if (scale !== Infinity) {
+          vector.multiplyScalar(scale);
+        } else {
+          vector.set(1, 0, 0, 0);
+        }
+        skinWeight.setXYZW(i, vector.x, vector.y, vector.z, vector.w);
+      }
+    }
+    updateMatrixWorld(force) {
+      super.updateMatrixWorld(force);
+      if (this.bindMode === AttachedBindMode) {
+        this.bindMatrixInverse.copy(this.matrixWorld).invert();
+      } else if (this.bindMode === DetachedBindMode) {
+        this.bindMatrixInverse.copy(this.bindMatrix).invert();
+      } else {
+        warn("SkinnedMesh: Unrecognized bindMode: " + this.bindMode);
+      }
+    }
+    /**
+     * Applies the bone transform associated with the given index to the given
+     * vector. Can be used to transform positions or direction vectors by providing
+     * a Vector4 with 1 or 0 in the w component respectively. Returns the updated vector.
+     *
+     * @param {number} index - The vertex index.
+     * @param {Vector3|Vector4} target - The target object that is used to store the method's result.
+     * @return {Vector3|Vector4} The updated vertex attribute data.
+     */
+    applyBoneTransform(index, target) {
+      const skeleton = this.skeleton;
+      const geometry = this.geometry;
+      _skinIndex.fromBufferAttribute(geometry.attributes.skinIndex, index);
+      _skinWeight.fromBufferAttribute(geometry.attributes.skinWeight, index);
+      if (target.isVector4) {
+        _baseVector.copy(target);
+        target.set(0, 0, 0, 0);
+      } else {
+        _baseVector.set(...target, 1);
+        target.set(0, 0, 0);
+      }
+      _baseVector.applyMatrix4(this.bindMatrix);
+      for (let i = 0; i < 4; i++) {
+        const weight = _skinWeight.getComponent(i);
+        if (weight !== 0) {
+          const boneIndex = _skinIndex.getComponent(i);
+          _matrix4.multiplyMatrices(skeleton.bones[boneIndex].matrixWorld, skeleton.boneInverses[boneIndex]);
+          target.addScaledVector(_vector4.copy(_baseVector).applyMatrix4(_matrix4), weight);
+        }
+      }
+      if (target.isVector4) {
+        target.w = _baseVector.w;
+      }
+      return target.applyMatrix4(this.bindMatrixInverse);
+    }
+  };
+  var Bone = class extends Object3D {
+    /**
+     * Constructs a new bone.
+     */
+    constructor() {
+      super();
+      this.isBone = true;
+      this.type = "Bone";
+    }
+  };
   var DataTexture = class extends Texture {
     /**
      * Constructs a new data texture.
@@ -13307,6 +12827,200 @@
       this.generateMipmaps = false;
       this.flipY = false;
       this.unpackAlignment = 1;
+    }
+  };
+  var _offsetMatrix = /* @__PURE__ */ new Matrix4();
+  var _identityMatrix = /* @__PURE__ */ new Matrix4();
+  var Skeleton = class _Skeleton {
+    /**
+     * Constructs a new skeleton.
+     *
+     * @param {Array<Bone>} [bones] - An array of bones.
+     * @param {Array<Matrix4>} [boneInverses] - An array of bone inverse matrices.
+     * If not provided, these matrices will be computed automatically via {@link Skeleton#calculateInverses}.
+     */
+    constructor(bones = [], boneInverses = []) {
+      this.uuid = generateUUID();
+      this.bones = bones.slice(0);
+      this.boneInverses = boneInverses;
+      this.boneMatrices = null;
+      this.boneTexture = null;
+      this.init();
+    }
+    /**
+     * Initializes the skeleton. This method gets automatically called by the constructor
+     * but depending on how the skeleton is created it might be necessary to call this method
+     * manually.
+     */
+    init() {
+      const bones = this.bones;
+      const boneInverses = this.boneInverses;
+      this.boneMatrices = new Float32Array(bones.length * 16);
+      if (boneInverses.length === 0) {
+        this.calculateInverses();
+      } else {
+        if (bones.length !== boneInverses.length) {
+          warn("Skeleton: Number of inverse bone matrices does not match amount of bones.");
+          this.boneInverses = [];
+          for (let i = 0, il = this.bones.length; i < il; i++) {
+            this.boneInverses.push(new Matrix4());
+          }
+        }
+      }
+    }
+    /**
+     * Computes the bone inverse matrices. This method resets {@link Skeleton#boneInverses}
+     * and fills it with new matrices.
+     */
+    calculateInverses() {
+      this.boneInverses.length = 0;
+      for (let i = 0, il = this.bones.length; i < il; i++) {
+        const inverse = new Matrix4();
+        if (this.bones[i]) {
+          inverse.copy(this.bones[i].matrixWorld).invert();
+        }
+        this.boneInverses.push(inverse);
+      }
+    }
+    /**
+     * Resets the skeleton to the base pose.
+     */
+    pose() {
+      for (let i = 0, il = this.bones.length; i < il; i++) {
+        const bone = this.bones[i];
+        if (bone) {
+          bone.matrixWorld.copy(this.boneInverses[i]).invert();
+        }
+      }
+      for (let i = 0, il = this.bones.length; i < il; i++) {
+        const bone = this.bones[i];
+        if (bone) {
+          if (bone.parent && bone.parent.isBone) {
+            bone.matrix.copy(bone.parent.matrixWorld).invert();
+            bone.matrix.multiply(bone.matrixWorld);
+          } else {
+            bone.matrix.copy(bone.matrixWorld);
+          }
+          bone.matrix.decompose(bone.position, bone.quaternion, bone.scale);
+        }
+      }
+    }
+    /**
+     * Resets the skeleton to the base pose.
+     */
+    update() {
+      const bones = this.bones;
+      const boneInverses = this.boneInverses;
+      const boneMatrices = this.boneMatrices;
+      const boneTexture = this.boneTexture;
+      for (let i = 0, il = bones.length; i < il; i++) {
+        const matrix = bones[i] ? bones[i].matrixWorld : _identityMatrix;
+        _offsetMatrix.multiplyMatrices(matrix, boneInverses[i]);
+        _offsetMatrix.toArray(boneMatrices, i * 16);
+      }
+      if (boneTexture !== null) {
+        boneTexture.needsUpdate = true;
+      }
+    }
+    /**
+     * Returns a new skeleton with copied values from this instance.
+     *
+     * @return {Skeleton} A clone of this instance.
+     */
+    clone() {
+      return new _Skeleton(this.bones, this.boneInverses);
+    }
+    /**
+     * Computes a data texture for passing bone data to the vertex shader.
+     *
+     * @return {Skeleton} A reference of this instance.
+     */
+    computeBoneTexture() {
+      let size = Math.sqrt(this.bones.length * 4);
+      size = Math.ceil(size / 4) * 4;
+      size = Math.max(size, 4);
+      const boneMatrices = new Float32Array(size * size * 4);
+      boneMatrices.set(this.boneMatrices);
+      const boneTexture = new DataTexture(boneMatrices, size, size, RGBAFormat, FloatType);
+      boneTexture.needsUpdate = true;
+      this.boneMatrices = boneMatrices;
+      this.boneTexture = boneTexture;
+      return this;
+    }
+    /**
+     * Searches through the skeleton's bone array and returns the first with a
+     * matching name.
+     *
+     * @param {string} name - The name of the bone.
+     * @return {Bone|undefined} The found bone. `undefined` if no bone has been found.
+     */
+    getBoneByName(name) {
+      for (let i = 0, il = this.bones.length; i < il; i++) {
+        const bone = this.bones[i];
+        if (bone.name === name) {
+          return bone;
+        }
+      }
+      return void 0;
+    }
+    /**
+     * Frees the GPU-related resources allocated by this instance. Call this
+     * method whenever this instance is no longer used in your app.
+     */
+    dispose() {
+      if (this.boneTexture !== null) {
+        this.boneTexture.dispose();
+        this.boneTexture = null;
+      }
+    }
+    /**
+     * Setups the skeleton by the given JSON and bones.
+     *
+     * @param {Object} json - The skeleton as serialized JSON.
+     * @param {Object<string, Bone>} bones - An array of bones.
+     * @return {Skeleton} A reference of this instance.
+     */
+    fromJSON(json, bones) {
+      this.uuid = json.uuid;
+      for (let i = 0, l = json.bones.length; i < l; i++) {
+        const uuid = json.bones[i];
+        let bone = bones[uuid];
+        if (bone === void 0) {
+          warn("Skeleton: No bone found with UUID:", uuid);
+          bone = new Bone();
+        }
+        this.bones.push(bone);
+        this.boneInverses.push(new Matrix4().fromArray(json.boneInverses[i]));
+      }
+      this.init();
+      return this;
+    }
+    /**
+     * Serializes the skeleton into JSON.
+     *
+     * @return {Object} A JSON object representing the serialized skeleton.
+     * @see {@link ObjectLoader#parse}
+     */
+    toJSON() {
+      const data = {
+        metadata: {
+          version: 4.7,
+          type: "Skeleton",
+          generator: "Skeleton.toJSON"
+        },
+        bones: [],
+        boneInverses: []
+      };
+      data.uuid = this.uuid;
+      const bones = this.bones;
+      const boneInverses = this.boneInverses;
+      for (let i = 0, l = bones.length; i < l; i++) {
+        const bone = bones[i];
+        data.bones.push(bone.uuid);
+        const boneInverse = boneInverses[i];
+        data.boneInverses.push(boneInverse.toArray());
+      }
+      return data;
     }
   };
   var InstancedBufferAttribute = class extends BufferAttribute {
@@ -18094,6 +17808,89 @@
       return this;
     }
   };
+  var MeshLambertMaterial = class extends Material {
+    /**
+     * Constructs a new mesh lambert material.
+     *
+     * @param {Object} [parameters] - An object with one or more properties
+     * defining the material's appearance. Any property of the material
+     * (including any property from inherited materials) can be passed
+     * in here. Color values can be passed any type of value accepted
+     * by {@link Color#set}.
+     */
+    constructor(parameters) {
+      super();
+      this.isMeshLambertMaterial = true;
+      this.type = "MeshLambertMaterial";
+      this.color = new Color(16777215);
+      this.map = null;
+      this.lightMap = null;
+      this.lightMapIntensity = 1;
+      this.aoMap = null;
+      this.aoMapIntensity = 1;
+      this.emissive = new Color(0);
+      this.emissiveIntensity = 1;
+      this.emissiveMap = null;
+      this.bumpMap = null;
+      this.bumpScale = 1;
+      this.normalMap = null;
+      this.normalMapType = TangentSpaceNormalMap;
+      this.normalScale = new Vector2(1, 1);
+      this.displacementMap = null;
+      this.displacementScale = 1;
+      this.displacementBias = 0;
+      this.specularMap = null;
+      this.alphaMap = null;
+      this.envMap = null;
+      this.envMapRotation = new Euler();
+      this.combine = MultiplyOperation;
+      this.reflectivity = 1;
+      this.envMapIntensity = 1;
+      this.refractionRatio = 0.98;
+      this.wireframe = false;
+      this.wireframeLinewidth = 1;
+      this.wireframeLinecap = "round";
+      this.wireframeLinejoin = "round";
+      this.flatShading = false;
+      this.fog = true;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.color.copy(source.color);
+      this.map = source.map;
+      this.lightMap = source.lightMap;
+      this.lightMapIntensity = source.lightMapIntensity;
+      this.aoMap = source.aoMap;
+      this.aoMapIntensity = source.aoMapIntensity;
+      this.emissive.copy(source.emissive);
+      this.emissiveMap = source.emissiveMap;
+      this.emissiveIntensity = source.emissiveIntensity;
+      this.bumpMap = source.bumpMap;
+      this.bumpScale = source.bumpScale;
+      this.normalMap = source.normalMap;
+      this.normalMapType = source.normalMapType;
+      this.normalScale.copy(source.normalScale);
+      this.displacementMap = source.displacementMap;
+      this.displacementScale = source.displacementScale;
+      this.displacementBias = source.displacementBias;
+      this.specularMap = source.specularMap;
+      this.alphaMap = source.alphaMap;
+      this.envMap = source.envMap;
+      this.envMapRotation.copy(source.envMapRotation);
+      this.combine = source.combine;
+      this.reflectivity = source.reflectivity;
+      this.envMapIntensity = source.envMapIntensity;
+      this.refractionRatio = source.refractionRatio;
+      this.wireframe = source.wireframe;
+      this.wireframeLinewidth = source.wireframeLinewidth;
+      this.wireframeLinecap = source.wireframeLinecap;
+      this.wireframeLinejoin = source.wireframeLinejoin;
+      this.flatShading = source.flatShading;
+      this.fog = source.fog;
+      return this;
+    }
+  };
   var MeshDepthMaterial = class extends Material {
     /**
      * Constructs a new mesh depth material.
@@ -19729,6 +19526,63 @@
       return data;
     }
   };
+  var PointLightShadow = class extends LightShadow {
+    /**
+     * Constructs a new point light shadow.
+     */
+    constructor() {
+      super(new PerspectiveCamera(90, 1, 0.5, 500));
+      this.isPointLightShadow = true;
+    }
+  };
+  var PointLight = class extends Light {
+    /**
+     * Constructs a new point light.
+     *
+     * @param {(number|Color|string)} [color=0xffffff] - The light's color.
+     * @param {number} [intensity=1] - The light's strength/intensity measured in candela (cd).
+     * @param {number} [distance=0] - Maximum range of the light. `0` means no limit.
+     * @param {number} [decay=2] - The amount the light dims along the distance of the light.
+     */
+    constructor(color, intensity, distance = 0, decay = 2) {
+      super(color, intensity);
+      this.isPointLight = true;
+      this.type = "PointLight";
+      this.distance = distance;
+      this.decay = decay;
+      this.shadow = new PointLightShadow();
+    }
+    /**
+     * The light's power. Power is the luminous power of the light measured in lumens (lm).
+     * Changing the power will also change the light's intensity.
+     *
+     * @type {number}
+     */
+    get power() {
+      return this.intensity * 4 * Math.PI;
+    }
+    set power(power) {
+      this.intensity = power / (4 * Math.PI);
+    }
+    dispose() {
+      super.dispose();
+      this.shadow.dispose();
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      this.distance = source.distance;
+      this.decay = source.decay;
+      this.shadow = source.shadow.clone();
+      return this;
+    }
+    toJSON(meta) {
+      const data = super.toJSON(meta);
+      data.object.distance = this.distance;
+      data.object.decay = this.decay;
+      data.object.shadow = this.shadow.toJSON();
+      return data;
+    }
+  };
   var OrthographicCamera = class extends Camera {
     /**
      * Constructs a new orthographic camera.
@@ -20029,6 +19883,120 @@
       this.cameras = array;
     }
   };
+  var Timer = class {
+    /**
+     * Constructs a new timer.
+     */
+    constructor() {
+      this._previousTime = 0;
+      this._currentTime = 0;
+      this._startTime = performance.now();
+      this._delta = 0;
+      this._elapsed = 0;
+      this._timescale = 1;
+      this._document = null;
+      this._pageVisibilityHandler = null;
+    }
+    /**
+     * Connect the timer to the given document.Calling this method is not mandatory to
+     * use the timer but enables the usage of the Page Visibility API to avoid large time
+     * delta values.
+     *
+     * @param {Document} document - The document.
+     */
+    connect(document2) {
+      this._document = document2;
+      if (document2.hidden !== void 0) {
+        this._pageVisibilityHandler = handleVisibilityChange.bind(this);
+        document2.addEventListener("visibilitychange", this._pageVisibilityHandler, false);
+      }
+    }
+    /**
+     * Disconnects the timer from the DOM and also disables the usage of the Page Visibility API.
+     */
+    disconnect() {
+      if (this._pageVisibilityHandler !== null) {
+        this._document.removeEventListener("visibilitychange", this._pageVisibilityHandler);
+        this._pageVisibilityHandler = null;
+      }
+      this._document = null;
+    }
+    /**
+     * Returns the time delta in seconds.
+     *
+     * @return {number} The time delta in second.
+     */
+    getDelta() {
+      return this._delta / 1e3;
+    }
+    /**
+     * Returns the elapsed time in seconds.
+     *
+     * @return {number} The elapsed time in second.
+     */
+    getElapsed() {
+      return this._elapsed / 1e3;
+    }
+    /**
+     * Returns the timescale.
+     *
+     * @return {number} The timescale.
+     */
+    getTimescale() {
+      return this._timescale;
+    }
+    /**
+     * Sets the given timescale which scale the time delta computation
+     * in `update()`.
+     *
+     * @param {number} timescale - The timescale to set.
+     * @return {Timer} A reference to this timer.
+     */
+    setTimescale(timescale) {
+      this._timescale = timescale;
+      return this;
+    }
+    /**
+     * Resets the time computation for the current simulation step.
+     *
+     * @return {Timer} A reference to this timer.
+     */
+    reset() {
+      this._currentTime = performance.now() - this._startTime;
+      return this;
+    }
+    /**
+     * Can be used to free all internal resources. Usually called when
+     * the timer instance isn't required anymore.
+     */
+    dispose() {
+      this.disconnect();
+    }
+    /**
+     * Updates the internal state of the timer. This method should be called
+     * once per simulation step and before you perform queries against the timer
+     * (e.g. via `getDelta()`).
+     *
+     * @param {number} timestamp - The current time in milliseconds. Can be obtained
+     * from the `requestAnimationFrame` callback argument. If not provided, the current
+     * time will be determined with `performance.now`.
+     * @return {Timer} A reference to this timer.
+     */
+    update(timestamp) {
+      if (this._pageVisibilityHandler !== null && this._document.hidden === true) {
+        this._delta = 0;
+      } else {
+        this._previousTime = this._currentTime;
+        this._currentTime = (timestamp !== void 0 ? timestamp : performance.now()) - this._startTime;
+        this._delta = (this._currentTime - this._previousTime) * this._timescale;
+        this._elapsed += this._delta;
+      }
+      return this;
+    }
+  };
+  function handleVisibilityChange() {
+    if (this._document.hidden === false) this.reset();
+  }
   var _RESERVED_CHARS_RE = "\\[\\]\\.:\\/";
   var _reservedRe = new RegExp("[" + _RESERVED_CHARS_RE + "]", "g");
   var _wordChar = "[^" + _RESERVED_CHARS_RE + "]";
@@ -20598,157 +20566,6 @@
       }
     }
   }
-  var Clock = class {
-    /**
-     * Constructs a new clock.
-     *
-     * @deprecated since 183.
-     * @param {boolean} [autoStart=true] - Whether to automatically start the clock when
-     * `getDelta()` is called for the first time.
-     */
-    constructor(autoStart = true) {
-      this.autoStart = autoStart;
-      this.startTime = 0;
-      this.oldTime = 0;
-      this.elapsedTime = 0;
-      this.running = false;
-      warn("Clock: This module has been deprecated. Please use THREE.Timer instead.");
-    }
-    /**
-     * Starts the clock. When `autoStart` is set to `true`, the method is automatically
-     * called by the class.
-     */
-    start() {
-      this.startTime = performance.now();
-      this.oldTime = this.startTime;
-      this.elapsedTime = 0;
-      this.running = true;
-    }
-    /**
-     * Stops the clock.
-     */
-    stop() {
-      this.getElapsedTime();
-      this.running = false;
-      this.autoStart = false;
-    }
-    /**
-     * Returns the elapsed time in seconds.
-     *
-     * @return {number} The elapsed time.
-     */
-    getElapsedTime() {
-      this.getDelta();
-      return this.elapsedTime;
-    }
-    /**
-     * Returns the delta time in seconds.
-     *
-     * @return {number} The delta time.
-     */
-    getDelta() {
-      let diff = 0;
-      if (this.autoStart && !this.running) {
-        this.start();
-        return 0;
-      }
-      if (this.running) {
-        const newTime = performance.now();
-        diff = (newTime - this.oldTime) / 1e3;
-        this.oldTime = newTime;
-        this.elapsedTime += diff;
-      }
-      return diff;
-    }
-  };
-  var Spherical = class {
-    /**
-     * Constructs a new spherical.
-     *
-     * @param {number} [radius=1] - The radius, or the Euclidean distance (straight-line distance) from the point to the origin.
-     * @param {number} [phi=0] - The polar angle in radians from the y (up) axis.
-     * @param {number} [theta=0] - The equator/azimuthal angle in radians around the y (up) axis.
-     */
-    constructor(radius = 1, phi = 0, theta = 0) {
-      this.radius = radius;
-      this.phi = phi;
-      this.theta = theta;
-    }
-    /**
-     * Sets the spherical components by copying the given values.
-     *
-     * @param {number} radius - The radius.
-     * @param {number} phi - The polar angle.
-     * @param {number} theta - The azimuthal angle.
-     * @return {Spherical} A reference to this spherical.
-     */
-    set(radius, phi, theta) {
-      this.radius = radius;
-      this.phi = phi;
-      this.theta = theta;
-      return this;
-    }
-    /**
-     * Copies the values of the given spherical to this instance.
-     *
-     * @param {Spherical} other - The spherical to copy.
-     * @return {Spherical} A reference to this spherical.
-     */
-    copy(other) {
-      this.radius = other.radius;
-      this.phi = other.phi;
-      this.theta = other.theta;
-      return this;
-    }
-    /**
-     * Restricts the polar angle [page:.phi phi] to be between `0.000001` and pi -
-     * `0.000001`.
-     *
-     * @return {Spherical} A reference to this spherical.
-     */
-    makeSafe() {
-      const EPS = 1e-6;
-      this.phi = clamp(this.phi, EPS, Math.PI - EPS);
-      return this;
-    }
-    /**
-     * Sets the spherical components from the given vector which is assumed to hold
-     * Cartesian coordinates.
-     *
-     * @param {Vector3} v - The vector to set.
-     * @return {Spherical} A reference to this spherical.
-     */
-    setFromVector3(v) {
-      return this.setFromCartesianCoords(v.x, v.y, v.z);
-    }
-    /**
-     * Sets the spherical components from the given Cartesian coordinates.
-     *
-     * @param {number} x - The x value.
-     * @param {number} y - The y value.
-     * @param {number} z - The z value.
-     * @return {Spherical} A reference to this spherical.
-     */
-    setFromCartesianCoords(x, y, z) {
-      this.radius = Math.sqrt(x * x + y * y + z * z);
-      if (this.radius === 0) {
-        this.theta = 0;
-        this.phi = 0;
-      } else {
-        this.theta = Math.atan2(x, z);
-        this.phi = Math.acos(clamp(y / this.radius, -1, 1));
-      }
-      return this;
-    }
-    /**
-     * Returns a new spherical with copied values from this instance.
-     *
-     * @return {Spherical} A clone of this instance.
-     */
-    clone() {
-      return new this.constructor().copy(this);
-    }
-  };
   var Matrix2 = class _Matrix2 {
     static {
       _Matrix2.prototype.isMatrix2 = true;
@@ -20818,53 +20635,6 @@
       te[1] = n21;
       te[3] = n22;
       return this;
-    }
-  };
-  var Controls = class extends EventDispatcher {
-    /**
-     * Constructs a new controls instance.
-     *
-     * @param {Object3D} object - The object that is managed by the controls.
-     * @param {?HTMLElement} domElement - The HTML element used for event listeners.
-     */
-    constructor(object, domElement = null) {
-      super();
-      this.object = object;
-      this.domElement = domElement;
-      this.enabled = true;
-      this.state = -1;
-      this.keys = {};
-      this.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: null };
-      this.touches = { ONE: null, TWO: null };
-    }
-    /**
-     * Connects the controls to the DOM. This method has so called "side effects" since
-     * it adds the module's event listeners to the DOM.
-     *
-     * @param {HTMLElement} element - The DOM element to connect to.
-     */
-    connect(element) {
-      if (this.domElement !== null) this.disconnect();
-      this.domElement = element;
-    }
-    /**
-     * Disconnects the controls from the DOM.
-     */
-    disconnect() {
-    }
-    /**
-     * Call this method if you no longer want use to the controls. It frees all internal
-     * resources and removes all event listeners.
-     */
-    dispose() {
-    }
-    /**
-     * Controls should implement this method if they have to update their internal state
-     * per simulation step.
-     *
-     * @param {number} [delta] - The time delta in seconds.
-     */
-    update() {
     }
   };
   function getByteLength(width, height, format, type) {
@@ -30937,7 +30707,7 @@ void main() {
       let _localClippingEnabled = false;
       const _projScreenMatrix3 = new Matrix4();
       const _vector3 = new Vector3();
-      const _vector4 = new Vector4();
+      const _vector42 = new Vector4();
       const _emptyScene = { background: null, fog: null, environment: null, overrideMaterial: null, isScene: true };
       let _renderBackground = false;
       function getTargetPixelRatio() {
@@ -31586,12 +31356,12 @@ void main() {
           } else if (object.isSprite) {
             if (!object.frustumCulled || object.intersectsFrustum(_frustum)) {
               if (sortObjects) {
-                _vector4.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_projScreenMatrix3);
+                _vector42.setFromMatrixPosition(object.matrixWorld).applyMatrix4(_projScreenMatrix3);
               }
               const geometry = objects.update(object);
               const material = object.material;
               if (material.visible) {
-                currentRenderList.push(object, geometry, material, groupOrder, _vector4.z, null, camera);
+                currentRenderList.push(object, geometry, material, groupOrder, _vector42.z, null, camera);
               }
             }
           } else if (object.isMesh || object.isLine || object.isPoints) {
@@ -31601,12 +31371,12 @@ void main() {
               if (sortObjects) {
                 if (object.boundingSphere !== void 0) {
                   if (object.boundingSphere === null) object.computeBoundingSphere();
-                  _vector4.copy(object.boundingSphere.center);
+                  _vector42.copy(object.boundingSphere.center);
                 } else {
                   if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
-                  _vector4.copy(geometry.boundingSphere.center);
+                  _vector42.copy(geometry.boundingSphere.center);
                 }
-                _vector4.applyMatrix4(object.matrixWorld).applyMatrix4(_projScreenMatrix3);
+                _vector42.applyMatrix4(object.matrixWorld).applyMatrix4(_projScreenMatrix3);
               }
               if (Array.isArray(material)) {
                 const groups = geometry.groups;
@@ -31614,11 +31384,11 @@ void main() {
                   const group = groups[i];
                   const groupMaterial = material[group.materialIndex];
                   if (groupMaterial && groupMaterial.visible) {
-                    currentRenderList.push(object, geometry, groupMaterial, groupOrder, _vector4.z, group, camera);
+                    currentRenderList.push(object, geometry, groupMaterial, groupOrder, _vector42.z, group, camera);
                   }
                 }
               } else if (material.visible) {
-                currentRenderList.push(object, geometry, material, groupOrder, _vector4.z, null, camera);
+                currentRenderList.push(object, geometry, material, groupOrder, _vector42.z, null, camera);
               }
             }
           }
@@ -32490,924 +32260,1029 @@ void main() {
     }
   };
 
-  // node_modules/three/examples/jsm/controls/OrbitControls.js
-  var _changeEvent = { type: "change" };
-  var _startEvent = { type: "start" };
-  var _endEvent = { type: "end" };
-  var _ray2 = new Ray();
-  var _plane = new Plane();
-  var _TILT_LIMIT = Math.cos(70 * MathUtils.DEG2RAD);
-  var _v = new Vector3();
-  var _twoPI = 2 * Math.PI;
-  var _STATE = {
-    NONE: -1,
-    ROTATE: 0,
-    DOLLY: 1,
-    PAN: 2,
-    TOUCH_ROTATE: 3,
-    TOUCH_PAN: 4,
-    TOUCH_DOLLY_PAN: 5,
-    TOUCH_DOLLY_ROTATE: 6
+  // public/js/core/EventBus.js
+  var EventBus = class {
+    constructor() {
+      this._listeners = /* @__PURE__ */ new Map();
+    }
+    /**
+     * Subscribe to an event. Returns an unsubscribe function.
+     */
+    on(ev, fn) {
+      if (typeof fn !== "function") return () => {
+      };
+      let list = this._listeners.get(ev);
+      if (!list) {
+        list = [];
+        this._listeners.set(ev, list);
+      }
+      if (!list.includes(fn)) {
+        list.push(fn);
+      }
+      return () => this.off(ev, fn);
+    }
+    /**
+     * Subscribe to an event for a single emission. Returns an unsubscribe function.
+     */
+    once(ev, fn) {
+      if (typeof fn !== "function") return () => {
+      };
+      const wrapper = (payload) => {
+        this.off(ev, wrapper);
+        fn(payload);
+      };
+      wrapper._originalFn = fn;
+      return this.on(ev, wrapper);
+    }
+    /**
+     * Unsubscribe a listener from an event.
+     */
+    off(ev, fn) {
+      const list = this._listeners.get(ev);
+      if (!list) return;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i] === fn || list[i]._originalFn === fn) {
+          list.splice(i, 1);
+        }
+      }
+      if (list.length === 0) {
+        this._listeners.delete(ev);
+      }
+    }
+    /**
+     * Emit an event synchronously with zero allocation when no listeners exist.
+     */
+    emit(ev, payload) {
+      const list = this._listeners.get(ev);
+      if (!list || list.length === 0) return;
+      for (let i = 0; i < list.length; i++) {
+        const fn = list[i];
+        if (!fn) continue;
+        const prevLen = list.length;
+        try {
+          fn(payload);
+        } catch (err) {
+          console.error(`[EventBus] Error in listener for "${ev}":`, err);
+        }
+        if (list.length < prevLen) {
+          i -= prevLen - list.length;
+        }
+      }
+    }
+    /**
+     * Remove all listeners across all events.
+     */
+    clear() {
+      this._listeners.clear();
+    }
   };
-  var _EPS = 1e-6;
-  var OrbitControls = class extends Controls {
-    /**
-     * Constructs a new controls instance.
-     *
-     * @param {Object3D} object - The object that is managed by the controls.
-     * @param {?HTMLElement} domElement - The HTML element used for event listeners.
-     */
-    constructor(object, domElement = null) {
-      super(object, domElement);
-      this.state = _STATE.NONE;
-      this.target = new Vector3();
-      this.cursor = new Vector3();
-      this.minDistance = 0;
-      this.maxDistance = Infinity;
-      this.minZoom = 0;
-      this.maxZoom = Infinity;
-      this.minTargetRadius = 0;
-      this.maxTargetRadius = Infinity;
-      this.minPolarAngle = 0;
-      this.maxPolarAngle = Math.PI;
-      this.minAzimuthAngle = -Infinity;
-      this.maxAzimuthAngle = Infinity;
-      this.enableDamping = false;
-      this.dampingFactor = 0.05;
-      this.enableZoom = true;
-      this.zoomSpeed = 1;
-      this.enableRotate = true;
-      this.rotateSpeed = 1;
-      this.keyRotateSpeed = 1;
-      this.enablePan = true;
-      this.panSpeed = 1;
-      this.screenSpacePanning = true;
-      this.keyPanSpeed = 7;
-      this.zoomToCursor = false;
-      this.autoRotate = false;
-      this.autoRotateSpeed = 2;
-      this.keys = { LEFT: "ArrowLeft", UP: "ArrowUp", RIGHT: "ArrowRight", BOTTOM: "ArrowDown" };
-      this.mouseButtons = { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN };
-      this.touches = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN };
-      this.target0 = this.target.clone();
-      this.position0 = this.object.position.clone();
-      this.zoom0 = this.object.zoom;
-      this._cursorStyle = "auto";
-      this._domElementKeyEvents = null;
-      this._lastPosition = new Vector3();
-      this._lastQuaternion = new Quaternion();
-      this._lastTargetPosition = new Vector3();
-      this._quat = new Quaternion().setFromUnitVectors(object.up, new Vector3(0, 1, 0));
-      this._quatInverse = this._quat.clone().invert();
-      this._spherical = new Spherical();
-      this._sphericalDelta = new Spherical();
-      this._scale = 1;
-      this._panOffset = new Vector3();
-      this._rotateStart = new Vector2();
-      this._rotateEnd = new Vector2();
-      this._rotateDelta = new Vector2();
-      this._panStart = new Vector2();
-      this._panEnd = new Vector2();
-      this._panDelta = new Vector2();
-      this._dollyStart = new Vector2();
-      this._dollyEnd = new Vector2();
-      this._dollyDelta = new Vector2();
-      this._dollyDirection = new Vector3();
-      this._mouse = new Vector2();
-      this._performCursorZoom = false;
-      this._pointers = [];
-      this._pointerPositions = {};
-      this._controlActive = false;
-      this._onPointerMove = onPointerMove.bind(this);
-      this._onPointerDown = onPointerDown.bind(this);
-      this._onPointerUp = onPointerUp.bind(this);
-      this._onContextMenu = onContextMenu.bind(this);
-      this._onMouseWheel = onMouseWheel.bind(this);
-      this._onKeyDown = onKeyDown.bind(this);
-      this._onTouchStart = onTouchStart.bind(this);
-      this._onTouchMove = onTouchMove.bind(this);
-      this._onMouseDown = onMouseDown.bind(this);
-      this._onMouseMove = onMouseMove.bind(this);
-      this._interceptControlDown = interceptControlDown.bind(this);
-      this._interceptControlUp = interceptControlUp.bind(this);
-      if (this.domElement !== null) {
-        this.connect(this.domElement);
+  var eventBus = new EventBus();
+
+  // public/js/core/AppState.js
+  var appState = {
+    activeRobotName: "Sparky",
+    cameraMode: "diagonal",
+    timeOfDay: "day",
+    weatherMode: "CLEAR",
+    visionMode: "",
+    isFreeWill: false,
+    isHandToolActive: false,
+    isZenMode: false,
+    isTouchVisible: false,
+    isMuted: false,
+    isVoiceEnabled: true,
+    scores: {
+      soccer: 0,
+      target: 0
+    },
+    navigation: {
+      active: false,
+      target: null,
+      mode: null
+    },
+    net: {
+      connected: false,
+      user: null,
+      onlineUsers: []
+    },
+    telemetry: {
+      fps: 60,
+      frameMs: 16.6,
+      drawCalls: 0,
+      triangles: 0,
+      geometries: 0,
+      textures: 0,
+      aiPingMs: null,
+      apiCalls: 0
+    }
+  };
+
+  // public/js/core/AssetCache.js
+  function safeDispose(resource) {
+    if (resource && typeof resource.dispose === "function") {
+      try {
+        resource.dispose();
+      } catch (e) {
+        console.warn("[AssetCache] dispose warning:", e);
       }
-      this.update();
+    }
+  }
+  var AssetCache = class {
+    constructor() {
+      this._geometries = /* @__PURE__ */ new Map();
+      this._materials = /* @__PURE__ */ new Map();
+      this._textures = /* @__PURE__ */ new Map();
+      this._tracked = /* @__PURE__ */ new Set();
     }
     /**
-     * Defines the visual representation of the cursor.
-     *
-     * @type {('auto'|'grab')}
-     * @default 'auto'
+     * Return cached BufferGeometry or build and cache via factory().
      */
-    set cursorStyle(type) {
-      this._cursorStyle = type;
-      if (type === "grab") {
-        this.domElement.style.cursor = "grab";
+    getGeometry(key, factory) {
+      if (this._geometries.has(key)) {
+        return this._geometries.get(key);
+      }
+      if (typeof factory !== "function") return null;
+      const geo = factory();
+      if (geo) {
+        this._geometries.set(key, geo);
+      }
+      return geo;
+    }
+    /**
+     * Return cached Material or build and cache via factory().
+     */
+    getMaterial(key, factory) {
+      if (this._materials.has(key)) {
+        return this._materials.get(key);
+      }
+      if (typeof factory !== "function") return null;
+      const mat = factory();
+      if (mat) {
+        this._materials.set(key, mat);
+      }
+      return mat;
+    }
+    /**
+     * Return cached Texture or build and cache via factory().
+     */
+    getTexture(key, factory) {
+      if (this._textures.has(key)) {
+        return this._textures.get(key);
+      }
+      if (typeof factory !== "function") return null;
+      const tex = factory();
+      if (tex) {
+        this._textures.set(key, tex);
+      }
+      return tex;
+    }
+    /**
+     * Track an ad-hoc disposable resource (BufferGeometry, Material, Texture, RenderTarget, etc.).
+     */
+    track(disposable) {
+      if (disposable && typeof disposable.dispose === "function") {
+        this._tracked.add(disposable);
+      }
+      return disposable;
+    }
+    /**
+     * Dispose and remove a keyed resource from any cache bucket.
+     */
+    release(key) {
+      let released = false;
+      if (this._geometries.has(key)) {
+        safeDispose(this._geometries.get(key));
+        this._geometries.delete(key);
+        released = true;
+      }
+      if (this._materials.has(key)) {
+        safeDispose(this._materials.get(key));
+        this._materials.delete(key);
+        released = true;
+      }
+      if (this._textures.has(key)) {
+        safeDispose(this._textures.get(key));
+        this._textures.delete(key);
+        released = true;
+      }
+      return released;
+    }
+    /**
+     * Dispose all cached and tracked GPU resources.
+     */
+    disposeAll() {
+      for (const geo of this._geometries.values()) safeDispose(geo);
+      this._geometries.clear();
+      for (const mat of this._materials.values()) safeDispose(mat);
+      this._materials.clear();
+      for (const tex of this._textures.values()) safeDispose(tex);
+      this._textures.clear();
+      for (const res of this._tracked) safeDispose(res);
+      this._tracked.clear();
+    }
+  };
+  var assetCache = new AssetCache();
+
+  // public/js/core/Scratch.js
+  var TMP = {
+    v1: new Vector3(),
+    v2: new Vector3(),
+    v3: new Vector3(),
+    v4: new Vector3(),
+    v5: new Vector3(),
+    v6: new Vector3(),
+    v2_1: new Vector2(),
+    v2_2: new Vector2(),
+    q1: new Quaternion(),
+    q2: new Quaternion(),
+    e1: new Euler(0, 0, 0, "YXZ"),
+    m1: new Matrix4(),
+    m2: new Matrix4(),
+    ray: new Ray(),
+    plane: new Plane(new Vector3(0, 1, 0), 0),
+    color: new Color(),
+    obj: new Object3D()
+  };
+  function damp2(a, b, lambda, dt) {
+    return a + (b - a) * (1 - Math.exp(-lambda * dt));
+  }
+  function dampAngle(current, target, lambda, dt) {
+    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    return current + diff * (1 - Math.exp(-lambda * dt));
+  }
+  function wrapAngle(rad) {
+    let a = (rad + Math.PI) % (Math.PI * 2);
+    if (a < 0) a += Math.PI * 2;
+    return a - Math.PI;
+  }
+  var TimerRegistry = class {
+    constructor() {
+      this._timeouts = /* @__PURE__ */ new Set();
+      this._intervals = /* @__PURE__ */ new Set();
+    }
+    setTimeout(fn, ms) {
+      const id = globalThis.setTimeout(() => {
+        this._timeouts.delete(id);
+        fn();
+      }, ms);
+      this._timeouts.add(id);
+      return id;
+    }
+    setInterval(fn, ms) {
+      const id = globalThis.setInterval(fn, ms);
+      this._intervals.add(id);
+      return id;
+    }
+    clear(id) {
+      if (id === void 0 || id === null) return;
+      if (this._timeouts.has(id)) {
+        globalThis.clearTimeout(id);
+        this._timeouts.delete(id);
+      }
+      if (this._intervals.has(id)) {
+        globalThis.clearInterval(id);
+        this._intervals.delete(id);
+      }
+    }
+    clearAll() {
+      for (const id of this._timeouts) {
+        globalThis.clearTimeout(id);
+      }
+      this._timeouts.clear();
+      for (const id of this._intervals) {
+        globalThis.clearInterval(id);
+      }
+      this._intervals.clear();
+    }
+  };
+
+  // node_modules/three/examples/jsm/environments/RoomEnvironment.js
+  var RoomEnvironment = class extends Scene {
+    constructor() {
+      super();
+      this.name = "RoomEnvironment";
+      this.position.y = -3.5;
+      const geometry = new BoxGeometry();
+      geometry.deleteAttribute("uv");
+      const roomMaterial = new MeshStandardMaterial({ side: BackSide });
+      const boxMaterial = new MeshStandardMaterial();
+      const mainLight = new PointLight(16777215, 900, 28, 2);
+      mainLight.position.set(0.418, 16.199, 0.3);
+      this.add(mainLight);
+      const room = new Mesh(geometry, roomMaterial);
+      room.position.set(-0.757, 13.219, 0.717);
+      room.scale.set(31.713, 28.305, 28.591);
+      this.add(room);
+      const boxes = new InstancedMesh(geometry, boxMaterial, 6);
+      const transform = new Object3D();
+      transform.position.set(-10.906, 2.009, 1.846);
+      transform.rotation.set(0, -0.195, 0);
+      transform.scale.set(2.328, 7.905, 4.651);
+      transform.updateMatrix();
+      boxes.setMatrixAt(0, transform.matrix);
+      transform.position.set(-5.607, -0.754, -0.758);
+      transform.rotation.set(0, 0.994, 0);
+      transform.scale.set(1.97, 1.534, 3.955);
+      transform.updateMatrix();
+      boxes.setMatrixAt(1, transform.matrix);
+      transform.position.set(6.167, 0.857, 7.803);
+      transform.rotation.set(0, 0.561, 0);
+      transform.scale.set(3.927, 6.285, 3.687);
+      transform.updateMatrix();
+      boxes.setMatrixAt(2, transform.matrix);
+      transform.position.set(-2.017, 0.018, 6.124);
+      transform.rotation.set(0, 0.333, 0);
+      transform.scale.set(2.002, 4.566, 2.064);
+      transform.updateMatrix();
+      boxes.setMatrixAt(3, transform.matrix);
+      transform.position.set(2.291, -0.756, -2.621);
+      transform.rotation.set(0, -0.286, 0);
+      transform.scale.set(1.546, 1.552, 1.496);
+      transform.updateMatrix();
+      boxes.setMatrixAt(4, transform.matrix);
+      transform.position.set(-2.193, -0.369, -5.547);
+      transform.rotation.set(0, 0.516, 0);
+      transform.scale.set(3.875, 3.487, 2.986);
+      transform.updateMatrix();
+      boxes.setMatrixAt(5, transform.matrix);
+      this.add(boxes);
+      const light1 = new Mesh(geometry, createAreaLightMaterial(50));
+      light1.position.set(-16.116, 14.37, 8.208);
+      light1.scale.set(0.1, 2.428, 2.739);
+      this.add(light1);
+      const light2 = new Mesh(geometry, createAreaLightMaterial(50));
+      light2.position.set(-16.109, 18.021, -8.207);
+      light2.scale.set(0.1, 2.425, 2.751);
+      this.add(light2);
+      const light3 = new Mesh(geometry, createAreaLightMaterial(17));
+      light3.position.set(14.904, 12.198, -1.832);
+      light3.scale.set(0.15, 4.265, 6.331);
+      this.add(light3);
+      const light4 = new Mesh(geometry, createAreaLightMaterial(43));
+      light4.position.set(-0.462, 8.89, 14.52);
+      light4.scale.set(4.38, 5.441, 0.088);
+      this.add(light4);
+      const light5 = new Mesh(geometry, createAreaLightMaterial(20));
+      light5.position.set(3.235, 11.486, -12.541);
+      light5.scale.set(2.5, 2, 0.1);
+      this.add(light5);
+      const light6 = new Mesh(geometry, createAreaLightMaterial(100));
+      light6.position.set(0, 20, 0);
+      light6.scale.set(1, 0.1, 1);
+      this.add(light6);
+    }
+    /**
+     * Frees internal resources. This method should be called
+     * when the environment is no longer required.
+     */
+    dispose() {
+      const resources = /* @__PURE__ */ new Set();
+      this.traverse((object) => {
+        if (object.isMesh) {
+          resources.add(object.geometry);
+          resources.add(object.material);
+        }
+      });
+      for (const resource of resources) {
+        resource.dispose();
+      }
+    }
+  };
+  function createAreaLightMaterial(intensity) {
+    const material = new MeshLambertMaterial({
+      color: 0,
+      emissive: 16777215,
+      emissiveIntensity: intensity
+    });
+    return material;
+  }
+
+  // public/js/gfx_pipeline.js
+  var SKY_VERTEX_SHADER = (
+    /* glsl */
+    `
+precision mediump float;
+varying vec3 vWorldDir;
+void main() {
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWorldDir = position;
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}
+`
+  );
+  var SKY_FRAGMENT_SHADER = (
+    /* glsl */
+    `
+precision mediump float;
+varying vec3 vWorldDir;
+
+uniform vec3 uTopColor;
+uniform vec3 uHorizonColor;
+uniform vec3 uBottomColor;
+uniform vec3 uSunDir;
+uniform vec3 uSunColor;
+uniform float uSunSize;
+uniform float uNightFactor;
+
+void main() {
+  vec3 dir = normalize(vWorldDir);
+  float h = dir.y;
+
+  vec3 sky = h >= 0.0
+    ? mix(uHorizonColor, uTopColor, pow(clamp(h, 0.0, 1.0), 0.55))
+    : mix(uHorizonColor, uBottomColor, clamp(-h * 3.0, 0.0, 1.0));
+
+  // Soft solar/lunar halo + crisp disc
+  float sunDot = max(dot(dir, normalize(uSunDir)), 0.0);
+  float halo = pow(sunDot, mix(14.0, 28.0, uNightFactor)) * mix(0.45, 0.25, uNightFactor);
+  float disc = smoothstep(uSunSize - 0.0018, uSunSize, sunDot);
+  sky += uSunColor * (halo + disc * 1.15);
+
+  // Subtle cyber-aurora horizon shimmer at night
+  float horizonBand = exp(-abs(h) * 9.0) * uNightFactor;
+  sky += vec3(0.02, 0.16, 0.24) * horizonBand;
+
+  gl_FragColor = vec4(sky, 1.0);
+}
+`
+  );
+  var TIME_PRESETS = {
+    day: {
+      topColor: 1929176,
+      horizonColor: 10216191,
+      bottomColor: 5023339,
+      fogColor: 10214645,
+      fogDensity: 36e-4,
+      hemiSky: 14742270,
+      hemiGround: 3897917,
+      hemiIntensity: 0.72,
+      sunColor: 16775149,
+      sunIntensity: 1.75,
+      sunDir: [0.52, 0.74, 0.42],
+      sunOrbColor: 16776171,
+      sunSize: 0.9978,
+      fillColor: 3718648,
+      fillIntensity: 0.36,
+      envIntensity: 0.76,
+      exposure: 1.04,
+      nightFactor: 0
+    },
+    sunset: {
+      topColor: 3021903,
+      horizonColor: 16483650,
+      bottomColor: 6040354,
+      fogColor: 16026710,
+      fogDensity: 44e-4,
+      hemiSky: 16701354,
+      hemiGround: 7023896,
+      hemiIntensity: 0.65,
+      sunColor: 16765345,
+      sunIntensity: 1.45,
+      sunDir: [-0.78, 0.28, 0.55],
+      sunOrbColor: 16747088,
+      sunSize: 0.9972,
+      fillColor: 14251782,
+      fillIntensity: 0.34,
+      envIntensity: 0.58,
+      exposure: 1.02,
+      nightFactor: 0.2
+    },
+    night: {
+      topColor: 198418,
+      horizonColor: 991037,
+      bottomColor: 132631,
+      fogColor: 726314,
+      fogDensity: 48e-4,
+      hemiSky: 3359061,
+      hemiGround: 413243,
+      hemiIntensity: 0.5,
+      sunColor: 8246268,
+      sunIntensity: 0.72,
+      sunDir: [-0.52, 0.68, -0.51],
+      sunOrbColor: 14742270,
+      sunSize: 0.9984,
+      fillColor: 6514417,
+      fillIntensity: 0.4,
+      envIntensity: 0.36,
+      exposure: 1.08,
+      nightFactor: 1
+    }
+  };
+  var GfxPipeline = class {
+    constructor(container, assetCache2 = assetCache, eventBus2 = null) {
+      this.container = container;
+      this.assetCache = assetCache2 || assetCache;
+      this.eventBus = eventBus2;
+      this._timeOfDay = "day";
+      this._weatherMode = "CLEAR";
+      this._visionMode = "";
+      this._baseFogDensity = TIME_PRESETS.day.fogDensity;
+      this._baseExposure = TIME_PRESETS.day.exposure;
+      this._shadowHalfSize = 38;
+      this._shadowMapSize = 1024;
+      this._sunDist = 85;
+      this._sunDir = new Vector3(0.52, 0.74, 0.42).normalize();
+      this._lightRight = new Vector3();
+      this._lightUp = new Vector3();
+      this._worldUp = new Vector3(0, 1, 0);
+      this._pipWidth = 192;
+      this._pipHeight = 108;
+      this._pipRT = null;
+      this._pipPixels = null;
+      this._pipRowBytes = this._pipWidth * 4;
+      this._pipCanvas = null;
+      this._pipCtx = null;
+      this._pipImageData = null;
+      this._lastPipMs = 0;
+      this._unsubs = [];
+      this._initRenderer();
+      this._initSceneAndEnvironment();
+      this._initLights();
+      this._initSkyDome();
+      this.setTimeOfDay("day");
+      if (this.eventBus) {
+        this._unsubs.push(
+          this.eventBus.on("world:timeChanged", (p) => {
+            if (p && p.timeOfDay && p.timeOfDay !== this._timeOfDay) {
+              this.setTimeOfDay(p.timeOfDay);
+            }
+          }),
+          this.eventBus.on("world:weatherChanged", (p) => {
+            if (p && p.mode !== void 0 && p.mode !== this._weatherMode) {
+              this.setWeatherMode(p.mode);
+            }
+          }),
+          this.eventBus.on("world:visionChanged", (p) => {
+            if (p && p.mode !== void 0 && p.mode !== this._visionMode) {
+              this.setVisionMode(p.mode);
+            }
+          })
+        );
+      }
+    }
+    _initRenderer() {
+      const rawDpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(rawDpr, 1.5);
+      const useAA = rawDpr <= 1.5;
+      this.renderer = new WebGLRenderer({
+        antialias: useAA,
+        powerPreference: "high-performance",
+        stencil: false
+      });
+      const w = this.container && this.container.clientWidth || window.innerWidth || 1280;
+      const h = this.container && this.container.clientHeight || window.innerHeight || 720;
+      this.renderer.setPixelRatio(dpr);
+      this.renderer.setSize(w, h);
+      this.renderer.outputColorSpace = SRGBColorSpace;
+      this.renderer.toneMapping = ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = this._baseExposure;
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = PCFShadowMap;
+      const canvas = this.renderer.domElement;
+      canvas.style.touchAction = "none";
+      canvas.style.display = "block";
+      if (this.container) {
+        this.container.appendChild(canvas);
       } else {
-        this.domElement.style.cursor = "auto";
+        document.body.appendChild(canvas);
       }
     }
-    get cursorStyle() {
-      return this._cursorStyle;
+    _initSceneAndEnvironment() {
+      this.scene = new Scene();
+      this.scene.background = new Color(TIME_PRESETS.day.horizonColor);
+      this.scene.fog = new FogExp2(TIME_PRESETS.day.fogColor, this._baseFogDensity);
+      const pmrem = new PMREMGenerator(this.renderer);
+      pmrem.compileEquirectangularShader();
+      const roomEnv = new RoomEnvironment();
+      this._envRT = pmrem.fromScene(roomEnv, 0.04);
+      this.scene.environment = this._envRT.texture;
+      this.scene.environmentIntensity = TIME_PRESETS.day.envIntensity;
+      roomEnv.dispose();
+      pmrem.dispose();
+      this.assetCache.track(this._envRT);
     }
-    connect(element) {
-      super.connect(element);
-      this.domElement.addEventListener("pointerdown", this._onPointerDown);
-      this.domElement.addEventListener("pointercancel", this._onPointerUp);
-      this.domElement.addEventListener("contextmenu", this._onContextMenu);
-      this.domElement.addEventListener("wheel", this._onMouseWheel, { passive: false });
-      const document2 = this.domElement.getRootNode();
-      document2.addEventListener("keydown", this._interceptControlDown, { passive: true, capture: true });
-      this.domElement.style.touchAction = "none";
+    _initLights() {
+      this.hemiLight = new HemisphereLight(
+        TIME_PRESETS.day.hemiSky,
+        TIME_PRESETS.day.hemiGround,
+        TIME_PRESETS.day.hemiIntensity
+      );
+      this.scene.add(this.hemiLight);
+      this.sunLight = new DirectionalLight(
+        TIME_PRESETS.day.sunColor,
+        TIME_PRESETS.day.sunIntensity
+      );
+      this.sunLight.castShadow = true;
+      this.sunLight.shadow.mapSize.set(this._shadowMapSize, this._shadowMapSize);
+      this.sunLight.shadow.camera.near = 5;
+      this.sunLight.shadow.camera.far = 185;
+      const d = this._shadowHalfSize;
+      this.sunLight.shadow.camera.left = -d;
+      this.sunLight.shadow.camera.right = d;
+      this.sunLight.shadow.camera.top = d;
+      this.sunLight.shadow.camera.bottom = -d;
+      this.sunLight.shadow.bias = -5e-4;
+      this.sunLight.shadow.normalBias = 0.02;
+      this.sunLight.position.copy(this._sunDir).multiplyScalar(this._sunDist);
+      this.scene.add(this.sunLight);
+      this.scene.add(this.sunLight.target);
+      this.fillLight = new DirectionalLight(
+        TIME_PRESETS.day.fillColor,
+        TIME_PRESETS.day.fillIntensity
+      );
+      this.fillLight.position.set(-70, 50, -70);
+      this.scene.add(this.fillLight);
+      this._updateLightBasis();
     }
-    disconnect() {
-      this.state = _STATE.NONE;
-      this.domElement.removeEventListener("pointerdown", this._onPointerDown);
-      this.domElement.ownerDocument.removeEventListener("pointermove", this._onPointerMove);
-      this.domElement.ownerDocument.removeEventListener("pointerup", this._onPointerUp);
-      this.domElement.removeEventListener("pointercancel", this._onPointerUp);
-      this.domElement.removeEventListener("wheel", this._onMouseWheel);
-      this.domElement.removeEventListener("contextmenu", this._onContextMenu);
-      this.stopListenToKeyEvents();
-      const document2 = this.domElement.getRootNode();
-      document2.removeEventListener("keydown", this._interceptControlDown, { capture: true });
-      document2.removeEventListener("keyup", this._interceptControlUp, { capture: true });
-      this._controlActive = false;
-      this._pointers.length = 0;
-      this._pointerPositions = {};
-      this.domElement.style.touchAction = "";
-      this.domElement.style.cursor = "auto";
+    _updateLightBasis() {
+      this._lightRight.crossVectors(this._worldUp, this._sunDir);
+      if (this._lightRight.lengthSq() < 1e-5) {
+        this._lightRight.set(1, 0, 0);
+      } else {
+        this._lightRight.normalize();
+      }
+      this._lightUp.crossVectors(this._sunDir, this._lightRight).normalize();
+    }
+    _initSkyDome() {
+      this.skyGroup = new Group();
+      this.scene.add(this.skyGroup);
+      const skyGeo = this.assetCache.getGeometry("sky_dome_geo", () => new SphereGeometry(420, 24, 14));
+      this.skyUniforms = {
+        uTopColor: { value: new Color(TIME_PRESETS.day.topColor) },
+        uHorizonColor: { value: new Color(TIME_PRESETS.day.horizonColor) },
+        uBottomColor: { value: new Color(TIME_PRESETS.day.bottomColor) },
+        uSunDir: { value: this._sunDir.clone() },
+        uSunColor: { value: new Color(TIME_PRESETS.day.sunOrbColor) },
+        uSunSize: { value: TIME_PRESETS.day.sunSize },
+        uNightFactor: { value: 0 }
+      };
+      const skyMat = this.assetCache.getMaterial("sky_dome_mat", () => new ShaderMaterial({
+        vertexShader: SKY_VERTEX_SHADER,
+        fragmentShader: SKY_FRAGMENT_SHADER,
+        uniforms: this.skyUniforms,
+        side: BackSide,
+        depthWrite: false,
+        fog: false
+      }));
+      this.skyDome = new Mesh(skyGeo, skyMat);
+      this.skyDome.frustumCulled = false;
+      this.skyDome.renderOrder = -10;
+      this.skyGroup.add(this.skyDome);
+      const starCount = 300;
+      const starGeo = this.assetCache.getGeometry("sky_stars_geo", () => {
+        const geo = new BufferGeometry();
+        const pos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.random() * (Math.PI * 0.44);
+          const r = 340;
+          pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+          pos[i * 3 + 1] = Math.max(38, r * Math.cos(phi));
+          pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+        }
+        geo.setAttribute("position", new BufferAttribute(pos, 3));
+        return geo;
+      });
+      const starMat = this.assetCache.getMaterial("sky_stars_mat", () => new PointsMaterial({
+        color: 14742270,
+        size: 1.8,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        fog: false
+      }));
+      this.starField = new Points(starGeo, starMat);
+      this.starField.visible = false;
+      this.skyGroup.add(this.starField);
+    }
+    setTimeOfDay(mode) {
+      const preset = TIME_PRESETS[mode] || TIME_PRESETS.day;
+      this._timeOfDay = TIME_PRESETS[mode] ? mode : "day";
+      this.scene.background.setHex(preset.horizonColor);
+      this._baseFogDensity = preset.fogDensity;
+      this.scene.fog.color.setHex(preset.fogColor);
+      this.hemiLight.color.setHex(preset.hemiSky);
+      this.hemiLight.groundColor.setHex(preset.hemiGround);
+      this.hemiLight.intensity = preset.hemiIntensity;
+      this.sunLight.color.setHex(preset.sunColor);
+      this.sunLight.intensity = preset.sunIntensity;
+      this._sunDir.set(preset.sunDir[0], preset.sunDir[1], preset.sunDir[2]).normalize();
+      this._updateLightBasis();
+      this.fillLight.color.setHex(preset.fillColor);
+      this.fillLight.intensity = preset.fillIntensity;
+      this.scene.environmentIntensity = preset.envIntensity;
+      this._baseExposure = preset.exposure;
+      this.skyUniforms.uTopColor.value.setHex(preset.topColor);
+      this.skyUniforms.uHorizonColor.value.setHex(preset.horizonColor);
+      this.skyUniforms.uBottomColor.value.setHex(preset.bottomColor);
+      this.skyUniforms.uSunDir.value.copy(this._sunDir);
+      this.skyUniforms.uSunColor.value.setHex(preset.sunOrbColor);
+      this.skyUniforms.uSunSize.value = preset.sunSize;
+      this.skyUniforms.uNightFactor.value = preset.nightFactor;
+      if (this.starField) {
+        this.starField.visible = this._timeOfDay === "night";
+      }
+      this._applyAtmosphereModifiers();
+    }
+    setWeatherMode(mode) {
+      this._weatherMode = mode || "CLEAR";
+      this._applyAtmosphereModifiers();
+    }
+    setVisionMode(mode) {
+      this._visionMode = mode || "";
+      this._applyAtmosphereModifiers();
+    }
+    _applyAtmosphereModifiers() {
+      let fogMult = 1;
+      if (this._weatherMode === "FOG" || this._weatherMode === "CYBER_FOG") {
+        fogMult = 2.1;
+      } else if (this._weatherMode === "RAIN" || this._weatherMode === "NEON_RAIN") {
+        fogMult = 1.45;
+      }
+      this.scene.fog.density = this._baseFogDensity * fogMult;
+      let exposureOffset = 0;
+      if (this._visionMode === "NIGHT") exposureOffset = 0.28;
+      else if (this._visionMode === "THERMAL") exposureOffset = 0.14;
+      this.renderer.toneMappingExposure = this._baseExposure + exposureOffset;
+    }
+    update(dt, playerPos, elapsedTime = 0) {
+      if (playerPos) {
+        this.skyGroup.position.set(playerPos.x, 0, playerPos.z);
+        const texelSize = this._shadowHalfSize * 2 / this._shadowMapSize;
+        const projRight = Math.round(playerPos.dot(this._lightRight) / texelSize) * texelSize;
+        const projUp = Math.round(playerPos.dot(this._lightUp) / texelSize) * texelSize;
+        const projFwd = playerPos.dot(this._sunDir);
+        TMP.v1.copy(this._lightRight).multiplyScalar(projRight);
+        TMP.v2.copy(this._lightUp).multiplyScalar(projUp);
+        TMP.v3.copy(this._sunDir).multiplyScalar(projFwd);
+        this.sunLight.target.position.copy(TMP.v1).add(TMP.v2).add(TMP.v3);
+        this.sunLight.position.copy(this.sunLight.target.position).addScaledVector(this._sunDir, this._sunDist);
+        this.sunLight.target.updateMatrixWorld();
+      }
+      if (this.starField && this.starField.visible) {
+        this.starField.rotation.y = elapsedTime * 4e-3;
+      }
+    }
+    render(camera) {
+      if (!camera) return;
+      this.renderer.render(this.scene, camera);
+    }
+    renderEyePip(eyeCamera, targetCanvas) {
+      if (!eyeCamera || !targetCanvas) return;
+      const now = performance.now();
+      if (now - this._lastPipMs < 80) return;
+      this._lastPipMs = now;
+      const pw = this._pipWidth;
+      const ph = this._pipHeight;
+      if (!this._pipRT) {
+        this._pipRT = new WebGLRenderTarget(pw, ph, {
+          minFilter: LinearFilter,
+          magFilter: LinearFilter,
+          depthBuffer: true,
+          stencilBuffer: false
+        });
+        this._pipPixels = new Uint8Array(pw * ph * 4);
+        this.assetCache.track(this._pipRT);
+      }
+      if (this._pipCanvas !== targetCanvas) {
+        this._pipCanvas = targetCanvas;
+        targetCanvas.width = pw;
+        targetCanvas.height = ph;
+        this._pipCtx = targetCanvas.getContext("2d");
+        this._pipImageData = this._pipCtx ? this._pipCtx.createImageData(pw, ph) : null;
+      }
+      if (!this._pipCtx || !this._pipImageData) return;
+      const prevRT = this.renderer.getRenderTarget();
+      const prevAutoUpdate = this.renderer.shadowMap.autoUpdate;
+      eyeCamera.aspect = pw / ph;
+      eyeCamera.updateProjectionMatrix();
+      eyeCamera.updateWorldMatrix(true, false);
+      this.renderer.shadowMap.autoUpdate = false;
+      this.renderer.setRenderTarget(this._pipRT);
+      this.renderer.clear();
+      this.renderer.render(this.scene, eyeCamera);
+      this.renderer.readRenderTargetPixels(this._pipRT, 0, 0, pw, ph, this._pipPixels);
+      this.renderer.setRenderTarget(prevRT);
+      this.renderer.shadowMap.autoUpdate = prevAutoUpdate;
+      const dst = this._pipImageData.data;
+      const src = this._pipPixels;
+      const rowBytes = this._pipRowBytes;
+      for (let y = 0; y < ph; y++) {
+        const srcOffset = (ph - 1 - y) * rowBytes;
+        const dstOffset = y * rowBytes;
+        for (let b = 0; b < rowBytes; b++) {
+          dst[dstOffset + b] = src[srcOffset + b];
+        }
+      }
+      this._pipCtx.putImageData(this._pipImageData, 0, 0);
+    }
+    getTelemetry(outObj) {
+      const info = this.renderer.info;
+      const target = outObj || {};
+      target.drawCalls = info.render.calls;
+      target.triangles = info.render.triangles;
+      target.geometries = info.memory.geometries;
+      target.textures = info.memory.textures;
+      target.dpr = this.renderer.getPixelRatio();
+      return target;
+    }
+    resize(w, h) {
+      const width = Math.max(1, w || window.innerWidth || 1280);
+      const height = Math.max(1, h || window.innerHeight || 720);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      this.renderer.setPixelRatio(dpr);
+      this.renderer.setSize(width, height);
     }
     dispose() {
-      this.disconnect();
-    }
-    /**
-     * Get the current vertical rotation, in radians.
-     *
-     * @return {number} The current vertical rotation, in radians.
-     */
-    getPolarAngle() {
-      return this._spherical.phi;
-    }
-    /**
-     * Get the current horizontal rotation, in radians.
-     *
-     * @return {number} The current horizontal rotation, in radians.
-     */
-    getAzimuthalAngle() {
-      return this._spherical.theta;
-    }
-    /**
-     * Returns the distance from the camera to the target.
-     *
-     * @return {number} The distance from the camera to the target.
-     */
-    getDistance() {
-      return this.object.position.distanceTo(this.target);
-    }
-    /**
-     * Adds key event listeners to the given DOM element.
-     * `window` is a recommended argument for using this method.
-     *
-     * @param {HTMLElement} domElement - The DOM element
-     */
-    listenToKeyEvents(domElement) {
-      domElement.addEventListener("keydown", this._onKeyDown);
-      this._domElementKeyEvents = domElement;
-    }
-    /**
-     * Removes the key event listener previously defined with `listenToKeyEvents()`.
-     */
-    stopListenToKeyEvents() {
-      if (this._domElementKeyEvents !== null) {
-        this._domElementKeyEvents.removeEventListener("keydown", this._onKeyDown);
-        this._domElementKeyEvents = null;
+      for (let i = 0; i < this._unsubs.length; i++) {
+        this._unsubs[i]();
       }
-    }
-    /**
-     * Save the current state of the controls. This can later be recovered with `reset()`.
-     */
-    saveState() {
-      this.target0.copy(this.target);
-      this.position0.copy(this.object.position);
-      this.zoom0 = this.object.zoom;
-    }
-    /**
-     * Reset the controls to their state from either the last time the `saveState()`
-     * was called, or the initial state.
-     */
-    reset() {
-      this.target.copy(this.target0);
-      this.object.position.copy(this.position0);
-      this.object.zoom = this.zoom0;
-      this.object.updateProjectionMatrix();
-      this.dispatchEvent(_changeEvent);
-      this.update();
-      this.state = _STATE.NONE;
-    }
-    /**
-     * Programmatically pan the camera.
-     *
-     * @param {number} deltaX - The horizontal pan amount in pixels.
-     * @param {number} deltaY - The vertical pan amount in pixels.
-     */
-    pan(deltaX, deltaY) {
-      this._pan(deltaX, deltaY);
-      this.update();
-    }
-    /**
-     * Programmatically dolly in (zoom in for perspective camera).
-     *
-     * @param {number} dollyScale - The dolly scale factor.
-     */
-    dollyIn(dollyScale) {
-      this._dollyIn(dollyScale);
-      this.update();
-    }
-    /**
-     * Programmatically dolly out (zoom out for perspective camera).
-     *
-     * @param {number} dollyScale - The dolly scale factor.
-     */
-    dollyOut(dollyScale) {
-      this._dollyOut(dollyScale);
-      this.update();
-    }
-    /**
-     * Programmatically rotate the camera left (around the vertical axis).
-     *
-     * @param {number} angle - The rotation angle in radians.
-     */
-    rotateLeft(angle) {
-      this._rotateLeft(angle);
-      this.update();
-    }
-    /**
-     * Programmatically rotate the camera up (around the horizontal axis).
-     *
-     * @param {number} angle - The rotation angle in radians.
-     */
-    rotateUp(angle) {
-      this._rotateUp(angle);
-      this.update();
-    }
-    update(deltaTime = null) {
-      const position = this.object.position;
-      _v.copy(position).sub(this.target);
-      _v.applyQuaternion(this._quat);
-      this._spherical.setFromVector3(_v);
-      if (this.autoRotate && this.state === _STATE.NONE) {
-        this._rotateLeft(this._getAutoRotationAngle(deltaTime));
+      this._unsubs.length = 0;
+      if (this._pipRT) {
+        this._pipRT.dispose();
+        this._pipRT = null;
       }
-      if (this.enableDamping) {
-        this._spherical.theta += this._sphericalDelta.theta * this.dampingFactor;
-        this._spherical.phi += this._sphericalDelta.phi * this.dampingFactor;
-      } else {
-        this._spherical.theta += this._sphericalDelta.theta;
-        this._spherical.phi += this._sphericalDelta.phi;
+      if (this._envRT) {
+        this._envRT.dispose();
+        this._envRT = null;
       }
-      let min = this.minAzimuthAngle;
-      let max = this.maxAzimuthAngle;
-      if (isFinite(min) && isFinite(max)) {
-        if (min < -Math.PI) min += _twoPI;
-        else if (min > Math.PI) min -= _twoPI;
-        if (max < -Math.PI) max += _twoPI;
-        else if (max > Math.PI) max -= _twoPI;
-        if (min <= max) {
-          this._spherical.theta = Math.max(min, Math.min(max, this._spherical.theta));
-        } else {
-          this._spherical.theta = this._spherical.theta > (min + max) / 2 ? Math.max(min, this._spherical.theta) : Math.min(max, this._spherical.theta);
+      if (this.scene) {
+        this.scene.environment = null;
+      }
+      this._pipPixels = null;
+      this._pipImageData = null;
+      this._pipCtx = null;
+      this._pipCanvas = null;
+      if (this.renderer) {
+        const dom = this.renderer.domElement;
+        this.renderer.dispose();
+        if (dom && dom.parentNode) {
+          dom.parentNode.removeChild(dom);
         }
+        this.renderer = null;
       }
-      this._spherical.phi = Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, this._spherical.phi));
-      this._spherical.makeSafe();
-      if (this.enableDamping === true) {
-        this.target.addScaledVector(this._panOffset, this.dampingFactor);
-      } else {
-        this.target.add(this._panOffset);
-      }
-      this.target.sub(this.cursor);
-      this.target.clampLength(this.minTargetRadius, this.maxTargetRadius);
-      this.target.add(this.cursor);
-      let zoomChanged = false;
-      if (this.zoomToCursor && this._performCursorZoom || this.object.isOrthographicCamera) {
-        this._spherical.radius = this._clampDistance(this._spherical.radius);
-      } else {
-        const prevRadius = this._spherical.radius;
-        this._spherical.radius = this._clampDistance(this._spherical.radius * this._scale);
-        zoomChanged = prevRadius != this._spherical.radius;
-      }
-      _v.setFromSpherical(this._spherical);
-      _v.applyQuaternion(this._quatInverse);
-      position.copy(this.target).add(_v);
-      this.object.lookAt(this.target);
-      if (this.enableDamping === true) {
-        this._sphericalDelta.theta *= 1 - this.dampingFactor;
-        this._sphericalDelta.phi *= 1 - this.dampingFactor;
-        this._panOffset.multiplyScalar(1 - this.dampingFactor);
-      } else {
-        this._sphericalDelta.set(0, 0, 0);
-        this._panOffset.set(0, 0, 0);
-      }
-      if (this.zoomToCursor && this._performCursorZoom) {
-        let newRadius = null;
-        if (this.object.isPerspectiveCamera) {
-          const prevRadius = _v.length();
-          newRadius = this._clampDistance(prevRadius * this._scale);
-          const radiusDelta = prevRadius - newRadius;
-          this.object.position.addScaledVector(this._dollyDirection, radiusDelta);
-          this.object.updateMatrixWorld();
-          zoomChanged = !!radiusDelta;
-        } else if (this.object.isOrthographicCamera) {
-          const mouseBefore = new Vector3(this._mouse.x, this._mouse.y, 0);
-          mouseBefore.unproject(this.object);
-          const prevZoom = this.object.zoom;
-          this.object.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.object.zoom / this._scale));
-          this.object.updateProjectionMatrix();
-          zoomChanged = prevZoom !== this.object.zoom;
-          const mouseAfter = new Vector3(this._mouse.x, this._mouse.y, 0);
-          mouseAfter.unproject(this.object);
-          this.object.position.sub(mouseAfter).add(mouseBefore);
-          this.object.updateMatrixWorld();
-          newRadius = _v.length();
-        } else {
-          console.warn("WARNING: OrbitControls.js encountered an unknown camera type - zoom to cursor disabled.");
-          this.zoomToCursor = false;
-        }
-        if (newRadius !== null) {
-          if (this.screenSpacePanning) {
-            this.target.set(0, 0, -1).transformDirection(this.object.matrix).multiplyScalar(newRadius).add(this.object.position);
-          } else {
-            _ray2.origin.copy(this.object.position);
-            _ray2.direction.set(0, 0, -1).transformDirection(this.object.matrix);
-            if (Math.abs(this.object.up.dot(_ray2.direction)) < _TILT_LIMIT) {
-              this.object.lookAt(this.target);
-            } else {
-              _plane.setFromNormalAndCoplanarPoint(this.object.up, this.target);
-              _ray2.intersectPlane(_plane, this.target);
-            }
-          }
-        }
-      } else if (this.object.isOrthographicCamera) {
-        const prevZoom = this.object.zoom;
-        this.object.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.object.zoom / this._scale));
-        if (prevZoom !== this.object.zoom) {
-          this.object.updateProjectionMatrix();
-          zoomChanged = true;
-        }
-      }
-      this._scale = 1;
-      this._performCursorZoom = false;
-      if (zoomChanged || this._lastPosition.distanceToSquared(this.object.position) > _EPS || 8 * (1 - this._lastQuaternion.dot(this.object.quaternion)) > _EPS || this._lastTargetPosition.distanceToSquared(this.target) > _EPS) {
-        this.dispatchEvent(_changeEvent);
-        this._lastPosition.copy(this.object.position);
-        this._lastQuaternion.copy(this.object.quaternion);
-        this._lastTargetPosition.copy(this.target);
-        return true;
-      }
-      return false;
-    }
-    _getAutoRotationAngle(deltaTime) {
-      if (deltaTime !== null) {
-        return _twoPI / 60 * this.autoRotateSpeed * deltaTime;
-      } else {
-        return _twoPI / 60 / 60 * this.autoRotateSpeed;
-      }
-    }
-    _getZoomScale(delta) {
-      const normalizedDelta = Math.abs(delta * 0.01);
-      return Math.pow(0.95, this.zoomSpeed * normalizedDelta);
-    }
-    _rotateLeft(angle) {
-      this._sphericalDelta.theta -= angle;
-    }
-    _rotateUp(angle) {
-      this._sphericalDelta.phi -= angle;
-    }
-    _panLeft(distance, objectMatrix) {
-      _v.setFromMatrixColumn(objectMatrix, 0);
-      _v.multiplyScalar(-distance);
-      this._panOffset.add(_v);
-    }
-    _panUp(distance, objectMatrix) {
-      if (this.screenSpacePanning === true) {
-        _v.setFromMatrixColumn(objectMatrix, 1);
-      } else {
-        _v.setFromMatrixColumn(objectMatrix, 0);
-        _v.crossVectors(this.object.up, _v);
-      }
-      _v.multiplyScalar(distance);
-      this._panOffset.add(_v);
-    }
-    // deltaX and deltaY are in pixels; right and down are positive
-    _pan(deltaX, deltaY) {
-      const element = this.domElement;
-      if (this.object.isPerspectiveCamera) {
-        const position = this.object.position;
-        _v.copy(position).sub(this.target);
-        let targetDistance = _v.length();
-        targetDistance *= Math.tan(this.object.fov / 2 * Math.PI / 180);
-        this._panLeft(2 * deltaX * targetDistance / element.clientHeight, this.object.matrix);
-        this._panUp(2 * deltaY * targetDistance / element.clientHeight, this.object.matrix);
-      } else if (this.object.isOrthographicCamera) {
-        this._panLeft(deltaX * (this.object.right - this.object.left) / this.object.zoom / element.clientWidth, this.object.matrix);
-        this._panUp(deltaY * (this.object.top - this.object.bottom) / this.object.zoom / element.clientHeight, this.object.matrix);
-      } else {
-        console.warn("WARNING: OrbitControls.js encountered an unknown camera type - pan disabled.");
-        this.enablePan = false;
-      }
-    }
-    _dollyOut(dollyScale) {
-      if (this.object.isPerspectiveCamera || this.object.isOrthographicCamera) {
-        this._scale /= dollyScale;
-      } else {
-        console.warn("WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.");
-        this.enableZoom = false;
-      }
-    }
-    _dollyIn(dollyScale) {
-      if (this.object.isPerspectiveCamera || this.object.isOrthographicCamera) {
-        this._scale *= dollyScale;
-      } else {
-        console.warn("WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.");
-        this.enableZoom = false;
-      }
-    }
-    _updateZoomParameters(x, y) {
-      if (!this.zoomToCursor) {
-        return;
-      }
-      this._performCursorZoom = true;
-      const rect = this.domElement.getBoundingClientRect();
-      const dx = x - rect.left;
-      const dy = y - rect.top;
-      const w = rect.width;
-      const h = rect.height;
-      this._mouse.x = dx / w * 2 - 1;
-      this._mouse.y = -(dy / h) * 2 + 1;
-      this._dollyDirection.set(this._mouse.x, this._mouse.y, 1).unproject(this.object).sub(this.object.position).normalize();
-    }
-    _clampDistance(dist) {
-      return Math.max(this.minDistance, Math.min(this.maxDistance, dist));
-    }
-    //
-    // event callbacks - update the object state
-    //
-    _handleMouseDownRotate(event) {
-      this._rotateStart.set(event.clientX, event.clientY);
-    }
-    _handleMouseDownDolly(event) {
-      this._updateZoomParameters(event.clientX, event.clientX);
-      this._dollyStart.set(event.clientX, event.clientY);
-    }
-    _handleMouseDownPan(event) {
-      this._panStart.set(event.clientX, event.clientY);
-    }
-    _handleMouseMoveRotate(event) {
-      this._rotateEnd.set(event.clientX, event.clientY);
-      this._rotateDelta.subVectors(this._rotateEnd, this._rotateStart).multiplyScalar(this.rotateSpeed);
-      const element = this.domElement;
-      this._rotateLeft(_twoPI * this._rotateDelta.x / element.clientHeight);
-      this._rotateUp(_twoPI * this._rotateDelta.y / element.clientHeight);
-      this._rotateStart.copy(this._rotateEnd);
-      this.update();
-    }
-    _handleMouseMoveDolly(event) {
-      this._dollyEnd.set(event.clientX, event.clientY);
-      this._dollyDelta.subVectors(this._dollyEnd, this._dollyStart);
-      if (this._dollyDelta.y > 0) {
-        this._dollyOut(this._getZoomScale(this._dollyDelta.y));
-      } else if (this._dollyDelta.y < 0) {
-        this._dollyIn(this._getZoomScale(this._dollyDelta.y));
-      }
-      this._dollyStart.copy(this._dollyEnd);
-      this.update();
-    }
-    _handleMouseMovePan(event) {
-      this._panEnd.set(event.clientX, event.clientY);
-      this._panDelta.subVectors(this._panEnd, this._panStart).multiplyScalar(this.panSpeed);
-      this._pan(this._panDelta.x, this._panDelta.y);
-      this._panStart.copy(this._panEnd);
-      this.update();
-    }
-    _handleMouseWheel(event) {
-      this._updateZoomParameters(event.clientX, event.clientY);
-      if (event.deltaY < 0) {
-        this._dollyIn(this._getZoomScale(event.deltaY));
-      } else if (event.deltaY > 0) {
-        this._dollyOut(this._getZoomScale(event.deltaY));
-      }
-      this.update();
-    }
-    _handleKeyDown(event) {
-      let needsUpdate = false;
-      switch (event.code) {
-        case this.keys.UP:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            if (this.enableRotate) {
-              this._rotateUp(_twoPI * this.keyRotateSpeed / this.domElement.clientHeight);
-            }
-          } else {
-            if (this.enablePan) {
-              this._pan(0, this.keyPanSpeed);
-            }
-          }
-          needsUpdate = true;
-          break;
-        case this.keys.BOTTOM:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            if (this.enableRotate) {
-              this._rotateUp(-_twoPI * this.keyRotateSpeed / this.domElement.clientHeight);
-            }
-          } else {
-            if (this.enablePan) {
-              this._pan(0, -this.keyPanSpeed);
-            }
-          }
-          needsUpdate = true;
-          break;
-        case this.keys.LEFT:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            if (this.enableRotate) {
-              this._rotateLeft(_twoPI * this.keyRotateSpeed / this.domElement.clientHeight);
-            }
-          } else {
-            if (this.enablePan) {
-              this._pan(this.keyPanSpeed, 0);
-            }
-          }
-          needsUpdate = true;
-          break;
-        case this.keys.RIGHT:
-          if (event.ctrlKey || event.metaKey || event.shiftKey) {
-            if (this.enableRotate) {
-              this._rotateLeft(-_twoPI * this.keyRotateSpeed / this.domElement.clientHeight);
-            }
-          } else {
-            if (this.enablePan) {
-              this._pan(-this.keyPanSpeed, 0);
-            }
-          }
-          needsUpdate = true;
-          break;
-      }
-      if (needsUpdate) {
-        event.preventDefault();
-        this.update();
-      }
-    }
-    _handleTouchStartRotate(event) {
-      if (this._pointers.length === 1) {
-        this._rotateStart.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._rotateStart.set(x, y);
-      }
-    }
-    _handleTouchStartPan(event) {
-      if (this._pointers.length === 1) {
-        this._panStart.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._panStart.set(x, y);
-      }
-    }
-    _handleTouchStartDolly(event) {
-      const position = this._getSecondPointerPosition(event);
-      const dx = event.pageX - position.x;
-      const dy = event.pageY - position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      this._dollyStart.set(0, distance);
-    }
-    _handleTouchStartDollyPan(event) {
-      if (this.enableZoom) this._handleTouchStartDolly(event);
-      if (this.enablePan) this._handleTouchStartPan(event);
-    }
-    _handleTouchStartDollyRotate(event) {
-      if (this.enableZoom) this._handleTouchStartDolly(event);
-      if (this.enableRotate) this._handleTouchStartRotate(event);
-    }
-    _handleTouchMoveRotate(event) {
-      if (this._pointers.length == 1) {
-        this._rotateEnd.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._rotateEnd.set(x, y);
-      }
-      this._rotateDelta.subVectors(this._rotateEnd, this._rotateStart).multiplyScalar(this.rotateSpeed);
-      const element = this.domElement;
-      this._rotateLeft(_twoPI * this._rotateDelta.x / element.clientHeight);
-      this._rotateUp(_twoPI * this._rotateDelta.y / element.clientHeight);
-      this._rotateStart.copy(this._rotateEnd);
-    }
-    _handleTouchMovePan(event) {
-      if (this._pointers.length === 1) {
-        this._panEnd.set(event.pageX, event.pageY);
-      } else {
-        const position = this._getSecondPointerPosition(event);
-        const x = 0.5 * (event.pageX + position.x);
-        const y = 0.5 * (event.pageY + position.y);
-        this._panEnd.set(x, y);
-      }
-      this._panDelta.subVectors(this._panEnd, this._panStart).multiplyScalar(this.panSpeed);
-      this._pan(this._panDelta.x, this._panDelta.y);
-      this._panStart.copy(this._panEnd);
-    }
-    _handleTouchMoveDolly(event) {
-      const position = this._getSecondPointerPosition(event);
-      const dx = event.pageX - position.x;
-      const dy = event.pageY - position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      this._dollyEnd.set(0, distance);
-      this._dollyDelta.set(0, Math.pow(this._dollyEnd.y / this._dollyStart.y, this.zoomSpeed));
-      this._dollyOut(this._dollyDelta.y);
-      this._dollyStart.copy(this._dollyEnd);
-      const centerX = (event.pageX + position.x) * 0.5;
-      const centerY = (event.pageY + position.y) * 0.5;
-      this._updateZoomParameters(centerX, centerY);
-    }
-    _handleTouchMoveDollyPan(event) {
-      if (this.enableZoom) this._handleTouchMoveDolly(event);
-      if (this.enablePan) this._handleTouchMovePan(event);
-    }
-    _handleTouchMoveDollyRotate(event) {
-      if (this.enableZoom) this._handleTouchMoveDolly(event);
-      if (this.enableRotate) this._handleTouchMoveRotate(event);
-    }
-    // pointers
-    _addPointer(event) {
-      this._pointers.push(event.pointerId);
-    }
-    _removePointer(event) {
-      delete this._pointerPositions[event.pointerId];
-      for (let i = 0; i < this._pointers.length; i++) {
-        if (this._pointers[i] == event.pointerId) {
-          this._pointers.splice(i, 1);
-          return;
-        }
-      }
-    }
-    _isTrackingPointer(event) {
-      for (let i = 0; i < this._pointers.length; i++) {
-        if (this._pointers[i] == event.pointerId) return true;
-      }
-      return false;
-    }
-    _trackPointer(event) {
-      let position = this._pointerPositions[event.pointerId];
-      if (position === void 0) {
-        position = new Vector2();
-        this._pointerPositions[event.pointerId] = position;
-      }
-      position.set(event.pageX, event.pageY);
-    }
-    _getSecondPointerPosition(event) {
-      const pointerId = event.pointerId === this._pointers[0] ? this._pointers[1] : this._pointers[0];
-      return this._pointerPositions[pointerId];
-    }
-    //
-    _customWheelEvent(event) {
-      const mode = event.deltaMode;
-      const newEvent = {
-        clientX: event.clientX,
-        clientY: event.clientY,
-        deltaY: event.deltaY
-      };
-      switch (mode) {
-        case 1:
-          newEvent.deltaY *= 16;
-          break;
-        case 2:
-          newEvent.deltaY *= 100;
-          break;
-      }
-      if (event.ctrlKey && !this._controlActive) {
-        newEvent.deltaY *= 10;
-      }
-      return newEvent;
     }
   };
-  function onPointerDown(event) {
-    if (this.enabled === false) return;
-    if (this._pointers.length === 0) {
-      this.domElement.setPointerCapture(event.pointerId);
-      this.domElement.ownerDocument.addEventListener("pointermove", this._onPointerMove);
-      this.domElement.ownerDocument.addEventListener("pointerup", this._onPointerUp);
-    }
-    if (this._isTrackingPointer(event)) return;
-    this._addPointer(event);
-    if (event.pointerType === "touch") {
-      this._onTouchStart(event);
-    } else {
-      this._onMouseDown(event);
-    }
-    if (this._cursorStyle === "grab") {
-      this.domElement.style.cursor = "grabbing";
-    }
-  }
-  function onPointerMove(event) {
-    if (this.enabled === false) return;
-    if (event.pointerType === "touch") {
-      this._onTouchMove(event);
-    } else {
-      this._onMouseMove(event);
-    }
-  }
-  function onPointerUp(event) {
-    this._removePointer(event);
-    switch (this._pointers.length) {
-      case 0:
-        this.domElement.releasePointerCapture(event.pointerId);
-        this.domElement.ownerDocument.removeEventListener("pointermove", this._onPointerMove);
-        this.domElement.ownerDocument.removeEventListener("pointerup", this._onPointerUp);
-        this.dispatchEvent(_endEvent);
-        this.state = _STATE.NONE;
-        if (this._cursorStyle === "grab") {
-          this.domElement.style.cursor = "grab";
+
+  // node_modules/three/examples/jsm/utils/BufferGeometryUtils.js
+  function mergeGeometries(geometries, useGroups = false) {
+    const isIndexed = geometries[0].index !== null;
+    const attributesUsed = new Set(Object.keys(geometries[0].attributes));
+    const morphAttributesUsed = new Set(Object.keys(geometries[0].morphAttributes));
+    const attributes = {};
+    const morphAttributes = {};
+    const morphTargetsRelative = geometries[0].morphTargetsRelative;
+    const mergedGeometry = new BufferGeometry();
+    let offset = 0;
+    for (let i = 0; i < geometries.length; ++i) {
+      const geometry = geometries[i];
+      let attributesCount = 0;
+      if (isIndexed !== (geometry.index !== null)) {
+        console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + i + ". All geometries must have compatible attributes; make sure index attribute exists among all geometries, or in none of them.");
+        return null;
+      }
+      for (const name in geometry.attributes) {
+        if (!attributesUsed.has(name)) {
+          console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + i + '. All geometries must have compatible attributes; make sure "' + name + '" attribute exists among all geometries, or in none of them.');
+          return null;
         }
-        break;
-      case 1:
-        const pointerId = this._pointers[0];
-        const position = this._pointerPositions[pointerId];
-        this._onTouchStart({ pointerId, pageX: position.x, pageY: position.y });
-        break;
-    }
-  }
-  function onMouseDown(event) {
-    let mouseAction;
-    switch (event.button) {
-      case 0:
-        mouseAction = this.mouseButtons.LEFT;
-        break;
-      case 1:
-        mouseAction = this.mouseButtons.MIDDLE;
-        break;
-      case 2:
-        mouseAction = this.mouseButtons.RIGHT;
-        break;
-      default:
-        mouseAction = -1;
-    }
-    switch (mouseAction) {
-      case MOUSE.DOLLY:
-        if (this.enableZoom === false) return;
-        this._handleMouseDownDolly(event);
-        this.state = _STATE.DOLLY;
-        break;
-      case MOUSE.ROTATE:
-        if (event.ctrlKey || event.metaKey || event.shiftKey) {
-          if (this.enablePan === false) return;
-          this._handleMouseDownPan(event);
-          this.state = _STATE.PAN;
+        if (attributes[name] === void 0) attributes[name] = [];
+        attributes[name].push(geometry.attributes[name]);
+        attributesCount++;
+      }
+      if (attributesCount !== attributesUsed.size) {
+        console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + i + ". Make sure all geometries have the same number of attributes.");
+        return null;
+      }
+      if (morphTargetsRelative !== geometry.morphTargetsRelative) {
+        console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + i + ". .morphTargetsRelative must be consistent throughout all geometries.");
+        return null;
+      }
+      for (const name in geometry.morphAttributes) {
+        if (!morphAttributesUsed.has(name)) {
+          console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + i + ".  .morphAttributes must be consistent throughout all geometries.");
+          return null;
+        }
+        if (morphAttributes[name] === void 0) morphAttributes[name] = [];
+        morphAttributes[name].push(geometry.morphAttributes[name]);
+      }
+      if (useGroups) {
+        let count;
+        if (isIndexed) {
+          count = geometry.index.count;
+        } else if (geometry.attributes.position !== void 0) {
+          count = geometry.attributes.position.count;
         } else {
-          if (this.enableRotate === false) return;
-          this._handleMouseDownRotate(event);
-          this.state = _STATE.ROTATE;
+          console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + i + ". The geometry must have either an index or a position attribute");
+          return null;
         }
-        break;
-      case MOUSE.PAN:
-        if (event.ctrlKey || event.metaKey || event.shiftKey) {
-          if (this.enableRotate === false) return;
-          this._handleMouseDownRotate(event);
-          this.state = _STATE.ROTATE;
-        } else {
-          if (this.enablePan === false) return;
-          this._handleMouseDownPan(event);
-          this.state = _STATE.PAN;
+        mergedGeometry.addGroup(offset, count, i);
+        offset += count;
+      }
+    }
+    if (isIndexed) {
+      let indexOffset = 0;
+      const mergedIndex = [];
+      for (let i = 0; i < geometries.length; ++i) {
+        const index = geometries[i].index;
+        for (let j = 0; j < index.count; ++j) {
+          mergedIndex.push(index.getX(j) + indexOffset);
         }
-        break;
-      default:
-        this.state = _STATE.NONE;
+        indexOffset += geometries[i].attributes.position.count;
+      }
+      mergedGeometry.setIndex(mergedIndex);
     }
-    if (this.state !== _STATE.NONE) {
-      this.dispatchEvent(_startEvent);
+    for (const name in attributes) {
+      const mergedAttribute = mergeAttributes(attributes[name]);
+      if (!mergedAttribute) {
+        console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the " + name + " attribute.");
+        return null;
+      }
+      mergedGeometry.setAttribute(name, mergedAttribute);
     }
-  }
-  function onMouseMove(event) {
-    switch (this.state) {
-      case _STATE.ROTATE:
-        if (this.enableRotate === false) return;
-        this._handleMouseMoveRotate(event);
-        break;
-      case _STATE.DOLLY:
-        if (this.enableZoom === false) return;
-        this._handleMouseMoveDolly(event);
-        break;
-      case _STATE.PAN:
-        if (this.enablePan === false) return;
-        this._handleMouseMovePan(event);
-        break;
-    }
-  }
-  function onMouseWheel(event) {
-    if (this.enabled === false || this.enableZoom === false || this.state !== _STATE.NONE) return;
-    event.preventDefault();
-    this.dispatchEvent(_startEvent);
-    this._handleMouseWheel(this._customWheelEvent(event));
-    this.dispatchEvent(_endEvent);
-  }
-  function onKeyDown(event) {
-    if (this.enabled === false) return;
-    this._handleKeyDown(event);
-  }
-  function onTouchStart(event) {
-    this._trackPointer(event);
-    switch (this._pointers.length) {
-      case 1:
-        switch (this.touches.ONE) {
-          case TOUCH.ROTATE:
-            if (this.enableRotate === false) return;
-            this._handleTouchStartRotate(event);
-            this.state = _STATE.TOUCH_ROTATE;
-            break;
-          case TOUCH.PAN:
-            if (this.enablePan === false) return;
-            this._handleTouchStartPan(event);
-            this.state = _STATE.TOUCH_PAN;
-            break;
-          default:
-            this.state = _STATE.NONE;
+    for (const name in morphAttributes) {
+      const numMorphTargets = morphAttributes[name][0].length;
+      if (numMorphTargets === 0) continue;
+      mergedGeometry.morphAttributes = mergedGeometry.morphAttributes || {};
+      mergedGeometry.morphAttributes[name] = [];
+      for (let i = 0; i < numMorphTargets; ++i) {
+        const morphAttributesToMerge = [];
+        for (let j = 0; j < morphAttributes[name].length; ++j) {
+          morphAttributesToMerge.push(morphAttributes[name][j][i]);
         }
-        break;
-      case 2:
-        switch (this.touches.TWO) {
-          case TOUCH.DOLLY_PAN:
-            if (this.enableZoom === false && this.enablePan === false) return;
-            this._handleTouchStartDollyPan(event);
-            this.state = _STATE.TOUCH_DOLLY_PAN;
-            break;
-          case TOUCH.DOLLY_ROTATE:
-            if (this.enableZoom === false && this.enableRotate === false) return;
-            this._handleTouchStartDollyRotate(event);
-            this.state = _STATE.TOUCH_DOLLY_ROTATE;
-            break;
-          default:
-            this.state = _STATE.NONE;
+        const mergedMorphAttribute = mergeAttributes(morphAttributesToMerge);
+        if (!mergedMorphAttribute) {
+          console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the " + name + " morphAttribute.");
+          return null;
         }
-        break;
-      default:
-        this.state = _STATE.NONE;
+        mergedGeometry.morphAttributes[name].push(mergedMorphAttribute);
+      }
     }
-    if (this.state !== _STATE.NONE) {
-      this.dispatchEvent(_startEvent);
-    }
+    return mergedGeometry;
   }
-  function onTouchMove(event) {
-    this._trackPointer(event);
-    switch (this.state) {
-      case _STATE.TOUCH_ROTATE:
-        if (this.enableRotate === false) return;
-        this._handleTouchMoveRotate(event);
-        this.update();
-        break;
-      case _STATE.TOUCH_PAN:
-        if (this.enablePan === false) return;
-        this._handleTouchMovePan(event);
-        this.update();
-        break;
-      case _STATE.TOUCH_DOLLY_PAN:
-        if (this.enableZoom === false && this.enablePan === false) return;
-        this._handleTouchMoveDollyPan(event);
-        this.update();
-        break;
-      case _STATE.TOUCH_DOLLY_ROTATE:
-        if (this.enableZoom === false && this.enableRotate === false) return;
-        this._handleTouchMoveDollyRotate(event);
-        this.update();
-        break;
-      default:
-        this.state = _STATE.NONE;
+  function mergeAttributes(attributes) {
+    let TypedArray;
+    let itemSize;
+    let normalized;
+    let gpuType = -1;
+    let arrayLength = 0;
+    for (let i = 0; i < attributes.length; ++i) {
+      const attribute = attributes[i];
+      if (TypedArray === void 0) TypedArray = attribute.array.constructor;
+      if (TypedArray !== attribute.array.constructor) {
+        console.error("THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.array must be of consistent array types across matching attributes.");
+        return null;
+      }
+      if (itemSize === void 0) itemSize = attribute.itemSize;
+      if (itemSize !== attribute.itemSize) {
+        console.error("THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.itemSize must be consistent across matching attributes.");
+        return null;
+      }
+      if (normalized === void 0) normalized = attribute.normalized;
+      if (normalized !== attribute.normalized) {
+        console.error("THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.normalized must be consistent across matching attributes.");
+        return null;
+      }
+      if (gpuType === -1) gpuType = attribute.gpuType;
+      if (gpuType !== attribute.gpuType) {
+        console.error("THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.");
+        return null;
+      }
+      arrayLength += attribute.count * itemSize;
     }
-  }
-  function onContextMenu(event) {
-    if (this.enabled === false) return;
-    event.preventDefault();
-  }
-  function interceptControlDown(event) {
-    if (event.key === "Control") {
-      this._controlActive = true;
-      const document2 = this.domElement.getRootNode();
-      document2.addEventListener("keyup", this._interceptControlUp, { passive: true, capture: true });
+    const array = new TypedArray(arrayLength);
+    const result = new BufferAttribute(array, itemSize, normalized);
+    let offset = 0;
+    for (let i = 0; i < attributes.length; ++i) {
+      const attribute = attributes[i];
+      if (attribute.isInterleavedBufferAttribute) {
+        const tupleOffset = offset / itemSize;
+        for (let j = 0, l = attribute.count; j < l; j++) {
+          for (let c = 0; c < itemSize; c++) {
+            const value = attribute.getComponent(j, c);
+            result.setComponent(j + tupleOffset, c, value);
+          }
+        }
+      } else {
+        array.set(attribute.array, offset);
+      }
+      offset += attribute.count * itemSize;
     }
-  }
-  function interceptControlUp(event) {
-    if (event.key === "Control") {
-      this._controlActive = false;
-      const document2 = this.domElement.getRootNode();
-      document2.removeEventListener("keyup", this._interceptControlUp, { passive: true, capture: true });
+    if (gpuType !== void 0) {
+      result.gpuType = gpuType;
     }
+    return result;
   }
 
   // public/js/audio.js
-  var RoboAudioEngine = class {
+  var HAPPY_NOTES = [523.25, 659.25, 783.99, 1046.5];
+  var FANFARE_NOTES = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+  var MUNCH_OFFSETS = [0, 0.085, 0.17];
+  var PENTATONIC_NOTES = [440, 523.25, 587.33, 659.25, 783.99, 880];
+  var TRICK_NOTES = [440, 554.37, 659.25, 880, 1108.73];
+  var WAVE_NOTES = [659.25, 880, 1046.5];
+  var CHIRP_NOTES = [520, 780, 1040];
+  var RoboAudio = class {
     constructor() {
       this.ctx = null;
       this.masterGain = null;
@@ -33415,14 +33290,24 @@ void main() {
       this.reverbNode = null;
       this.reverbGain = null;
       this.noiseBuffer = null;
-      this.muted = false;
+      this.muted = !!appState.isMuted;
       this.initialized = false;
+      this._timers = new TimerRegistry();
+      this._lastStepMs = 0;
+      this._lastBeatMs = 0;
     }
     init() {
-      if (this.initialized) return;
+      if (this.initialized && this.ctx) {
+        if (this.ctx.state === "suspended") {
+          this.ctx.resume().catch(() => {
+          });
+        }
+        return;
+      }
       try {
-        const AudioContext2 = window.AudioContext || window.webkitAudioContext;
-        this.ctx = new AudioContext2();
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return;
+        this.ctx = new AudioContextCtor();
         this.compressor = this.ctx.createDynamicsCompressor();
         this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
         this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
@@ -33430,8 +33315,8 @@ void main() {
         this.compressor.attack.setValueAtTime(3e-3, this.ctx.currentTime);
         this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
-        this.reverbNode = this.createImpulseReverb(0.45, 2.8);
+        this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.85, this.ctx.currentTime);
+        this.reverbNode = this._createImpulseReverb(0.45, 2.8);
         this.reverbGain = this.ctx.createGain();
         this.reverbGain.gain.setValueAtTime(0.18, this.ctx.currentTime);
         this.masterGain.connect(this.compressor);
@@ -33439,13 +33324,13 @@ void main() {
         this.reverbNode.connect(this.reverbGain);
         this.reverbGain.connect(this.compressor);
         this.compressor.connect(this.ctx.destination);
-        this.noiseBuffer = this.createNoiseBuffer(1);
+        this.noiseBuffer = this._createNoiseBuffer(1);
         this.initialized = true;
       } catch (e) {
-        console.warn("AudioContext no soportado:", e);
+        console.warn("[RoboAudio] AudioContext no soportado:", e);
       }
     }
-    createImpulseReverb(duration = 0.4, decay = 2.5) {
+    _createImpulseReverb(duration = 0.4, decay = 2.5) {
       const rate = this.ctx.sampleRate;
       const length = Math.floor(rate * duration);
       const impulse = this.ctx.createBuffer(2, length, rate);
@@ -33459,7 +33344,7 @@ void main() {
       convolver.buffer = impulse;
       return convolver;
     }
-    createNoiseBuffer(duration = 1) {
+    _createNoiseBuffer(duration = 1) {
       const bufferSize = Math.floor(this.ctx.sampleRate * duration);
       const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const output = buffer.getChannelData(0);
@@ -33479,17 +33364,24 @@ void main() {
     }
     ensureContext() {
       this.init();
-      if (this.ctx && this.ctx.state === "suspended") {
-        this.ctx.resume();
-      }
     }
     get out() {
-      return this.masterGain || this.ctx.destination;
+      return this.masterGain || (this.ctx ? this.ctx.destination : null);
+    }
+    setMuted(bool) {
+      this.muted = !!bool;
+      appState.isMuted = this.muted;
+      if (this.masterGain && this.ctx) {
+        this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.85, this.ctx.currentTime, 0.02);
+      }
+    }
+    _ready() {
+      if (this.muted || appState.isMuted) return false;
+      this.init();
+      return !!(this.ctx && this.out);
     }
     playBark(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc1 = this.ctx.createOscillator();
       const osc2 = this.ctx.createOscillator();
@@ -33522,9 +33414,7 @@ void main() {
       osc2.stop(now + 0.19);
     }
     playBoop(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const sub = this.ctx.createOscillator();
@@ -33547,9 +33437,7 @@ void main() {
       sub.stop(now + 0.12);
     }
     playJump(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -33564,62 +33452,17 @@ void main() {
       osc.start(now);
       osc.stop(now + 0.18);
     }
-    playHappyJingle() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
-      const notes = [523.25, 659.25, 783.99, 1046.5];
-      const now = this.ctx.currentTime;
-      notes.forEach((freq, idx) => {
-        const osc = this.ctx.createOscillator();
-        const harm = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        const startTime = now + idx * 0.075;
-        osc.type = "triangle";
-        harm.type = "sine";
-        osc.frequency.setValueAtTime(freq, startTime);
-        harm.frequency.setValueAtTime(freq * 2, startTime);
-        gain.gain.setValueAtTime(1e-3, startTime);
-        gain.gain.linearRampToValueAtTime(0.22, startTime + 0.015);
-        gain.gain.exponentialRampToValueAtTime(1e-3, startTime + 0.19);
-        osc.connect(gain);
-        harm.connect(gain);
-        gain.connect(this.out);
-        osc.start(startTime);
-        harm.start(startTime);
-        osc.stop(startTime + 0.19);
-        harm.stop(startTime + 0.19);
-      });
-    }
-    playCurious() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(420, now);
-      osc.frequency.exponentialRampToValueAtTime(640, now + 0.12);
-      osc.frequency.exponentialRampToValueAtTime(920, now + 0.26);
-      gain.gain.setValueAtTime(1e-3, now);
-      gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.32);
-      osc.connect(gain);
-      gain.connect(this.out);
-      osc.start(now);
-      osc.stop(now + 0.32);
-    }
-    playStep() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+    playFootstep(pitch = 1) {
+      const tMs = performance.now();
+      if (tMs - this._lastStepMs < 110) return;
+      this._lastStepMs = tMs;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const filter = this.ctx.createBiquadFilter();
       const gain = this.ctx.createGain();
       osc.type = "triangle";
-      const base = 115 + Math.random() * 35;
+      const base = (115 + Math.random() * 35) * pitch;
       osc.frequency.setValueAtTime(base * 1.6, now);
       osc.frequency.exponentialRampToValueAtTime(base * 0.6, now + 0.045);
       filter.type = "lowpass";
@@ -33632,33 +33475,11 @@ void main() {
       osc.start(now);
       osc.stop(now + 0.05);
     }
-    playSplash() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx || !this.noiseBuffer) return;
-      const now = this.ctx.currentTime;
-      const noise = this.ctx.createBufferSource();
-      noise.buffer = this.noiseBuffer;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = "bandpass";
-      filter.frequency.setValueAtTime(950, now);
-      filter.frequency.exponentialRampToValueAtTime(320, now + 0.18);
-      filter.frequency.exponentialRampToValueAtTime(1200, now + 0.32);
-      filter.Q.setValueAtTime(1.5, now);
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(1e-3, now);
-      gain.gain.linearRampToValueAtTime(0.32, now + 0.025);
-      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.35);
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.out);
-      noise.start(now);
-      noise.stop(now + 0.35);
+    playStep(pitch = 1) {
+      this.playFootstep(pitch);
     }
     playTrampoline() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const lfo = this.ctx.createOscillator();
@@ -33682,18 +33503,101 @@ void main() {
       osc.stop(now + 0.45);
       lfo.stop(now + 0.45);
     }
-    playGoalFanfare() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
-      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98];
+    playSuccess() {
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
-      notes.forEach((freq, idx) => {
+      for (let i = 0; i < TRICK_NOTES.length; i++) {
+        const f = TRICK_NOTES[i];
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const t = now + i * 0.055;
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(1e-3, t);
+        gain.gain.linearRampToValueAtTime(0.2, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(1e-3, t + 0.2);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(t);
+        osc.stop(t + 0.2);
+      }
+    }
+    playTrickSuccess() {
+      this.playSuccess();
+    }
+    playHappyJingle() {
+      if (!this._ready()) return;
+      const now = this.ctx.currentTime;
+      for (let idx = 0; idx < HAPPY_NOTES.length; idx++) {
+        const freq = HAPPY_NOTES[idx];
+        const osc = this.ctx.createOscillator();
+        const harm = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const startTime = now + idx * 0.075;
+        osc.type = "triangle";
+        harm.type = "sine";
+        osc.frequency.setValueAtTime(freq, startTime);
+        harm.frequency.setValueAtTime(freq * 2, startTime);
+        gain.gain.setValueAtTime(1e-3, startTime);
+        gain.gain.linearRampToValueAtTime(0.22, startTime + 0.015);
+        gain.gain.exponentialRampToValueAtTime(1e-3, startTime + 0.19);
+        osc.connect(gain);
+        harm.connect(gain);
+        gain.connect(this.out);
+        osc.start(startTime);
+        harm.start(startTime);
+        osc.stop(startTime + 0.19);
+        harm.stop(startTime + 0.19);
+      }
+    }
+    playCurious() {
+      if (!this._ready()) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(640, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(920, now + 0.26);
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.32);
+      osc.connect(gain);
+      gain.connect(this.out);
+      osc.start(now);
+      osc.stop(now + 0.32);
+    }
+    playSplash() {
+      if (!this._ready() || !this.noiseBuffer) return;
+      const now = this.ctx.currentTime;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.noiseBuffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(950, now);
+      filter.frequency.exponentialRampToValueAtTime(320, now + 0.18);
+      filter.frequency.exponentialRampToValueAtTime(1200, now + 0.32);
+      filter.Q.setValueAtTime(1.5, now);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(1e-3, now);
+      gain.gain.linearRampToValueAtTime(0.32, now + 0.025);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.35);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.out);
+      noise.start(now);
+      noise.stop(now + 0.35);
+    }
+    playGoalFanfare() {
+      if (!this._ready()) return;
+      const now = this.ctx.currentTime;
+      for (let idx = 0; idx < FANFARE_NOTES.length; idx++) {
+        const freq = FANFARE_NOTES[idx];
         const osc = this.ctx.createOscillator();
         const sub = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         const startTime = now + idx * 0.09;
-        const dur = idx === notes.length - 1 ? 0.55 : 0.28;
+        const dur = idx === FANFARE_NOTES.length - 1 ? 0.55 : 0.28;
         osc.type = "triangle";
         sub.type = "sawtooth";
         osc.frequency.setValueAtTime(freq, startTime);
@@ -33712,14 +33616,13 @@ void main() {
         sub.start(startTime);
         osc.stop(startTime + dur);
         sub.stop(startTime + dur);
-      });
+      }
     }
     playSnackMunch() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
-      [0, 0.085, 0.17].forEach((offset, i) => {
+      for (let i = 0; i < MUNCH_OFFSETS.length; i++) {
+        const offset = MUNCH_OFFSETS[i];
         const osc = this.ctx.createOscillator();
         const filter = this.ctx.createBiquadFilter();
         const gain = this.ctx.createGain();
@@ -33735,12 +33638,13 @@ void main() {
         gain.connect(this.out);
         osc.start(now + offset);
         osc.stop(now + offset + 0.07);
-      });
+      }
     }
     playDanceBeat() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      const tMs = performance.now();
+      if (tMs - this._lastBeatMs < 180) return;
+      this._lastBeatMs = tMs;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const kick = this.ctx.createOscillator();
       const kickGain = this.ctx.createGain();
@@ -33757,8 +33661,7 @@ void main() {
       const filter = this.ctx.createBiquadFilter();
       const synthGain = this.ctx.createGain();
       synth.type = "sawtooth";
-      const pentatonic = [440, 523.25, 587.33, 659.25, 783.99, 880];
-      const note = pentatonic[Math.floor(Math.random() * pentatonic.length)];
+      const note = PENTATONIC_NOTES[Math.floor(Math.random() * PENTATONIC_NOTES.length)];
       synth.frequency.setValueAtTime(note, now + 0.05);
       filter.type = "lowpass";
       filter.frequency.setValueAtTime(2400, now + 0.05);
@@ -33771,35 +33674,11 @@ void main() {
       synth.start(now + 0.05);
       synth.stop(now + 0.22);
     }
-    // Alias used in robot.js PARTY emotion
     playDiscoBeat() {
       this.playDanceBeat();
     }
-    playTrickSuccess() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
-      const notes = [440, 554.37, 659.25, 880, 1108.73];
-      const now = this.ctx.currentTime;
-      notes.forEach((f, i) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        const t = now + i * 0.055;
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(f, t);
-        gain.gain.setValueAtTime(1e-3, t);
-        gain.gain.linearRampToValueAtTime(0.2, t + 0.015);
-        gain.gain.exponentialRampToValueAtTime(1e-3, t + 0.2);
-        osc.connect(gain);
-        gain.connect(this.out);
-        osc.start(t);
-        osc.stop(t + 0.2);
-      });
-    }
     playHowl(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const harm = this.ctx.createOscillator();
@@ -33837,11 +33716,10 @@ void main() {
       vibrato.stop(now + 1.5);
     }
     playWaveSound(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
-      [659.25, 880, 1046.5].forEach((freq, idx) => {
+      for (let idx = 0; idx < WAVE_NOTES.length; idx++) {
+        const freq = WAVE_NOTES[idx];
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         const t = now + idx * 0.065;
@@ -33854,12 +33732,10 @@ void main() {
         gain.connect(this.out);
         osc.start(t);
         osc.stop(t + 0.15);
-      });
+      }
     }
     playConfused() {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -33875,9 +33751,7 @@ void main() {
       osc.stop(now + 0.34);
     }
     playWhine(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -33894,9 +33768,7 @@ void main() {
       osc.stop(now + 0.32);
     }
     playYip(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -33913,9 +33785,7 @@ void main() {
       osc.stop(now + 0.14);
     }
     playGrumble(pitch = 1) {
-      if (this.muted) return;
-      this.ensureContext();
-      if (!this.ctx) return;
+      if (!this._ready()) return;
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const filter = this.ctx.createBiquadFilter();
@@ -33937,8 +33807,3206 @@ void main() {
     playPlayfulGrumble(pitch = 1) {
       this.playGrumble(pitch);
     }
+    playUiBeep(freq = 680, duration = 0.06, type = "sine", vol = 0.06) {
+      if (!this._ready()) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + duration);
+      osc.connect(gain);
+      gain.connect(this.out);
+      osc.start(now);
+      osc.stop(now + duration);
+    }
+    playChirp() {
+      if (!this._ready()) return;
+      for (let i = 0; i < CHIRP_NOTES.length; i++) {
+        const f = CHIRP_NOTES[i];
+        this._timers.setTimeout(() => this.playUiBeep(f, 0.07, "triangle", 0.05), i * 55);
+      }
+    }
+    dispose() {
+      this._timers.clearAll();
+      try {
+        if (this.masterGain) this.masterGain.disconnect();
+        if (this.reverbNode) this.reverbNode.disconnect();
+        if (this.reverbGain) this.reverbGain.disconnect();
+        if (this.compressor) this.compressor.disconnect();
+        if (this.ctx && this.ctx.state !== "closed") {
+          this.ctx.close().catch(() => {
+          });
+        }
+      } catch (e) {
+        console.warn("[RoboAudio] dispose warning:", e);
+      }
+      this.ctx = null;
+      this.masterGain = null;
+      this.compressor = null;
+      this.reverbNode = null;
+      this.reverbGain = null;
+      this.noiseBuffer = null;
+      this.initialized = false;
+    }
   };
-  var roboAudio = new RoboAudioEngine();
+  var roboAudio = new RoboAudio();
+
+  // public/js/world.js
+  var WORLD_RADIUS = 195;
+  var LAKE_CENTER_X = -80;
+  var LAKE_CENTER_Z = -80;
+  var LAKE_RADIUS = 60;
+  var StaticBatchBuilder = class {
+    constructor() {
+      this._parts = [];
+      this._matrix = new Matrix4();
+      this._quat = new Quaternion();
+      this._euler = new Euler(0, 0, 0, "XYZ");
+      this._pos = new Vector3();
+      this._scale = new Vector3(1, 1, 1);
+      this._color = new Color();
+    }
+    add(geo, colorHex, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, uvScaleU = 1, uvScaleV = 1) {
+      const g = geo.index ? geo.toNonIndexed() : geo.clone();
+      geo.dispose();
+      const keepAttrs = Object.keys(g.attributes);
+      for (let i = 0; i < keepAttrs.length; i++) {
+        const attrName = keepAttrs[i];
+        if (attrName !== "position" && attrName !== "normal" && attrName !== "uv") {
+          g.deleteAttribute(attrName);
+        }
+      }
+      const count = g.attributes.position.count;
+      if (!g.attributes.normal) {
+        g.computeVertexNormals();
+      }
+      if (!g.attributes.uv) {
+        g.setAttribute("uv", new BufferAttribute(new Float32Array(count * 2), 2));
+      } else if (uvScaleU !== 1 || uvScaleV !== 1) {
+        const uv = g.attributes.uv;
+        for (let i = 0; i < uv.count; i++) {
+          uv.setXY(i, uv.getX(i) * uvScaleU, uv.getY(i) * uvScaleV);
+        }
+      }
+      this._color.setHex(colorHex);
+      const colors = new Float32Array(count * 3);
+      const cr = this._color.r;
+      const cg = this._color.g;
+      const cb = this._color.b;
+      for (let i = 0; i < count; i++) {
+        colors[i * 3] = cr;
+        colors[i * 3 + 1] = cg;
+        colors[i * 3 + 2] = cb;
+      }
+      g.setAttribute("color", new BufferAttribute(colors, 3));
+      this._pos.set(x, y, z);
+      this._euler.set(rx, ry, rz, "XYZ");
+      this._quat.setFromEuler(this._euler);
+      this._scale.set(sx, sy, sz);
+      this._matrix.compose(this._pos, this._quat, this._scale);
+      g.applyMatrix4(this._matrix);
+      this._parts.push(g);
+    }
+    build(material, assetCache2, cacheKey) {
+      if (this._parts.length === 0) return null;
+      const merged = mergeGeometries(this._parts, false);
+      for (let i = 0; i < this._parts.length; i++) {
+        this._parts[i].dispose();
+      }
+      this._parts.length = 0;
+      if (!merged) return null;
+      const trackedGeo = assetCache2.getGeometry(cacheKey, () => merged);
+      if (trackedGeo !== merged) merged.dispose();
+      return new Mesh(trackedGeo, material);
+    }
+  };
+  var WorldManager = class {
+    constructor(scene, assetCache2 = assetCache, eventBus2 = null) {
+      this.scene = scene;
+      this.assetCache = assetCache2 || assetCache;
+      this.eventBus = eventBus2;
+      this.timers = new TimerRegistry();
+      this.camColliders = [];
+      this.balls = [];
+      this.trampolinePos = new Vector3(38, 0, 22);
+      this.carouselGroup = null;
+      this.goalScore = 0;
+      this.targetScore = 0;
+      this.discoPartyActive = false;
+      this.lakeCenter = new Vector3(LAKE_CENTER_X, 0, LAKE_CENTER_Z);
+      this.lakeRadius = LAKE_RADIUS;
+      this.interactiveObjects = [];
+      this.snacks = [];
+      this.pointsOfInterest = [];
+      this.solidObstacles = [];
+      this.elevatedSurfaces = [];
+      this.spatialGrid = /* @__PURE__ */ new Map();
+      this.gridCellSize = 20;
+      this._queryStamp = 1;
+      this._nearCache = [];
+      this.waterTime = 0;
+      this.carouselAngle = 0;
+      this.discoTimer = 0;
+      this._discoBeatAccum = 0;
+      this.onTargetHit = null;
+      this.ballPitBalls = [];
+      this.ballPitInst = null;
+      this.ballPitOrigin = new Vector3(-32, 0, 48);
+      this._ballPitDirty = false;
+      this.discoTilesInst = null;
+      this.discoTileColors = [];
+      this.discoTileBaseColors = [16717636, 58879, 7798531, 16771584, 13959417, 16748800];
+      this.butterflies = [];
+      this.butterfliesInst = null;
+      this.clouds = [];
+      this.cloudsInst = null;
+      this.boneToys = [];
+      this.boneInst = null;
+      this.treasureSparkleInst = null;
+      this.ambientParticles = null;
+      this._minimapSnapshot = {
+        lakeCenter: this.lakeCenter,
+        lakeRadius: this.lakeRadius,
+        goalScore: 0,
+        targetScore: 0,
+        soccerBallPos: null,
+        ballPositions: [],
+        snackPositions: [],
+        trampolinePos: this.trampolinePos,
+        carouselPos: new Vector3(62, 0, 26),
+        discoPos: new Vector3(52, 0, 56),
+        doghousePos: new Vector3(72, 0, 52),
+        fountainPos: new Vector3(12, 0, 10),
+        bridgePos: new Vector3(-46, 0, -48),
+        ballPitPos: new Vector3(-32, 0, 48),
+        slidePos: new Vector3(-18, 0, -32),
+        coursePos: new Vector3(22, 0, -50),
+        targetPos: new Vector3(76, 0, 18),
+        pinataPos: new Vector3(-42, 0, 14),
+        goalPos: new Vector3(25, 0, 40),
+        pierPos: new Vector3(-44, 0, -80),
+        boatPos: new Vector3(-80, 0, -65)
+      };
+      this.textures = {
+        grass: this.assetCache.getTexture("world_tex_grass", () => this.generateGrassTexture()),
+        soccer: this.assetCache.getTexture("world_tex_soccer", () => this.generateSoccerTexture()),
+        wood: this.assetCache.getTexture("world_tex_wood", () => this.generateWoodTexture()),
+        tartan: this.assetCache.getTexture("world_tex_tartan", () => this.generateTartanTexture()),
+        water: this.assetCache.getTexture("world_tex_water", () => this.generateWaterTexture()),
+        cobblestone: this.assetCache.getTexture("world_tex_cobble", () => this.generateCobblestoneTexture()),
+        butterfly: this.assetCache.getTexture("world_tex_bfly", () => this.generateButterflyTexture()),
+        detailRoughness: this.assetCache.getTexture("world_tex_rough_data", () => this.generateRoughnessNoiseTexture())
+      };
+      this._opaqueBatch = new StaticBatchBuilder();
+      this._woodBatch = new StaticBatchBuilder();
+      this._neonBatch = new StaticBatchBuilder();
+      this.buildDetailedTerrain();
+      this.buildCobblestonePaths();
+      this.buildDetailedLake();
+      this.buildWoodenBridge(new Vector3(-46, 0, -48), 0.65);
+      this.buildDetailedPlayground();
+      this.buildWaterFountain(new Vector3(12, 0, 10));
+      this.buildCyberSeesaw(new Vector3(48, 0, 32));
+      this.buildCyberBallPit(new Vector3(-32, 0, 48));
+      this.buildAgilitySlide(new Vector3(-18, 0, -32));
+      this.buildAgilityObstacleCourse(new Vector3(22, 0, -50));
+      this.buildCyberTargetToss(new Vector3(76, 0, 18));
+      this.buildCyberPinata(new Vector3(-42, 0, 14));
+      this.buildSlalomRings(new Vector3(-6, 0, -18));
+      this.buildTreasureSpots();
+      this.buildLowPolyClouds();
+      this.buildAmbientParticles();
+      this.buildDetailedNature();
+      this._flushStaticBatches();
+      this.buildPointsOfInterest();
+    }
+    _flushStaticBatches() {
+      const opaqueMat = this.assetCache.getMaterial("world_static_opaque_mat", () => new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.52,
+        metalness: 0.24,
+        roughnessMap: this.textures.detailRoughness
+      }));
+      const opaqueMesh = this._opaqueBatch.build(opaqueMat, this.assetCache, "world_static_opaque_geo");
+      if (opaqueMesh) {
+        opaqueMesh.castShadow = true;
+        opaqueMesh.receiveShadow = true;
+        this.scene.add(opaqueMesh);
+        this.camColliders.push(opaqueMesh);
+        this.staticOpaqueMesh = opaqueMesh;
+      }
+      const woodMat = this.assetCache.getMaterial("world_static_wood_mat", () => new MeshStandardMaterial({
+        map: this.textures.wood,
+        vertexColors: true,
+        roughness: 0.78,
+        metalness: 0.04
+      }));
+      const woodMesh = this._woodBatch.build(woodMat, this.assetCache, "world_static_wood_geo");
+      if (woodMesh) {
+        woodMesh.castShadow = true;
+        woodMesh.receiveShadow = true;
+        this.scene.add(woodMesh);
+        this.camColliders.push(woodMesh);
+        this.staticWoodMesh = woodMesh;
+      }
+      const neonMat = this.assetCache.getMaterial("world_static_neon_mat", () => new MeshBasicMaterial({
+        vertexColors: true
+      }));
+      const neonMesh = this._neonBatch.build(neonMat, this.assetCache, "world_static_neon_geo");
+      if (neonMesh) {
+        this.scene.add(neonMesh);
+        this.staticNeonMesh = neonMesh;
+      }
+    }
+    registerObstacle(obs) {
+      if (!obs) return;
+      obs.shape = obs.shape || "cylinder";
+      obs.rotY = obs.rotY || 0;
+      obs._stamp = 0;
+      const baseTerrainY = this.getTerrainHeightOnly(obs.x || 0, obs.z || 0);
+      if (obs.yMin === void 0) {
+        obs.yMin = baseTerrainY - 1.5;
+      }
+      if (obs.yMax === void 0) {
+        obs.yMax = obs.yMin + (obs.height || 4) + 1.5;
+      }
+      this.solidObstacles.push(obs);
+      let extentX = obs.radius || 1;
+      let extentZ = obs.radius || 1;
+      if (obs.shape === "box") {
+        const cos = Math.abs(Math.cos(obs.rotY));
+        const sin = Math.abs(Math.sin(obs.rotY));
+        const hw = obs.halfW || 1;
+        const hd = obs.halfD || 1;
+        extentX = hw * cos + hd * sin;
+        extentZ = hw * sin + hd * cos;
+      }
+      const minCX = Math.floor(((obs.x || 0) - extentX) / this.gridCellSize);
+      const maxCX = Math.floor(((obs.x || 0) + extentX) / this.gridCellSize);
+      const minCZ = Math.floor(((obs.z || 0) - extentZ) / this.gridCellSize);
+      const maxCZ = Math.floor(((obs.z || 0) + extentZ) / this.gridCellSize);
+      for (let cx = minCX; cx <= maxCX; cx++) {
+        for (let cz = minCZ; cz <= maxCZ; cz++) {
+          const cellKey = `${cx}_${cz}`;
+          let bucket = this.spatialGrid.get(cellKey);
+          if (!bucket) {
+            bucket = [];
+            this.spatialGrid.set(cellKey, bucket);
+          }
+          bucket.push(obs);
+        }
+      }
+    }
+    // Zero-alloc spatial grid lookup using integer stamp deduplication
+    getNearObstacles(x, z, outArray = this._nearCache) {
+      outArray.length = 0;
+      const stamp = ++this._queryStamp;
+      const cx = Math.floor(x / this.gridCellSize);
+      const cz = Math.floor(z / this.gridCellSize);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          const key = `${cx + dx}_${cz + dz}`;
+          const cell = this.spatialGrid.get(key);
+          if (!cell) continue;
+          for (let i = 0; i < cell.length; i++) {
+            const obs = cell[i];
+            if (obs._stamp !== stamp) {
+              obs._stamp = stamp;
+              outArray.push(obs);
+            }
+          }
+        }
+      }
+      return outArray;
+    }
+    logActivity(msg, level = "info") {
+      if (this.eventBus) {
+        this.eventBus.emit("world:activity", { text: msg, level });
+      }
+    }
+    // --- PROCEDURAL TEXTURES (SRGBColorSpace for color, NoColorSpace for data) ---
+    generateGrassTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext("2d");
+      const grad = ctx.createLinearGradient(0, 0, 512, 512);
+      grad.addColorStop(0, "#388e3c");
+      grad.addColorStop(0.5, "#43a047");
+      grad.addColorStop(1, "#2e7d32");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillStyle = "rgba(102, 187, 106, 0.42)";
+      for (let i = 0; i < 3600; i++) {
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 3 + Math.random() * 7);
+      }
+      ctx.fillStyle = "rgba(27, 94, 32, 0.36)";
+      for (let i = 0; i < 2200; i++) {
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 4);
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.repeat.set(42, 42);
+      return tex;
+    }
+    generateSoccerTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillStyle = "#0f172a";
+      const pentagons = [
+        [256, 256],
+        [128, 128],
+        [384, 128],
+        [128, 384],
+        [384, 384],
+        [256, 60],
+        [256, 452],
+        [60, 256],
+        [452, 256]
+      ];
+      for (let p = 0; p < pentagons.length; p++) {
+        const [cx, cy] = pentagons[p];
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a = i / 5 * Math.PI * 2 - Math.PI / 2;
+          const x = cx + Math.cos(a) * 44;
+          const y = cy + Math.sin(a) * 44;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#64748b";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      return tex;
+    }
+    generateWoodTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#8d6e63";
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = "#5d4037";
+      ctx.lineWidth = 2;
+      for (let y = 0; y < 256; y += 6) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + (Math.random() - 0.5) * 4);
+        ctx.bezierCurveTo(
+          80,
+          y + (Math.random() - 0.5) * 8,
+          180,
+          y + (Math.random() - 0.5) * 8,
+          256,
+          y + (Math.random() - 0.5) * 4
+        );
+        ctx.stroke();
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.repeat.set(1, 1);
+      return tex;
+    }
+    generateTartanTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.fillStyle = "#0f172a";
+      for (let x = 0; x < 256; x += 32) {
+        for (let y = 0; y < 256; y += 32) {
+          if ((x + y) % 64 === 0) {
+            ctx.fillRect(x, y, 32, 32);
+          }
+        }
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.repeat.set(12, 12);
+      return tex;
+    }
+    generateWaterTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#0284c7";
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+      ctx.lineWidth = 4;
+      for (let i = 0; i < 20; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * 256, Math.random() * 256, 15 + Math.random() * 35, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.repeat.set(8, 8);
+      return tex;
+    }
+    generateCobblestoneTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, 512, 512);
+      const stoneColors = ["#64748b", "#475569", "#57534e", "#78716c", "#6b7280", "#94a3b8", "#3f3f46"];
+      const rows = 12;
+      const cols = 12;
+      const stepX = 512 / cols;
+      const stepY = 512 / rows;
+      for (let r = 0; r < rows; r++) {
+        const offsetX = r % 2 * (stepX * 0.5);
+        for (let c = -1; c <= cols; c++) {
+          const x = c * stepX + offsetX + (Math.random() - 0.5) * 4;
+          const y = r * stepY + (Math.random() - 0.5) * 4;
+          const w = stepX - 5 + (Math.random() - 0.5) * 3;
+          const h = stepY - 5 + (Math.random() - 0.5) * 3;
+          ctx.fillStyle = stoneColors[Math.floor(Math.random() * stoneColors.length)];
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(x, y, w, h, 6);
+          else ctx.rect(x, y, w, h);
+          ctx.fill();
+          ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+          ctx.fillRect(x + 2, y + 2, w - 4, 3);
+          ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+          ctx.fillRect(x + 2, y + h - 5, w - 4, 3);
+        }
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.repeat.set(1, 1);
+      return tex;
+    }
+    generateButterflyTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#00e5ff";
+      ctx.beginPath();
+      ctx.ellipse(20, 32, 14, 22, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(44, 32, 14, 22, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e0f2fe";
+      ctx.beginPath();
+      ctx.arc(20, 26, 5, 0, Math.PI * 2);
+      ctx.arc(44, 26, 5, 0, Math.PI * 2);
+      ctx.fill();
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      return tex;
+    }
+    generateRoughnessNoiseTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+      const img = ctx.createImageData(128, 128);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = 180 + Math.floor(Math.random() * 65);
+        img.data[i] = v;
+        img.data[i + 1] = v;
+        img.data[i + 2] = v;
+        img.data[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = NoColorSpace;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.repeat.set(8, 8);
+      return tex;
+    }
+    // --- ENVIRONMENT BUILDING ---
+    buildDetailedTerrain() {
+      const terrainGeo = this.assetCache.getGeometry("world_terrain_geo", () => {
+        const geo = new PlaneGeometry(600, 600, 128, 128);
+        geo.rotateX(-Math.PI / 2);
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          pos.setY(i, this.getTerrainHeightOnly(pos.getX(i), pos.getZ(i)));
+        }
+        geo.computeVertexNormals();
+        return geo;
+      });
+      const grassMat = this.assetCache.getMaterial("world_grass_mat", () => new MeshStandardMaterial({
+        map: this.textures.grass,
+        roughness: 0.78,
+        metalness: 0.04,
+        roughnessMap: this.textures.detailRoughness
+      }));
+      const terrain = new Mesh(terrainGeo, grassMat);
+      terrain.receiveShadow = true;
+      this.scene.add(terrain);
+      this.terrainMesh = terrain;
+      this.camColliders.push(terrain);
+      const mtnGeo = new CylinderGeometry(335, 360, 52, 40, 2, true);
+      const mPos = mtnGeo.attributes.position;
+      for (let i = 0; i < mPos.count; i++) {
+        if (mPos.getY(i) > 5) {
+          const angle = Math.atan2(mPos.getZ(i), mPos.getX(i));
+          mPos.setY(i, mPos.getY(i) + Math.sin(angle * 7) * 12 + Math.cos(angle * 13) * 7);
+        }
+      }
+      if (mtnGeo.index) {
+        const idx = mtnGeo.index.array;
+        for (let i = 0; i < idx.length; i += 3) {
+          const tmp3 = idx[i + 1];
+          idx[i + 1] = idx[i + 2];
+          idx[i + 2] = tmp3;
+        }
+        mtnGeo.index.needsUpdate = true;
+      }
+      mtnGeo.computeVertexNormals();
+      this._opaqueBatch.add(mtnGeo, 1793568, 0, 18, 0);
+    }
+    buildCobblestonePaths() {
+      const baseH = this.getTerrainHeightOnly(0, 0);
+      const pathParts = [];
+      const plazaGeo = new CylinderGeometry(18, 18.2, 0.16, 32).toNonIndexed();
+      plazaGeo.translate(0, baseH + 0.08, 0);
+      const pUv = plazaGeo.attributes.uv;
+      for (let i = 0; i < pUv.count; i++) {
+        pUv.setXY(i, pUv.getX(i) * 8, pUv.getY(i) * 8);
+      }
+      pathParts.push(plazaGeo);
+      this._opaqueBatch.add(new TorusGeometry(18.2, 0.25, 10, 32), 4674921, 0, baseH + 0.12, 0, Math.PI / 2, 0, 0);
+      this._neonBatch.add(new CylinderGeometry(2.4, 2.4, 0.18, 8), 58879, 0, baseH + 0.11, 0);
+      const ribbons = [
+        [new Vector3(0, 0, 0), new Vector3(30, 0, 26), 4.2],
+        [new Vector3(0, 0, 0), new Vector3(-36, 0, -68), 4],
+        [new Vector3(0, 0, 0), new Vector3(56, 0, 44), 3.8],
+        [new Vector3(0, 0, 0), new Vector3(-44, 0, -46), 3.6],
+        [new Vector3(0, 0, 0), new Vector3(12, 0, 10), 3.8]
+      ];
+      for (let i = 0; i < ribbons.length; i++) {
+        const rGeo = this._buildPathRibbonGeo(ribbons[i][0], ribbons[i][1], ribbons[i][2], 28);
+        if (rGeo) pathParts.push(rGeo.toNonIndexed());
+        if (rGeo) rGeo.dispose();
+      }
+      const mergedPathGeo = this.assetCache.getGeometry("world_cobble_paths_geo", () => {
+        const m = mergeGeometries(pathParts, false);
+        for (let i = 0; i < pathParts.length; i++) pathParts[i].dispose();
+        return m;
+      });
+      const cobbleMat = this.assetCache.getMaterial("world_cobble_mat", () => new MeshStandardMaterial({
+        map: this.textures.cobblestone,
+        roughness: 0.74,
+        metalness: 0.08,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1
+      }));
+      const pathsMesh = new Mesh(mergedPathGeo, cobbleMat);
+      pathsMesh.receiveShadow = true;
+      this.scene.add(pathsMesh);
+    }
+    // FIXED: Upward (+Y) triangle winding & world-meter UVs
+    _buildPathRibbonGeo(start, end, width = 3.8, segments = 28) {
+      const dir = new Vector3().subVectors(end, start);
+      dir.y = 0;
+      const len = dir.length();
+      if (len < 0.1) return null;
+      dir.normalize();
+      const normal = new Vector3(-dir.z, 0, dir.x).multiplyScalar(width * 0.5);
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const cx = start.x + (end.x - start.x) * t;
+        const cz = start.z + (end.z - start.z) * t;
+        const curveDev = Math.sin(t * Math.PI) * 1.8;
+        const mx = cx - dir.z * curveDev;
+        const mz = cz + dir.x * curveDev;
+        const lx = mx + normal.x;
+        const lz = mz + normal.z;
+        const rx = mx - normal.x;
+        const rz = mz - normal.z;
+        const ly = this.getTerrainHeightOnly(lx, lz) + 0.14;
+        const ry = this.getTerrainHeightOnly(rx, rz) + 0.14;
+        positions.push(lx, ly, lz);
+        positions.push(rx, ry, rz);
+        const vCoord = t * (len / 2.8);
+        uvs.push(0, vCoord);
+        uvs.push(1.4, vCoord);
+        if (i < segments) {
+          const base = i * 2;
+          indices.push(base, base + 2, base + 1);
+          indices.push(base + 1, base + 2, base + 3);
+        }
+      }
+      const geom = new BufferGeometry();
+      geom.setAttribute("position", new Float32BufferAttribute(positions, 3));
+      geom.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      geom.setIndex(indices);
+      geom.computeVertexNormals();
+      return geom;
+    }
+    buildWoodenBridge(pos, rotY = 0, span = 18, width = 4.4) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      const archSegments = 18;
+      const archPeak = 2.6;
+      const cosY = Math.cos(rotY);
+      const sinY = Math.sin(rotY);
+      const addBridgePart = (batch, geo, color, lx, ly, lz, rx = 0, ry = 0, rz = 0, uvU = 1, uvV = 1) => {
+        const wx = pos.x + lx * cosY + lz * sinY;
+        const wz = pos.z - lx * sinY + lz * cosY;
+        const wy = baseY + ly;
+        const m = new Matrix4();
+        const qYaw = new Quaternion().setFromAxisAngle(TMP.v6.set(0, 1, 0), rotY);
+        const qLocal = new Quaternion().setFromEuler(TMP.e1.set(rx, ry, rz, "XYZ"));
+        qYaw.multiply(qLocal);
+        TMP.e1.setFromQuaternion(qYaw, "XYZ");
+        batch.add(geo, color, wx, wy, wz, TMP.e1.x, TMP.e1.y, TMP.e1.z, 1, 1, 1, uvU, uvV);
+      };
+      const postHeights = [];
+      for (let i = 0; i < archSegments; i++) {
+        const t = i / (archSegments - 1);
+        const z = (t - 0.5) * span;
+        const archHeight = Math.sin(t * Math.PI) * archPeak;
+        const slopeAngle = -Math.cos(t * Math.PI) * (archPeak * Math.PI / span);
+        addBridgePart(
+          this._woodBatch,
+          new BoxGeometry(width, 0.22, span / archSegments * 1.05),
+          16777215,
+          0,
+          archHeight + 0.11,
+          z,
+          slopeAngle,
+          0,
+          0,
+          2,
+          0.5
+        );
+        postHeights.push({ z, archHeight });
+        if (i % 2 === 0 || i === archSegments - 1) {
+          [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach((x) => {
+            addBridgePart(
+              this._woodBatch,
+              new CylinderGeometry(0.11, 0.12, 1.35, 8),
+              8085079,
+              x,
+              archHeight + 0.75,
+              z,
+              0,
+              0,
+              0,
+              0.5,
+              1
+            );
+          });
+        }
+      }
+      [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach((x) => {
+        for (let i = 0; i < postHeights.length - 1; i++) {
+          const p1 = postHeights[i];
+          const p2 = postHeights[i + 1];
+          const dz = p2.z - p1.z;
+          const dy = p2.archHeight - p1.archHeight;
+          const segLen = Math.hypot(dz, dy);
+          const angle = -Math.atan2(dy, dz);
+          addBridgePart(
+            this._woodBatch,
+            new BoxGeometry(0.16, 0.14, segLen + 0.08),
+            8085079,
+            x,
+            (p1.archHeight + p2.archHeight) * 0.5 + 1.38,
+            (p1.z + p2.z) * 0.5,
+            angle,
+            0,
+            0,
+            0.3,
+            0.8
+          );
+          addBridgePart(
+            this._woodBatch,
+            new BoxGeometry(0.12, 0.1, segLen + 0.05),
+            8085079,
+            x,
+            (p1.archHeight + p2.archHeight) * 0.5 + 0.75,
+            (p1.z + p2.z) * 0.5,
+            angle,
+            0,
+            0,
+            0.3,
+            0.8
+          );
+        }
+        [-span * 0.48, span * 0.48].forEach((z) => {
+          addBridgePart(
+            this._neonBatch,
+            new BoxGeometry(0.34, 0.44, 0.34),
+            16771584,
+            x,
+            1.65,
+            z
+          );
+        });
+        const railWorld = new Vector3(x, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), rotY).add(pos);
+        this.registerObstacle({
+          type: "bridge_rail",
+          shape: "box",
+          x: railWorld.x,
+          z: railWorld.z,
+          halfW: 0.22,
+          halfD: span * 0.48,
+          rotY,
+          yMin: baseY - 0.5,
+          yMax: baseY + archPeak + 2
+        });
+      });
+      this.woodenBridge = { position: pos, baseY, rotY, span, width, archPeak };
+      this.elevatedSurfaces.push({
+        type: "bridge",
+        x: pos.x,
+        z: pos.z,
+        rotY,
+        halfW: width * 0.5,
+        halfD: span * 0.5,
+        getHeight: (localX, localZ) => {
+          const t = localZ / span + 0.5;
+          if (t < 0 || t > 1) return null;
+          return baseY + Math.sin(t * Math.PI) * archPeak + 0.22;
+        }
+      });
+    }
+    buildWaterFountain(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      this._opaqueBatch.add(new CylinderGeometry(1.6, 1.3, 0.55, 24), 9741240, pos.x, baseY + 0.28, pos.z);
+      this._opaqueBatch.add(new CylinderGeometry(0.18, 0.24, 0.5, 14), 58879, pos.x, baseY + 0.65, pos.z);
+      this._opaqueBatch.add(new CylinderGeometry(0.05, 0.05, 0.45, 8), 9741240, pos.x, baseY + 0.72, pos.z + 1.52);
+      this._neonBatch.add(new TorusGeometry(1.62, 0.1, 12, 28), 58879, pos.x, baseY + 0.56, pos.z, Math.PI / 2, 0, 0);
+      this._neonBatch.add(new BoxGeometry(0.85, 0.26, 0.1), 58879, pos.x, baseY + 0.96, pos.z + 1.52);
+      const fWaterGeo = this.assetCache.getGeometry("world_fountain_water_geo", () => {
+        const disc = new CircleGeometry(1.5, 24).rotateX(-Math.PI / 2).toNonIndexed();
+        const jet = new ConeGeometry(0.4, 1.2, 14).translate(0, 0.8, 0).toNonIndexed();
+        const merged = mergeGeometries([disc, jet], false);
+        disc.dispose();
+        jet.dispose();
+        return merged;
+      });
+      const fWaterMat = this.assetCache.getMaterial("world_fountain_water_mat", () => new MeshStandardMaterial({
+        color: 3718648,
+        emissive: 165063,
+        emissiveIntensity: 0.45,
+        roughness: 0.08,
+        metalness: 0.85,
+        transparent: true,
+        opacity: 0.86
+      }));
+      const fWater = new Mesh(fWaterGeo, fWaterMat);
+      fWater.position.set(pos.x, baseY + 0.5, pos.z);
+      this.scene.add(fWater);
+      this.fountainJet = fWater;
+      this.waterFountain = { position: pos, radius: 1.6 };
+      this.registerObstacle({ type: "water_fountain", x: pos.x, z: pos.z, radius: 1.65, height: 2 });
+    }
+    buildCyberSeesaw(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      [-0.75, 0.75].forEach((zOff) => {
+        this._opaqueBatch.add(new ConeGeometry(0.85, 1.55, 4), 1976635, pos.x, baseY + 0.77, pos.z + zOff, 0, Math.PI / 4, 0);
+      });
+      this._opaqueBatch.add(new CylinderGeometry(0.14, 0.14, 2, 14), 9741240, pos.x, baseY + 1.5, pos.z, Math.PI / 2, 0, 0);
+      const plankBuilder = new StaticBatchBuilder();
+      plankBuilder.add(new BoxGeometry(10, 0.18, 1.45), 3359061, 0, 0, 0);
+      [-4.3, 4.3].forEach((hx, idx) => {
+        const col = idx === 0 ? 58879 : 16728193;
+        plankBuilder.add(new TorusGeometry(0.35, 0.06, 10, 20), col, hx * 0.88, 0.38, 0, 0, Math.PI / 2, 0);
+        plankBuilder.add(new BoxGeometry(1.25, 0.08, 1.25), col, hx, 0.12, 0);
+      });
+      const plankMat = this.assetCache.getMaterial("world_dynamic_vertex_mat", () => new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.35,
+        metalness: 0.35
+      }));
+      const plankMesh = plankBuilder.build(plankMat, this.assetCache, "world_seesaw_plank_geo");
+      plankMesh.position.set(pos.x, baseY + 1.5, pos.z);
+      plankMesh.castShadow = false;
+      plankMesh.receiveShadow = true;
+      this.scene.add(plankMesh);
+      this.seesaw = {
+        group: plankMesh,
+        pivot: plankMesh,
+        position: pos,
+        currentTilt: 0,
+        targetTilt: 0
+      };
+      this.registerObstacle({ type: "seesaw_fulcrum", x: pos.x, z: pos.z, radius: 1, height: 1.8 });
+    }
+    buildDetailedLake() {
+      const waterGeo = this.assetCache.getGeometry("world_lake_water_geo", () => {
+        const g = new CircleGeometry(LAKE_RADIUS, 48);
+        g.rotateX(-Math.PI / 2);
+        return g;
+      });
+      const waterMat = this.assetCache.getMaterial("world_lake_water_mat", () => new MeshStandardMaterial({
+        map: this.textures.water,
+        color: 165063,
+        roughness: 0.08,
+        metalness: 0.86,
+        transparent: true,
+        opacity: 0.86
+      }));
+      const water = new Mesh(waterGeo, waterMat);
+      water.position.set(LAKE_CENTER_X, -0.15, LAKE_CENTER_Z);
+      this.scene.add(water);
+      this.waterMesh = water;
+      this._opaqueBatch.add(
+        new RingGeometry(LAKE_RADIUS - 1.5, LAKE_RADIUS + 7, 48),
+        14142664,
+        LAKE_CENTER_X,
+        0.06,
+        LAKE_CENTER_Z,
+        -Math.PI / 2,
+        0,
+        0
+      );
+      for (let i = 0; i < 35; i++) {
+        const angle = i / 35 * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
+        if (Math.abs(angle) < 0.25) continue;
+        const rad = LAKE_RADIUS + (Math.random() - 0.5) * 5;
+        const rx = LAKE_CENTER_X + Math.cos(angle) * rad;
+        const rz = LAKE_CENTER_Z + Math.sin(angle) * rad;
+        const s = 0.7 + Math.random() * 0.8;
+        this._opaqueBatch.add(
+          new DodecahedronGeometry(s, 1),
+          6583435,
+          rx,
+          this.getTerrainHeightOnly(rx, rz) + 0.3,
+          rz,
+          Math.random() * 3,
+          Math.random() * 3,
+          Math.random() * 3
+        );
+        this.registerObstacle({ type: "rock", x: rx, z: rz, radius: 1.35, height: 1.8 });
+      }
+      const pierPos = new Vector3(-44, 0.35, -80);
+      const pierRotY = 0.28;
+      const cosY = Math.cos(pierRotY);
+      const sinY = Math.sin(pierRotY);
+      this._woodBatch.add(
+        new BoxGeometry(6, 0.35, 24),
+        16777215,
+        pierPos.x,
+        pierPos.y,
+        pierPos.z,
+        0,
+        pierRotY,
+        0,
+        1,
+        1,
+        1,
+        2.5,
+        9
+      );
+      [-2.8, 2.8].forEach((lx) => {
+        [-10, -3.3, 3.3, 10].forEach((lz) => {
+          const wx = pierPos.x + lx * cosY + lz * sinY;
+          const wz = pierPos.z - lx * sinY + lz * cosY;
+          this._woodBatch.add(new CylinderGeometry(0.18, 0.18, 4.2, 8), 7951688, wx, pierPos.y - 0.3, wz, 0, pierRotY, 0);
+          this._neonBatch.add(new BoxGeometry(0.3, 0.35, 0.3), 16771899, wx, pierPos.y + 1.95, wz, 0, pierRotY, 0);
+          this.registerObstacle({
+            type: "pier_post",
+            x: wx,
+            z: wz,
+            radius: 0.32,
+            yMin: -2,
+            yMax: 2.5
+          });
+        });
+      });
+      this.elevatedSurfaces.push({
+        type: "pier",
+        x: pierPos.x,
+        z: pierPos.z,
+        rotY: pierRotY,
+        halfW: 3.1,
+        halfD: 12.1,
+        getHeight: () => pierPos.y + 0.18
+      });
+      this.buildToyBoat(new Vector3(-80, 0, -65));
+    }
+    buildToyBoat(pos) {
+      const boatBuilder = new StaticBatchBuilder();
+      boatBuilder.add(new BoxGeometry(2.5, 0.75, 3.6), 16717636, 0, 0.22, -0.3);
+      const bowGeo = new ConeGeometry(1.77, 1.8, 4);
+      bowGeo.rotateX(Math.PI / 2);
+      bowGeo.rotateZ(Math.PI / 4);
+      boatBuilder.add(bowGeo, 16717636, 0, 0.22, 2.4, 0, 0, 0, 1, 0.42, 1);
+      boatBuilder.add(new BoxGeometry(2.3, 0.15, 3.4), 16317180, 0, 0.62, -0.3);
+      boatBuilder.add(new BoxGeometry(1.75, 0.75, 1.8), 16317180, 0, 1, -0.4);
+      boatBuilder.add(new BoxGeometry(1.68, 0.55, 0.85), 58879, 0, 0.98, 0.6, -0.45, 0, 0);
+      boatBuilder.add(new BoxGeometry(0.55, 0.75, 0.6), 1976635, 0, 0.45, -2.25);
+      boatBuilder.add(new CylinderGeometry(0.035, 0.035, 1.3, 8), 58879, 0, 1.9, -0.6);
+      const boatMat = this.assetCache.getMaterial("world_dynamic_vertex_mat", () => new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.35,
+        metalness: 0.35
+      }));
+      const boatMesh = boatBuilder.build(boatMat, this.assetCache, "world_toy_boat_geo");
+      boatMesh.position.copy(pos);
+      boatMesh.castShadow = false;
+      this.scene.add(boatMesh);
+      this.toyBoat = boatMesh;
+      this.registerObstacle({
+        type: "toy_boat",
+        x: pos.x,
+        z: pos.z,
+        radius: 2.3,
+        yMin: -1.5,
+        yMax: 2.2
+      });
+    }
+    buildDetailedPlayground() {
+      const playCenter = new Vector3(50, 0, 40);
+      const floorGeo = this.assetCache.getGeometry("world_tartan_geo", () => new CylinderGeometry(42, 42, 0.12, 48));
+      const floorMat = this.assetCache.getMaterial("world_tartan_mat", () => new MeshStandardMaterial({
+        map: this.textures.tartan,
+        roughness: 0.82
+      }));
+      const floor = new Mesh(floorGeo, floorMat);
+      floor.position.set(playCenter.x, this.getTerrainHeightOnly(50, 40) + 0.06, playCenter.z);
+      floor.receiveShadow = true;
+      this.scene.add(floor);
+      this.buildCyberDoghouse(new Vector3(72, 0, 52));
+      this.buildTrampoline(this.trampolinePos);
+      this.buildCarousel(new Vector3(62, 0, 26));
+      this.buildSoccerGoal(new Vector3(25, 0, 40));
+      this.buildDiscoPad(new Vector3(52, 0, 56));
+      const rampCenter = new Vector3(45, 0, 45);
+      const rampBaseY = this.getTerrainHeightOnly(rampCenter.x, rampCenter.z);
+      const rampLen = 12;
+      const rampWidth = 4.6;
+      const rampAngle = 0.22;
+      const rampMidY = Math.sin(rampAngle) * (rampLen * 0.5);
+      const rampTopY = Math.sin(rampAngle) * rampLen;
+      this._opaqueBatch.add(
+        new BoxGeometry(rampWidth, 0.28, rampLen),
+        16750592,
+        rampCenter.x,
+        rampBaseY + rampMidY,
+        rampCenter.z,
+        -rampAngle,
+        0,
+        0
+      );
+      [-rampWidth * 0.5 + 0.12, rampWidth * 0.5 - 0.12].forEach((cx) => {
+        const cy = Math.cos(rampAngle) * 0.2;
+        const cz = Math.sin(rampAngle) * 0.2;
+        this._neonBatch.add(
+          new BoxGeometry(0.2, 0.28, rampLen),
+          58879,
+          rampCenter.x + cx,
+          rampBaseY + rampMidY + cy,
+          rampCenter.z + cz,
+          -rampAngle,
+          0,
+          0
+        );
+      });
+      for (let s = -5.2; s <= 5.2; s += 1.4) {
+        const sy = Math.sin(rampAngle) * -s + Math.cos(rampAngle) * 0.16;
+        const sz = Math.cos(rampAngle) * s + Math.sin(rampAngle) * 0.16;
+        this._opaqueBatch.add(
+          new BoxGeometry(rampWidth - 0.5, 0.08, 0.24),
+          1976635,
+          rampCenter.x,
+          rampBaseY + rampMidY + sy,
+          rampCenter.z + sz,
+          -rampAngle,
+          0,
+          0
+        );
+      }
+      [-rampWidth * 0.42, rampWidth * 0.42].forEach((px2) => {
+        [-rampLen * 0.42, 0].forEach((pz2) => {
+          const t = 0.5 - pz2 / rampLen;
+          const h = Math.max(0.3, t * rampTopY);
+          this._opaqueBatch.add(
+            new CylinderGeometry(0.14, 0.16, h, 10),
+            3359061,
+            rampCenter.x + px2,
+            rampBaseY + h * 0.5,
+            rampCenter.z + pz2
+          );
+        });
+      });
+      this.elevatedSurfaces.push({
+        type: "ramp",
+        x: rampCenter.x,
+        z: rampCenter.z,
+        rotY: 0,
+        halfW: rampWidth * 0.5,
+        halfD: rampLen * 0.5,
+        getHeight: (localX, localZ) => {
+          const t = 0.5 - localZ / rampLen;
+          if (t < 0 || t > 1) return null;
+          return rampBaseY + t * rampTopY + 0.18;
+        }
+      });
+      const ringColors = [58879, 16728193, 7798531];
+      [-10, 0, 10].forEach((offset, idx) => {
+        const hx = 36;
+        const hz = 26 + offset;
+        const groundY = this.getTerrainHeightOnly(hx, hz);
+        const rotY = 0.3;
+        const cosY = Math.cos(rotY);
+        const sinY = Math.sin(rotY);
+        this._neonBatch.add(new TorusGeometry(1.75, 0.14, 12, 28), ringColors[idx % 3], hx, groundY + 2.1, hz, 0, rotY, 0);
+        [-1.75, 1.75].forEach((lx) => {
+          this._opaqueBatch.add(
+            new CylinderGeometry(0.09, 0.11, 2.1, 10),
+            3622735,
+            hx + lx * cosY,
+            groundY + 1.05,
+            hz - lx * sinY
+          );
+        });
+        this._opaqueBatch.add(new BoxGeometry(3.8, 0.12, 0.45), 3622735, hx, groundY + 0.06, hz, 0, rotY, 0);
+      });
+      const tunnelPos = new Vector3(56, this.getTerrainHeightOnly(56, 24), 24);
+      const tunnelRotY = -0.55;
+      const tCos = Math.cos(tunnelRotY);
+      const tSin = Math.sin(tunnelRotY);
+      const outerArch = new CylinderGeometry(2.22, 2.22, 10, 20, 1, true, 0, Math.PI);
+      outerArch.rotateZ(Math.PI / 2);
+      outerArch.rotateY(Math.PI / 2);
+      this._opaqueBatch.add(outerArch, 8146431, tunnelPos.x, tunnelPos.y, tunnelPos.z, 0, tunnelRotY, 0);
+      const innerArch = new CylinderGeometry(2.14, 2.14, 10, 20, 1, true, 0, Math.PI);
+      innerArch.rotateZ(Math.PI / 2);
+      innerArch.rotateY(Math.PI / 2);
+      innerArch.scale(-1, 1, 1);
+      innerArch.computeVertexNormals();
+      this._opaqueBatch.add(innerArch, 6174129, tunnelPos.x, tunnelPos.y, tunnelPos.z, 0, tunnelRotY, 0);
+      [-4.9, 0, 4.9].forEach((tz) => {
+        const wx = tunnelPos.x + tz * tSin;
+        const wz = tunnelPos.z + tz * tCos;
+        this._neonBatch.add(new TorusGeometry(2.22, 0.1, 10, 22, Math.PI), 58879, wx, tunnelPos.y, wz, 0, tunnelRotY, 0);
+      });
+      [-2.15, 2.15].forEach((wallX) => {
+        const wx = tunnelPos.x + wallX * tCos;
+        const wz = tunnelPos.z - wallX * tSin;
+        this.registerObstacle({
+          type: "playground_tunnel_wall",
+          shape: "box",
+          x: wx,
+          z: wz,
+          halfW: 0.25,
+          halfD: 5,
+          rotY: tunnelRotY,
+          height: 2.2
+        });
+      });
+      this.soccerBall = this.spawnSoccerBall(new Vector3(42, 1.2, 38), 1.2);
+      this.spawnBall(new Vector3(52, 1, 42), 0.95, 16771899, "neon");
+      this.spawnBall(new Vector3(58, 0.8, 38), 0.75, 16728193, "bouncy");
+      this.spawnBall(new Vector3(40, 0.8, 48), 0.75, 58879, "bouncy");
+      this.spawnBoneToy(new Vector3(48, 0.45, 46));
+      this.spawnBoneToy(new Vector3(63, 0.45, 34));
+      this.spawnBoneToy(new Vector3(34, 0.45, 38));
+    }
+    buildTrampoline(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      this._opaqueBatch.add(new TorusGeometry(3.6, 0.24, 12, 28), 3622735, pos.x, baseY + 1, pos.z, Math.PI / 2, 0, 0);
+      this._neonBatch.add(new CylinderGeometry(3.4, 3.4, 0.12, 28), 58879, pos.x, baseY + 0.96, pos.z);
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        this._opaqueBatch.add(
+          new CylinderGeometry(0.12, 0.14, 1, 8),
+          3622735,
+          pos.x + Math.cos(a) * 3.4,
+          baseY + 0.5,
+          pos.z + Math.sin(a) * 3.4
+        );
+      }
+      this.trampolinePos.copy(pos);
+      this.trampoline = { position: this.trampolinePos, radius: 3.5 };
+    }
+    buildCarousel(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      this._opaqueBatch.add(new CylinderGeometry(4.2, 4.4, 0.25, 28), 2503224, pos.x, baseY + 0.12, pos.z);
+      const rotorBuilder = new StaticBatchBuilder();
+      rotorBuilder.add(new CylinderGeometry(3.8, 3.8, 0.16, 28), 16728193, 0, 0, 0);
+      rotorBuilder.add(new CylinderGeometry(0.22, 0.26, 2.8, 12), 16771899, 0, 1.4, 0);
+      rotorBuilder.add(new ConeGeometry(1.2, 0.7, 14), 58879, 0, 3, 0);
+      for (let i = 0; i < 4; i++) {
+        const a = i / 4 * Math.PI * 2;
+        const hx = Math.cos(a) * 2.5;
+        const hz = Math.sin(a) * 2.5;
+        rotorBuilder.add(new TorusGeometry(0.55, 0.07, 10, 20), 58879, hx, 0.95, hz, 0, -a, 0);
+        rotorBuilder.add(new CylinderGeometry(0.06, 0.06, 0.9, 8), 2503224, hx, 0.45, hz);
+      }
+      const rotorMat = this.assetCache.getMaterial("world_dynamic_vertex_mat", () => new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.35,
+        metalness: 0.35
+      }));
+      const rotorMesh = rotorBuilder.build(rotorMat, this.assetCache, "world_carousel_rotor_geo");
+      rotorMesh.position.set(pos.x, baseY + 0.32, pos.z);
+      rotorMesh.castShadow = true;
+      rotorMesh.receiveShadow = true;
+      this.scene.add(rotorMesh);
+      this.carouselGroup = rotorMesh;
+      this.carousel = { rotor: rotorMesh, position: pos, radius: 4 };
+      this.registerObstacle({ type: "carousel_mast", x: pos.x, z: pos.z, radius: 0.55, height: 3.2 });
+    }
+    buildSoccerGoal(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      const width = 7;
+      const height = 3.4;
+      const depth = 3;
+      const hw = width * 0.5;
+      const rotY = Math.PI / 2;
+      const addGoal = (geo, col, lx, ly, lz, rx = 0, ry = 0, rz = 0) => {
+        const wx = pos.x + lz;
+        const wz = pos.z - lx;
+        const wy = baseY + ly;
+        this._opaqueBatch.add(geo, col, wx, wy, wz, rx, rotY + ry, rz);
+      };
+      addGoal(new CylinderGeometry(0.12, 0.12, height, 10), 16777215, -hw, height * 0.5, 0);
+      addGoal(new CylinderGeometry(0.12, 0.12, height, 10), 16777215, hw, height * 0.5, 0);
+      addGoal(new CylinderGeometry(0.12, 0.12, width + 0.24, 10), 16777215, 0, height, 0, 0, 0, Math.PI / 2);
+      addGoal(new CylinderGeometry(0.08, 0.08, height, 8), 16777215, -hw, height * 0.5, -depth);
+      addGoal(new CylinderGeometry(0.08, 0.08, height, 8), 16777215, hw, height * 0.5, -depth);
+      addGoal(new CylinderGeometry(0.08, 0.08, width, 8), 16777215, 0, height, -depth, 0, 0, Math.PI / 2);
+      [-hw, hw].forEach((sx) => {
+        addGoal(new CylinderGeometry(0.08, 0.08, depth, 8), 16777215, sx, height, -depth * 0.5, Math.PI / 2, 0, 0);
+        addGoal(new CylinderGeometry(0.08, 0.08, depth, 8), 16777215, sx, 0.08, -depth * 0.5, Math.PI / 2, 0, 0);
+      });
+      for (let x = -hw + 0.7; x < hw; x += 0.7) {
+        addGoal(new BoxGeometry(0.025, height, 0.025), 13358561, x, height * 0.5, -depth);
+        addGoal(new BoxGeometry(0.025, 0.025, depth), 13358561, x, height, -depth * 0.5);
+      }
+      for (let y = 0.55; y < height; y += 0.55) {
+        addGoal(new BoxGeometry(width, 0.025, 0.025), 13358561, 0, y, -depth);
+        addGoal(new BoxGeometry(0.025, 0.025, depth), 13358561, -hw, y, -depth * 0.5);
+        addGoal(new BoxGeometry(0.025, 0.025, depth), 13358561, hw, y, -depth * 0.5);
+      }
+      for (let z = -0.6; z > -depth; z -= 0.6) {
+        addGoal(new BoxGeometry(0.025, height, 0.025), 13358561, -hw, height * 0.5, z);
+        addGoal(new BoxGeometry(0.025, height, 0.025), 13358561, hw, height * 0.5, z);
+        addGoal(new BoxGeometry(width, 0.025, 0.025), 13358561, 0, height, z);
+      }
+      this.soccerGoal = { position: pos, width, depth, height };
+      this.registerObstacle({ type: "goal_post_l", x: pos.x, z: pos.z - hw, radius: 0.25, height });
+      this.registerObstacle({ type: "goal_post_r", x: pos.x, z: pos.z + hw, radius: 0.25, height });
+      this.registerObstacle({ type: "goal_net_back", shape: "box", x: pos.x - depth, z: pos.z, halfW: 0.2, halfD: hw, height });
+      this.registerObstacle({ type: "goal_net_side_n", shape: "box", x: pos.x - depth * 0.5, z: pos.z - hw, halfW: depth * 0.5, halfD: 0.2, height });
+      this.registerObstacle({ type: "goal_net_side_s", shape: "box", x: pos.x - depth * 0.5, z: pos.z + hw, halfW: depth * 0.5, halfD: 0.2, height });
+    }
+    buildDiscoPad(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      this._opaqueBatch.add(new BoxGeometry(6.6, 0.1, 6.6), 988970, pos.x, baseY + 0.05, pos.z);
+      const tileGeo = this.assetCache.getGeometry("world_disco_tile_geo", () => new BoxGeometry(1.4, 0.14, 1.4));
+      const tileMat = this.assetCache.getMaterial("world_disco_tile_mat", () => new MeshBasicMaterial({
+        color: 16777215
+      }));
+      const tilesInst = new InstancedMesh(tileGeo, tileMat, 16);
+      let idx = 0;
+      for (let x = -2; x <= 1; x++) {
+        for (let z = -2; z <= 1; z++) {
+          const col = this.discoTileBaseColors[(idx * 7 + 3) % this.discoTileBaseColors.length];
+          TMP.obj.position.set(pos.x + x * 1.5 + 0.75, baseY + 0.1, pos.z + z * 1.5 + 0.75);
+          TMP.obj.rotation.set(0, 0, 0);
+          TMP.obj.scale.set(1, 1, 1);
+          TMP.obj.updateMatrix();
+          tilesInst.setMatrixAt(idx, TMP.obj.matrix);
+          TMP.color.setHex(col).multiplyScalar(0.55);
+          tilesInst.setColorAt(idx, TMP.color);
+          this.discoTileColors.push(col);
+          idx++;
+        }
+      }
+      tilesInst.instanceMatrix.needsUpdate = true;
+      if (tilesInst.instanceColor) tilesInst.instanceColor.needsUpdate = true;
+      this.scene.add(tilesInst);
+      this.assetCache.track(tilesInst);
+      this.discoTilesInst = tilesInst;
+      const cornerOffset = 3.15;
+      const trussHeight = 5;
+      [[-cornerOffset, -cornerOffset], [cornerOffset, -cornerOffset], [-cornerOffset, cornerOffset], [cornerOffset, cornerOffset]].forEach(([cx, cz]) => {
+        this._opaqueBatch.add(new CylinderGeometry(0.12, 0.14, trussHeight, 10), 3359061, pos.x + cx, baseY + trussHeight * 0.5, pos.z + cz);
+        this.registerObstacle({
+          type: "disco_pillar",
+          x: pos.x + cx,
+          z: pos.z + cz,
+          radius: 0.25,
+          height: trussHeight
+        });
+      });
+      const diagLen = cornerOffset * 2 * Math.SQRT2;
+      [Math.PI / 4, -Math.PI / 4].forEach((rot) => {
+        this._opaqueBatch.add(new BoxGeometry(diagLen, 0.14, 0.14), 3359061, pos.x, baseY + trussHeight, pos.z, 0, rot, 0);
+      });
+      this._opaqueBatch.add(new CylinderGeometry(0.03, 0.03, 0.8, 8), 3359061, pos.x, baseY + trussHeight - 0.4, pos.z);
+      this._opaqueBatch.add(new SphereGeometry(0.8, 14, 14), 16317180, pos.x, baseY + trussHeight - 0.95, pos.z);
+      this.discoBall = null;
+      this.discoPad = { position: pos, radius: 3.5 };
+    }
+    buildCyberDoghouse(pos) {
+      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
+      const w = 6.4;
+      const h = 4.6;
+      const d = 6.4;
+      const wallT = 0.4;
+      this._opaqueBatch.add(new BoxGeometry(w, 0.16, d), 988970, pos.x, baseY + 0.08, pos.z);
+      this._opaqueBatch.add(new BoxGeometry(w, h, wallT), 3359061, pos.x, baseY + h * 0.5, pos.z - d * 0.5 + wallT * 0.5);
+      [-w * 0.5 + wallT * 0.5, w * 0.5 - wallT * 0.5].forEach((wx) => {
+        this._opaqueBatch.add(new BoxGeometry(wallT, h, d), 3359061, pos.x + wx, baseY + h * 0.5, pos.z);
+      });
+      const doorWidth = 3;
+      const doorHeight = 3.4;
+      const pillarWidth = (w - doorWidth) * 0.5;
+      [-w * 0.5 + pillarWidth * 0.5, w * 0.5 - pillarWidth * 0.5].forEach((px2) => {
+        this._opaqueBatch.add(new BoxGeometry(pillarWidth, h, wallT), 3359061, pos.x + px2, baseY + h * 0.5, pos.z + d * 0.5 - wallT * 0.5);
+      });
+      const lintelH = h - doorHeight;
+      this._opaqueBatch.add(new BoxGeometry(doorWidth, lintelH, wallT), 3359061, pos.x, baseY + doorHeight + lintelH * 0.5, pos.z + d * 0.5 - wallT * 0.5);
+      this._neonBatch.add(new BoxGeometry(doorWidth + 0.2, 0.12, wallT + 0.08), 58879, pos.x, baseY + doorHeight, pos.z + d * 0.5 - wallT * 0.5);
+      [-doorWidth * 0.5, doorWidth * 0.5].forEach((dx) => {
+        this._neonBatch.add(new BoxGeometry(0.12, doorHeight, wallT + 0.08), 58879, pos.x + dx, baseY + doorHeight * 0.5, pos.z + d * 0.5 - wallT * 0.5);
+      });
+      this._neonBatch.add(new CylinderGeometry(1.85, 1.95, 0.14, 24), 2293640, pos.x, baseY + 0.2, pos.z);
+      this._opaqueBatch.add(new ConeGeometry(5.4, 2.4, 4), 165063, pos.x, baseY + h + 1.2, pos.z, 0, Math.PI / 4, 0);
+      this._neonBatch.add(new BoxGeometry(3.4, 0.7, 0.18), 58879, pos.x, baseY + h - 0.55, pos.z + d * 0.5 + 0.05);
+      this.registerObstacle({ type: "doghouse_wall_back", shape: "box", x: pos.x, z: pos.z - d * 0.5 + wallT * 0.5, halfW: w * 0.5, halfD: wallT * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_wall_left", shape: "box", x: pos.x - w * 0.5 + wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_wall_right", shape: "box", x: pos.x + w * 0.5 - wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_pillar_l", shape: "box", x: pos.x - w * 0.5 + pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
+      this.registerObstacle({ type: "doghouse_pillar_r", shape: "box", x: pos.x + w * 0.5 - pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
+    }
+    buildCyberBallPit(pos) {
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      this._opaqueBatch.add(new BoxGeometry(7.2, 0.2, 7.2), 988970, pos.x, groundY + 0.1, pos.z);
+      this._neonBatch.add(new BoxGeometry(7.4, 0.65, 0.35), 58879, pos.x, groundY + 0.35, pos.z - 3.5);
+      this._neonBatch.add(new BoxGeometry(7.4, 0.65, 0.35), 58879, pos.x, groundY + 0.35, pos.z + 3.5);
+      this._neonBatch.add(new BoxGeometry(0.35, 0.65, 7.4), 58879, pos.x - 3.5, groundY + 0.35, pos.z);
+      this._neonBatch.add(new BoxGeometry(0.35, 0.65, 7.4), 58879, pos.x + 3.5, groundY + 0.35, pos.z);
+      const ballColors = [58879, 16724889, 16771584, 2293640, 11032055, 16748800];
+      const miniBallGeo = this.assetCache.getGeometry("world_ballpit_sphere_geo", () => new SphereGeometry(0.24, 10, 10));
+      const miniBallMat = this.assetCache.getMaterial("world_ballpit_sphere_mat", () => new MeshStandardMaterial({
+        color: 16777215,
+        roughness: 0.28,
+        metalness: 0.1
+      }));
+      const inst = new InstancedMesh(miniBallGeo, miniBallMat, 45);
+      this.ballPitOrigin.set(pos.x, groundY, pos.z);
+      for (let i = 0; i < 45; i++) {
+        const rx = (Math.random() - 0.5) * 6;
+        const rz = (Math.random() - 0.5) * 6;
+        const ry = 0.28 + Math.random() * 0.28;
+        TMP.obj.position.set(pos.x + rx, groundY + ry, pos.z + rz);
+        TMP.obj.rotation.set(0, 0, 0);
+        TMP.obj.scale.set(1, 1, 1);
+        TMP.obj.updateMatrix();
+        inst.setMatrixAt(i, TMP.obj.matrix);
+        TMP.color.setHex(ballColors[i % ballColors.length]);
+        inst.setColorAt(i, TMP.color);
+        this.ballPitBalls.push({
+          index: i,
+          localX: rx,
+          localY: ry,
+          localZ: rz,
+          originX: rx,
+          originY: ry,
+          originZ: rz
+        });
+      }
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+      this.scene.add(inst);
+      this.assetCache.track(inst);
+      this.ballPitInst = inst;
+      this.ballPit = { position: pos, radius: 3.6 };
+      this.registerObstacle({ type: "ballpit_wall_n", shape: "box", x: pos.x, z: pos.z - 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
+      this.registerObstacle({ type: "ballpit_wall_s", shape: "box", x: pos.x, z: pos.z + 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
+      this.registerObstacle({ type: "ballpit_wall_w", shape: "box", x: pos.x - 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
+      this.registerObstacle({ type: "ballpit_wall_e", shape: "box", x: pos.x + 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
+    }
+    buildAgilitySlide(pos) {
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      const platformH = 4;
+      [-1.2, 1.2].forEach((px2) => {
+        [-1.2, 1.2].forEach((pz2) => {
+          this._opaqueBatch.add(new CylinderGeometry(0.1, 0.12, platformH + 0.8, 10), 3359061, pos.x + px2, groundY + (platformH + 0.8) * 0.5, pos.z + pz2);
+        });
+      });
+      this._opaqueBatch.add(new BoxGeometry(2.6, 0.2, 2.6), 3359061, pos.x, groundY + platformH, pos.z);
+      [-1.2, 1.2].forEach((rx) => {
+        this._neonBatch.add(new BoxGeometry(0.1, 0.1, 2.5), 58879, pos.x + rx, groundY + platformH + 0.8, pos.z);
+      });
+      [-0.85, 0.85].forEach((lx) => {
+        this._opaqueBatch.add(new CylinderGeometry(0.055, 0.055, platformH + 0.4, 8), 3359061, pos.x + lx, groundY + (platformH + 0.4) * 0.5, pos.z - 1.25);
+      });
+      for (let s = 0.45; s < platformH; s += 0.52) {
+        this._neonBatch.add(new CylinderGeometry(0.04, 0.04, 1.7, 8), 58879, pos.x, groundY + s, pos.z - 1.25, 0, 0, Math.PI / 2);
+      }
+      const startY = platformH;
+      const endY = 0.22;
+      const startZ = 1.2;
+      const endZ = 7.8;
+      const dy = startY - endY;
+      const dz = endZ - startZ;
+      const chuteLength = Math.hypot(dy, dz);
+      const chuteAngle = Math.atan2(dy, dz);
+      const pivotY = groundY + (startY + endY) * 0.5;
+      const pivotZ = pos.z + (startZ + endZ) * 0.5;
+      this._opaqueBatch.add(new BoxGeometry(1.6, 0.14, chuteLength), 165063, pos.x, pivotY, pivotZ, chuteAngle, 0, 0);
+      [-0.82, 0.82].forEach((rx) => {
+        const wy = Math.cos(chuteAngle) * 0.18;
+        const wz = Math.sin(chuteAngle) * 0.18;
+        this._opaqueBatch.add(new BoxGeometry(0.12, 0.36, chuteLength), 165063, pos.x + rx, pivotY + wy, pivotZ + wz, chuteAngle, 0, 0);
+        const ry = Math.cos(chuteAngle) * 0.38;
+        const rz = Math.sin(chuteAngle) * 0.38;
+        this._neonBatch.add(new CylinderGeometry(0.05, 0.05, chuteLength, 8), 58879, pos.x + rx, pivotY + ry, pivotZ + rz, chuteAngle + Math.PI / 2, 0, 0);
+      });
+      this._opaqueBatch.add(new BoxGeometry(2.4, 0.24, 2.6), 16771584, pos.x, groundY + 0.12, pos.z + 8.2);
+      this.slide = {
+        position: pos,
+        topPos: new Vector3(pos.x, groundY + platformH + 0.2, pos.z),
+        endPos: new Vector3(pos.x, groundY + 0.25, pos.z + 8.2),
+        platformH
+      };
+      this.registerObstacle({ type: "slide_tower", shape: "box", x: pos.x, z: pos.z, halfW: 1.35, halfD: 1.35, height: platformH });
+      this.registerObstacle({ type: "slide_chute", shape: "box", x: pos.x, z: pos.z + 4.5, halfW: 0.95, halfD: 3.2, height: 2.2 });
+    }
+    buildAgilityObstacleCourse(pos) {
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      for (let tz = -3; tz <= 3; tz += 1) {
+        this._neonBatch.add(new TorusGeometry(1.08, 0.07, 10, 22), 16771584, pos.x, groundY + 1.05, pos.z + tz);
+      }
+      const tubeGeo = this.assetCache.getGeometry("world_course_tube_geo", () => {
+        const g = new CylinderGeometry(1.04, 1.04, 6.2, 22, 1, true);
+        g.rotateX(Math.PI / 2);
+        return g;
+      });
+      const tubeMat = this.assetCache.getMaterial("world_course_tube_mat", () => new MeshStandardMaterial({
+        color: 165063,
+        transparent: true,
+        opacity: 0.62,
+        side: DoubleSide
+      }));
+      const tube = new Mesh(tubeGeo, tubeMat);
+      tube.position.set(pos.x, groundY + 1.05, pos.z);
+      this.scene.add(tube);
+      [-1.1, 1.1].forEach((wx) => {
+        this.registerObstacle({
+          type: "agility_tunnel_side",
+          shape: "box",
+          x: pos.x + wx,
+          z: pos.z,
+          halfW: 0.18,
+          halfD: 3.1,
+          height: 2.1
+        });
+      });
+      this.hurdles = [];
+      [6, 10, 14].forEach((hz) => {
+        [-1.3, 1.3].forEach((hx) => {
+          this._opaqueBatch.add(new CylinderGeometry(0.07, 0.08, 1.1, 8), 4674921, pos.x + hx, groundY + 0.55, pos.z + hz);
+          this.registerObstacle({ type: "hurdle_post", x: pos.x + hx, z: pos.z + hz, radius: 0.18, height: 1.1 });
+        });
+        this._neonBatch.add(new CylinderGeometry(0.05, 0.05, 2.6, 10), 16771584, pos.x, groundY + 0.65, pos.z + hz, 0, 0, Math.PI / 2);
+        this.hurdles.push({ position: new Vector3(pos.x, groundY, pos.z + hz), cleared: false });
+      });
+      this.obstacleCourse = {
+        position: pos,
+        tunnel: {
+          start: new Vector3(pos.x, groundY, pos.z - 3.2),
+          end: new Vector3(pos.x, groundY, pos.z + 3.2),
+          radius: 1.1
+        }
+      };
+    }
+    buildCyberTargetToss(pos) {
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      [-2.2, 2.2].forEach((sx) => {
+        this._opaqueBatch.add(new CylinderGeometry(0.11, 0.13, 5.9, 10), 14870768, pos.x + sx, groundY + 2.95, pos.z);
+      });
+      this._opaqueBatch.add(new CylinderGeometry(0.08, 0.08, 4.5, 10), 14870768, pos.x, groundY + 3.2, pos.z, 0, 0, Math.PI / 2);
+      this._opaqueBatch.add(new CylinderGeometry(0.09, 0.09, 4.6, 10), 14870768, pos.x, groundY + 5.8, pos.z, 0, 0, Math.PI / 2);
+      this._opaqueBatch.add(new BoxGeometry(2.8, 0.85, 0.26), 593174, pos.x, groundY + 5.8, pos.z);
+      this._neonBatch.add(new BoxGeometry(2.94, 0.96, 0.18), 58879, pos.x, groundY + 5.8, pos.z);
+      const rotorBuilder = new StaticBatchBuilder();
+      const ringConfigs = [
+        { r: 2.1, thickness: 0.12, col: 58879 },
+        { r: 1.35, thickness: 0.18, col: 16771584 },
+        { r: 0.65, thickness: 0.24, col: 16717636 }
+      ];
+      ringConfigs.forEach((rc) => {
+        rotorBuilder.add(new CylinderGeometry(rc.r, rc.r, rc.thickness, 28), rc.col, 0, 0, 0, Math.PI / 2, 0, 0);
+      });
+      const rotorMat = this.assetCache.getMaterial("world_target_rotor_mat", () => new MeshBasicMaterial({
+        vertexColors: true
+      }));
+      const targetRotor = rotorBuilder.build(rotorMat, this.assetCache, "world_target_rotor_geo");
+      targetRotor.position.set(pos.x, groundY + 3.2, pos.z);
+      this.scene.add(targetRotor);
+      this.targetBoard = {
+        position: new Vector3(pos.x, groundY + 3.2, pos.z),
+        rotor: targetRotor,
+        radius: 2.1
+      };
+      this.registerObstacle({ type: "target_post_l", x: pos.x - 2.2, z: pos.z, radius: 0.28, height: 5.9 });
+      this.registerObstacle({ type: "target_post_r", x: pos.x + 2.2, z: pos.z, radius: 0.28, height: 5.9 });
+    }
+    buildCyberPinata(pos) {
+      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
+      this._opaqueBatch.add(new CylinderGeometry(0.09, 0.09, 3.6, 10), 4674921, pos.x, groundY + 4.2, pos.z, 0, 0, Math.PI / 2);
+      [-1.7, 1.7].forEach((ax) => {
+        this._opaqueBatch.add(new CylinderGeometry(0.1, 0.12, 4.2, 10), 4674921, pos.x + ax, groundY + 2.1, pos.z);
+      });
+      const pinBuilder = new StaticBatchBuilder();
+      pinBuilder.add(new CylinderGeometry(0.025, 0.025, 1.8, 8), 4674921, 0, -0.9, 0);
+      pinBuilder.add(new CylinderGeometry(0.2, 0.2, 1.1, 10), 16724889, 0, -1.8, 0, 0, 0, Math.PI / 2);
+      [-0.55, 0.55].forEach((bx) => {
+        [-0.18, 0.18].forEach((by) => {
+          pinBuilder.add(new SphereGeometry(0.22, 10, 10), 16724889, bx, -1.8 + by, 0);
+        });
+      });
+      const pinMat = this.assetCache.getMaterial("world_dynamic_vertex_mat", () => new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.35,
+        metalness: 0.35
+      }));
+      const pinPivot = pinBuilder.build(pinMat, this.assetCache, "world_pinata_geo");
+      pinPivot.position.set(pos.x, groundY + 4.2, pos.z);
+      pinPivot.castShadow = false;
+      this.scene.add(pinPivot);
+      this.pinata = {
+        position: new Vector3(pos.x, groundY + 2.4, pos.z),
+        pivot: pinPivot,
+        hits: 0,
+        maxHits: 4,
+        swingAngle: 0,
+        swingVel: 0
+      };
+      this.registerObstacle({ type: "pinata_post_l", x: pos.x - 1.7, z: pos.z, radius: 0.25, height: 4.2 });
+      this.registerObstacle({ type: "pinata_post_r", x: pos.x + 1.7, z: pos.z, radius: 0.25, height: 4.2 });
+    }
+    buildSlalomRings(pos = new Vector3(-6, 0, -18)) {
+      this.slalomRings = [];
+      const offsets = [
+        { x: -8, z: -10, col: 58879, rotY: 0.2 },
+        { x: -3, z: -4, col: 16771584, rotY: -0.15 },
+        { x: 3, z: 3, col: 16711807, rotY: 0.3 },
+        { x: -2, z: 10, col: 2293640, rotY: -0.2 },
+        { x: 6, z: 16, col: 16748800, rotY: 0.25 }
+      ];
+      offsets.forEach((cfg, idx) => {
+        const wx = pos.x + cfg.x;
+        const wz = pos.z + cfg.z;
+        const groundY = this.getTerrainHeightOnly(wx, wz);
+        const cosY = Math.cos(cfg.rotY);
+        const sinY = Math.sin(cfg.rotY);
+        [-1.3, 1.3].forEach((px2) => {
+          const postX = wx + px2 * cosY;
+          const postZ = wz - px2 * sinY;
+          this._opaqueBatch.add(new CylinderGeometry(0.08, 0.09, 1.8, 10), 3359061, postX, groundY + 0.9, postZ);
+          this.registerObstacle({ type: "slalom_post", x: postX, z: postZ, radius: 0.2, height: 1.8 });
+        });
+        this._neonBatch.add(new TorusGeometry(1.3, 0.1, 12, 28), cfg.col, wx, groundY + 1.6, wz, 0, cfg.rotY, 0);
+        const worldPos = new Vector3(wx, groundY + 1.6, wz);
+        this.slalomRings.push({
+          index: idx,
+          position: worldPos,
+          entryPos: new Vector3(wx - Math.sin(cfg.rotY) * 2.5, groundY, wz - Math.cos(cfg.rotY) * 2.5),
+          centerPos: worldPos,
+          exitPos: new Vector3(wx + Math.sin(cfg.rotY) * 2.5, groundY, wz + Math.cos(cfg.rotY) * 2.5),
+          radius: 1.3
+        });
+      });
+    }
+    buildTreasureSpots() {
+      this.treasureSpots = [
+        { x: -28, z: 12, dug: false, type: "bone", name: "Hueso Dorado Ancestral" },
+        { x: 18, z: -24, dug: false, type: "gear", name: "Micro-Engranaje de Titanio" },
+        { x: 68, z: 28, dug: false, type: "gem", name: "Cristal Cu\xE1ntico Resplandeciente" },
+        { x: -16, z: -46, dug: false, type: "ball", name: "Mini-Pelota Ne\xF3n Secreta" }
+      ];
+      const sparkleGeo = this.assetCache.getGeometry("world_sparkle_geo", () => new OctahedronGeometry(0.16, 0));
+      const sparkleMat = this.assetCache.getMaterial("world_sparkle_mat", () => new MeshBasicMaterial({ color: 16771584 }));
+      const sparkleInst = new InstancedMesh(sparkleGeo, sparkleMat, this.treasureSpots.length);
+      this.treasureSpots.forEach((spot, idx) => {
+        const gy = this.getTerrainHeightOnly(spot.x, spot.z);
+        this._opaqueBatch.add(new CylinderGeometry(1.2, 1.4, 0.12, 14), 6111287, spot.x, gy + 0.06, spot.z);
+        TMP.obj.position.set(spot.x, gy + 0.35, spot.z);
+        TMP.obj.rotation.set(0, 0, 0);
+        TMP.obj.scale.set(1, 1, 1);
+        TMP.obj.updateMatrix();
+        sparkleInst.setMatrixAt(idx, TMP.obj.matrix);
+        spot.index = idx;
+        spot.y = gy;
+      });
+      sparkleInst.instanceMatrix.needsUpdate = true;
+      this.scene.add(sparkleInst);
+      this.assetCache.track(sparkleInst);
+      this.treasureSparkleInst = sparkleInst;
+    }
+    revealDugTreasure(robot, spot) {
+      if (!spot || spot.dug) return null;
+      spot.dug = true;
+      if (this.treasureSparkleInst && spot.index !== void 0) {
+        TMP.obj.position.set(spot.x, -50, spot.z);
+        TMP.obj.scale.set(1e-4, 1e-4, 1e-4);
+        TMP.obj.updateMatrix();
+        this.treasureSparkleInst.setMatrixAt(spot.index, TMP.obj.matrix);
+        this.treasureSparkleInst.instanceMatrix.needsUpdate = true;
+      }
+      const gy = this.getHeightAt(spot.x, spot.z);
+      const key = `treasure_${spot.type}`;
+      const geo = this.assetCache.getGeometry(`${key}_geo`, () => {
+        if (spot.type === "bone") return new CylinderGeometry(0.08, 0.08, 0.9, 10).rotateZ(Math.PI / 2);
+        if (spot.type === "gear") return new TorusGeometry(0.28, 0.08, 10, 20);
+        return new OctahedronGeometry(0.32, 0);
+      });
+      const mat = this.assetCache.getMaterial(`${key}_mat`, () => {
+        if (spot.type === "bone") return new MeshStandardMaterial({ color: 16766720, metalness: 0.9, roughness: 0.2, emissive: 16758528, emissiveIntensity: 0.5 });
+        if (spot.type === "gear") return new MeshStandardMaterial({ color: 58879, metalness: 0.95, roughness: 0.1, emissive: 58879, emissiveIntensity: 0.6 });
+        return new MeshStandardMaterial({ color: 16007006, metalness: 0.3, roughness: 0.1, emissive: 16007006, emissiveIntensity: 0.8 });
+      });
+      const mesh = new Mesh(geo, mat);
+      mesh.position.set(spot.x, gy + 0.6, spot.z);
+      this.scene.add(mesh);
+      if (roboAudio.playSuccess) roboAudio.playSuccess();
+      this.logActivity(`\u{1F48E} \xA1${robot.name} desenterr\xF3 un tesoro oculto: ${spot.name}!`);
+      return spot.name;
+    }
+    buildLowPolyClouds() {
+      const cloudGeo = this.assetCache.getGeometry("world_cloud_puff_geo", () => new DodecahedronGeometry(1, 1));
+      const cloudMat = this.assetCache.getMaterial("world_cloud_mat", () => new MeshStandardMaterial({
+        color: 16777215,
+        roughness: 0.95,
+        metalness: 0.02,
+        transparent: true,
+        opacity: 0.88
+      }));
+      const puffs = [];
+      for (let c = 0; c < 12; c++) {
+        const puffCount = 4 + Math.floor(Math.random() * 4);
+        const orbitAngle = c / 12 * Math.PI * 2;
+        const dist = 60 + Math.random() * 120;
+        const cy = 52 + Math.random() * 18;
+        const speed = (0.35 + Math.random() * 0.45) * 0.012;
+        for (let p = 0; p < puffCount; p++) {
+          puffs.push({
+            orbitAngle,
+            dist,
+            cy: cy + (Math.random() - 0.5) * 1.5,
+            ox: (p - puffCount / 2) * 4.5 + (Math.random() - 0.5) * 2,
+            oz: (Math.random() - 0.5) * 3,
+            rad: 3.5 + Math.random() * 4.2,
+            speed
+          });
+        }
+      }
+      const inst = new InstancedMesh(cloudGeo, cloudMat, puffs.length);
+      inst.frustumCulled = false;
+      for (let i = 0; i < puffs.length; i++) {
+        const pf = puffs[i];
+        const cx = Math.cos(pf.orbitAngle) * pf.dist + pf.ox;
+        const cz = Math.sin(pf.orbitAngle) * pf.dist + pf.oz;
+        TMP.obj.position.set(cx, pf.cy, cz);
+        TMP.obj.rotation.set(0, 0, 0);
+        TMP.obj.scale.setScalar(pf.rad);
+        TMP.obj.updateMatrix();
+        inst.setMatrixAt(i, TMP.obj.matrix);
+      }
+      inst.instanceMatrix.needsUpdate = true;
+      this.scene.add(inst);
+      this.assetCache.track(inst);
+      this.cloudsInst = inst;
+      this.clouds = puffs;
+    }
+    buildAmbientParticles() {
+      const count = 120;
+      const geom = this.assetCache.getGeometry("world_ambient_pts_geo", () => {
+        const g = new BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 240;
+          positions[i * 3 + 1] = 1 + Math.random() * 12;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 240;
+        }
+        g.setAttribute("position", new BufferAttribute(positions, 3));
+        return g;
+      });
+      const pMat = this.assetCache.getMaterial("world_ambient_pts_mat", () => new PointsMaterial({
+        color: 2293640,
+        size: 0.45,
+        transparent: true,
+        opacity: 0.72,
+        blending: AdditiveBlending,
+        depthWrite: false
+      }));
+      const pSystem = new Points(geom, pMat);
+      this.scene.add(pSystem);
+      this.ambientParticles = pSystem;
+    }
+    spawnSoccerBall(pos, radius) {
+      const ballGeo = this.assetCache.getGeometry(`world_soccer_geo_${radius}`, () => new SphereGeometry(radius, 24, 24));
+      const ballMat = this.assetCache.getMaterial("world_soccer_mat", () => new MeshStandardMaterial({
+        map: this.textures.soccer,
+        roughness: 0.35,
+        metalness: 0.1
+      }));
+      const mesh = new Mesh(ballGeo, ballMat);
+      mesh.position.copy(pos);
+      mesh.castShadow = false;
+      this.scene.add(mesh);
+      const ball = {
+        mesh,
+        radius,
+        type: "soccer",
+        velocity: new Vector3(),
+        mass: radius * 1.8,
+        bounciness: 0.8,
+        drag: 1.45
+      };
+      this.balls.push(ball);
+      this.interactiveObjects.push({
+        type: "ball",
+        object: mesh,
+        ballData: ball,
+        name: "Pelota de F\xFAtbol",
+        radius
+      });
+      return ball;
+    }
+    throwBall(originPos, direction, force = 24) {
+      if (!this.soccerBall) return null;
+      const ball = this.soccerBall;
+      if (ball.carriedBy) {
+        ball.carriedBy.dropObject?.();
+        ball.carriedBy = null;
+      }
+      TMP.v1.copy(direction);
+      TMP.v1.y = 0;
+      if (TMP.v1.lengthSq() > 1e-6) TMP.v1.normalize();
+      else TMP.v1.set(0, 0, 1);
+      ball.mesh.position.set(
+        originPos.x + TMP.v1.x * 2.2,
+        originPos.y + 1.2,
+        originPos.z + TMP.v1.z * 2.2
+      );
+      ball.velocity.set(TMP.v1.x * force, 8.5, TMP.v1.z * force);
+      if (roboAudio.playBark) roboAudio.playBark(1.25);
+      this.logActivity(`\u{1F3BE} \xA1Lanzaste la pelota de f\xFAtbol! \xA1A buscarla!`);
+      return ball;
+    }
+    kickBall(ball, dir, power = 12) {
+      const targetBall = ball || this.soccerBall;
+      if (!targetBall) return;
+      if (targetBall.carriedBy) {
+        targetBall.carriedBy.dropObject?.();
+        targetBall.carriedBy = null;
+      }
+      TMP.v1.copy(dir);
+      TMP.v1.y = 0;
+      if (TMP.v1.lengthSq() > 1e-6) TMP.v1.normalize();
+      else TMP.v1.set(0, 0, 1);
+      targetBall.velocity.x += TMP.v1.x * power;
+      targetBall.velocity.z += TMP.v1.z * power;
+      targetBall.velocity.y += Math.max(2, power * 0.25);
+      if (roboAudio.playFootstep) roboAudio.playFootstep(1.2);
+    }
+    spawnBall(pos, radius, colorHex, type = "ball") {
+      const ballGeo = this.assetCache.getGeometry(`world_ball_geo_${radius}`, () => new SphereGeometry(radius, 20, 20));
+      const ballMat = this.assetCache.getMaterial(`world_ball_mat_${colorHex}_${type}`, () => new MeshStandardMaterial({
+        color: colorHex,
+        emissive: type === "neon" ? colorHex : 0,
+        emissiveIntensity: type === "neon" ? 0.65 : 0,
+        roughness: 0.35
+      }));
+      const mesh = new Mesh(ballGeo, ballMat);
+      mesh.position.copy(pos);
+      mesh.castShadow = false;
+      this.scene.add(mesh);
+      const ball = {
+        mesh,
+        radius,
+        type,
+        velocity: new Vector3(),
+        mass: radius * 1.4,
+        bounciness: 0.82,
+        drag: 1.65
+      };
+      this.balls.push(ball);
+      this.interactiveObjects.push({
+        type: "ball",
+        object: mesh,
+        ballData: ball,
+        name: `Pelota ${type === "neon" ? "Ne\xF3n" : "Saltarina"}`,
+        radius
+      });
+      return ball;
+    }
+    spawnBoneToy(pos) {
+      if (!this.boneInst) {
+        const boneGeo = this.assetCache.getGeometry("world_bone_toy_geo", () => {
+          const b = new StaticBatchBuilder();
+          b.add(new CylinderGeometry(0.12, 0.12, 1.25, 10), 58879, 0, 0, 0, 0, 0, Math.PI / 2);
+          [-0.65, 0.65].forEach((x) => {
+            [-0.15, 0.15].forEach((y) => {
+              b.add(new SphereGeometry(0.22, 10, 10), 58879, x, y, 0);
+            });
+          });
+          const m = mergeGeometries(b._parts, false);
+          for (let i = 0; i < b._parts.length; i++) b._parts[i].dispose();
+          b._parts.length = 0;
+          return m;
+        });
+        const boneMat = this.assetCache.getMaterial("world_bone_toy_mat", () => new MeshStandardMaterial({
+          color: 58879,
+          emissive: 58879,
+          emissiveIntensity: 0.8,
+          roughness: 0.2
+        }));
+        this.boneInst = new InstancedMesh(boneGeo, boneMat, 3);
+        this.boneInst.frustumCulled = false;
+        this.scene.add(this.boneInst);
+        this.assetCache.track(this.boneInst);
+      }
+      const idx = this.boneToys.length;
+      const proxy = new Object3D();
+      proxy.position.copy(pos);
+      this.scene.add(proxy);
+      if (idx < 3) {
+        TMP.obj.position.copy(pos);
+        TMP.obj.rotation.set(0, 0, 0);
+        TMP.obj.scale.set(1, 1, 1);
+        TMP.obj.updateMatrix();
+        this.boneInst.setMatrixAt(idx, TMP.obj.matrix);
+        this.boneInst.instanceMatrix.needsUpdate = true;
+      }
+      this.boneToys.push({ index: idx, proxy });
+      this.interactiveObjects.push({
+        type: "bone",
+        object: proxy,
+        name: "Hueso de Energ\xEDa",
+        radius: 1.1
+      });
+    }
+    spawnCyberSnack(pos) {
+      const biscuitGeo = this.assetCache.getGeometry("world_snack_geo", () => new CylinderGeometry(0.25, 0.25, 0.08, 14));
+      const biscuitMat = this.assetCache.getMaterial("world_snack_mat", () => new MeshStandardMaterial({
+        color: 16771584,
+        emissive: 16771584,
+        emissiveIntensity: 0.7,
+        roughness: 0.3
+      }));
+      const biscuit = new Mesh(biscuitGeo, biscuitMat);
+      biscuit.position.copy(pos);
+      biscuit.position.y = this.getHeightAt(pos.x, pos.z) + 0.4;
+      this.scene.add(biscuit);
+      this.snacks.push({ group: biscuit, age: 0 });
+      this.logActivity(`\u{1F36A} \xA1Apareci\xF3 una galleta energ\xE9tica en el parque!`);
+      if (roboAudio.playSuccess) roboAudio.playSuccess();
+    }
+    triggerDiscoParty() {
+      this.discoPartyActive = true;
+      this.discoTimer = 12;
+      this._discoBeatAccum = 0;
+      this.logActivity(`\u{1FAA9} \xA1FIESTA DISCO ACTIVADA! \xA1A bailar todos!`);
+      if (roboAudio.playSuccess) roboAudio.playSuccess();
+    }
+    triggerTargetHit(pts, ball = null) {
+      if (ball && ball.lastTargetHit && performance.now() - ball.lastTargetHit < 800) return;
+      if (ball) ball.lastTargetHit = performance.now();
+      this.targetScore += pts;
+      this.logActivity(`\u{1F3AF} \xA1DIANA ACERTADA! +${pts} PUNTOS | Total: ${this.targetScore}`);
+      if (roboAudio.playSuccess) roboAudio.playSuccess();
+      if (this.eventBus) {
+        this.eventBus.emit("world:scoreTarget", { score: this.targetScore, points: pts });
+        this.eventBus.emit("camera:trauma", { amount: 0.35 });
+        this.eventBus.emit("haptic:pulse", { pattern: 20 });
+      }
+      if (this.onTargetHit) this.onTargetHit(this.targetScore);
+      if (ball) {
+        ball.velocity.x *= -1.1;
+        ball.velocity.z *= -1.1;
+        ball.velocity.y = 4.5;
+      }
+    }
+    buildDetailedNature() {
+      const trunkSpecs = [];
+      const foliageSpecs = [];
+      const innerLeafColors = [3706428, 3046706, 5025616];
+      const outerLeafColors = [1793568, 3046706, 1984032, 2582345];
+      for (let i = 0; i < 95; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 32 + Math.random() * 155;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        if (Math.hypot(x - LAKE_CENTER_X, z - LAKE_CENTER_Z) < 70) continue;
+        if (Math.hypot(x - 50, z - 40) < 46) continue;
+        if (Math.hypot(x - -46, z - -48) < 14) continue;
+        if (Math.hypot(x - -32, z - 48) < 10) continue;
+        if (Math.hypot(x - -18, z - -32) < 12) continue;
+        if (Math.hypot(x - 22, z - -50) < 16) continue;
+        const ty = this.getTerrainHeightOnly(x, z);
+        const height = 4.2 + Math.random() * 3.5;
+        const leafCol = innerLeafColors[i % innerLeafColors.length];
+        trunkSpecs.push({ x, y: ty + height * 0.5, z, r: 0.48, h: height });
+        for (let l = 0; l < 3; l++) {
+          foliageSpecs.push({
+            x,
+            y: ty + height + l * 1.9,
+            z,
+            r: 3.4 - l * 0.8,
+            h: 3.2,
+            col: leafCol
+          });
+        }
+        this.registerObstacle({ type: "tree", x, z, radius: 0.85, height: 7 });
+      }
+      for (let i = 0; i < 185; i++) {
+        const angle = i / 185 * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+        const dist = 102 + Math.random() * 145;
+        const x = Math.cos(angle) * dist;
+        const z = Math.sin(angle) * dist;
+        const ty = this.getTerrainHeightOnly(x, z);
+        const height = 6.5 + Math.random() * 7.5;
+        const leafCol = outerLeafColors[i % outerLeafColors.length];
+        trunkSpecs.push({ x, y: ty + height * 0.5, z, r: 0.72, h: height });
+        if (i % 5 === 0) {
+          this._neonBatch.add(
+            new TorusGeometry(0.7, 0.08, 8, 14),
+            62206,
+            x,
+            ty + height * 0.42,
+            z,
+            Math.PI / 2,
+            0,
+            0
+          );
+        }
+        const numTiers = 3 + i % 2;
+        for (let l = 0; l < numTiers; l++) {
+          foliageSpecs.push({
+            x,
+            y: ty + height + l * 2.1,
+            z,
+            r: 4.6 - l * 0.75,
+            h: 3.8,
+            col: leafCol
+          });
+        }
+      }
+      const trunkGeo = this.assetCache.getGeometry("world_tree_trunk_geo", () => new CylinderGeometry(0.8, 1.15, 1, 7));
+      const trunkMat = this.assetCache.getMaterial("world_tree_trunk_mat", () => new MeshStandardMaterial({
+        map: this.textures.wood,
+        roughness: 0.86
+      }));
+      const trunksInst = new InstancedMesh(trunkGeo, trunkMat, trunkSpecs.length);
+      trunksInst.castShadow = false;
+      for (let i = 0; i < trunkSpecs.length; i++) {
+        const t = trunkSpecs[i];
+        TMP.obj.position.set(t.x, t.y, t.z);
+        TMP.obj.rotation.set(0, 0, 0);
+        TMP.obj.scale.set(t.r, t.h, t.r);
+        TMP.obj.updateMatrix();
+        trunksInst.setMatrixAt(i, TMP.obj.matrix);
+      }
+      trunksInst.instanceMatrix.needsUpdate = true;
+      this.scene.add(trunksInst);
+      this.assetCache.track(trunksInst);
+      const foliageGeo = this.assetCache.getGeometry("world_tree_foliage_geo", () => new ConeGeometry(1, 1, 7));
+      const foliageMat = this.assetCache.getMaterial("world_tree_foliage_mat", () => new MeshStandardMaterial({
+        color: 16777215,
+        roughness: 0.65
+      }));
+      const foliageInst = new InstancedMesh(foliageGeo, foliageMat, foliageSpecs.length);
+      foliageInst.castShadow = true;
+      for (let i = 0; i < foliageSpecs.length; i++) {
+        const f = foliageSpecs[i];
+        TMP.obj.position.set(f.x, f.y, f.z);
+        TMP.obj.rotation.set(0, i * 0.7 % (Math.PI * 2), 0);
+        TMP.obj.scale.set(f.r, f.h, f.r);
+        TMP.obj.updateMatrix();
+        foliageInst.setMatrixAt(i, TMP.obj.matrix);
+        TMP.color.setHex(f.col);
+        foliageInst.setColorAt(i, TMP.color);
+      }
+      foliageInst.instanceMatrix.needsUpdate = true;
+      if (foliageInst.instanceColor) foliageInst.instanceColor.needsUpdate = true;
+      this.scene.add(foliageInst);
+      this.assetCache.track(foliageInst);
+      const flowerGeo = this.assetCache.getGeometry("world_flower_geo", () => new SphereGeometry(0.2, 6, 6));
+      const flwMat = this.assetCache.getMaterial("world_flower_mat", () => new MeshStandardMaterial({
+        color: 16777215,
+        roughness: 0.45,
+        emissive: 3355443,
+        emissiveIntensity: 0.35
+      }));
+      const flowerInst = new InstancedMesh(flowerGeo, flwMat, 240);
+      const flowerColors = [16771899, 16728193, 58879, 11225020, 16740419, 7798531];
+      for (let i = 0; i < 240; i++) {
+        const x = (Math.random() - 0.5) * 350;
+        const z = (Math.random() - 0.5) * 350;
+        if (Math.hypot(x - LAKE_CENTER_X, z - LAKE_CENTER_Z) < 65) {
+          TMP.obj.position.set(0, -50, 0);
+          TMP.obj.scale.setScalar(1e-4);
+        } else {
+          const y = this.getTerrainHeightOnly(x, z) + 0.16;
+          TMP.obj.position.set(x, y, z);
+          TMP.obj.scale.setScalar(0.7 + Math.random() * 0.6);
+        }
+        TMP.obj.rotation.set(0, 0, 0);
+        TMP.obj.updateMatrix();
+        flowerInst.setMatrixAt(i, TMP.obj.matrix);
+        TMP.color.setHex(flowerColors[i % flowerColors.length]);
+        flowerInst.setColorAt(i, TMP.color);
+      }
+      flowerInst.instanceMatrix.needsUpdate = true;
+      if (flowerInst.instanceColor) flowerInst.instanceColor.needsUpdate = true;
+      this.scene.add(flowerInst);
+      this.assetCache.track(flowerInst);
+      const bflyGeo = this.assetCache.getGeometry("world_bfly_geo", () => new PlaneGeometry(0.7, 0.7));
+      const bflyMat = this.assetCache.getMaterial("world_bfly_mat", () => new MeshBasicMaterial({
+        map: this.textures.butterfly,
+        alphaTest: 0.25,
+        transparent: true,
+        opacity: 0.9,
+        side: DoubleSide
+      }));
+      const bflyInst = new InstancedMesh(bflyGeo, bflyMat, 24);
+      this.butterflies = [];
+      for (let i = 0; i < 24; i++) {
+        const bx = (Math.random() - 0.5) * 210;
+        const bz = (Math.random() - 0.5) * 210;
+        const by = this.getTerrainHeightOnly(bx, bz) + 1.5 + Math.random() * 2.5;
+        this.butterflies.push({
+          index: i,
+          baseX: bx,
+          baseY: by,
+          baseZ: bz,
+          position: new Vector3(bx, by, bz),
+          phase: Math.random() * Math.PI * 2,
+          speed: 1.6 + Math.random()
+        });
+        TMP.obj.position.set(bx, by, bz);
+        TMP.obj.rotation.set(-Math.PI * 0.35, 0, 0);
+        TMP.obj.scale.setScalar(1);
+        TMP.obj.updateMatrix();
+        bflyInst.setMatrixAt(i, TMP.obj.matrix);
+      }
+      bflyInst.instanceMatrix.needsUpdate = true;
+      this.scene.add(bflyInst);
+      this.assetCache.track(bflyInst);
+      this.butterfliesInst = bflyInst;
+    }
+    buildPointsOfInterest() {
+      this.pointsOfInterest = [
+        { name: "Lago de Cristal", position: new Vector3(-80, 0, -80), radius: 65, type: "lake" },
+        { name: "Parque de Juegos", position: new Vector3(50, 0, 40), radius: 36, type: "playground" },
+        { name: "Trampol\xEDn de Salto", position: new Vector3(38, 0, 22), radius: 5, type: "trampoline" },
+        { name: "Carrusel Giratorio", position: new Vector3(62, 0, 26), radius: 6, type: "carousel" },
+        { name: "Pista de Baile Disco", position: new Vector3(52, 0, 56), radius: 5, type: "disco" },
+        { name: "Estaci\xF3n de Recarga", position: new Vector3(72, 0, 52), radius: 9, type: "recharge" },
+        { name: "Muelle de Madera", position: new Vector3(-44, 0, -80), radius: 14, type: "pier" },
+        { name: "Prado Esmeralda", position: new Vector3(0, 0, 0), radius: 28, type: "meadow" },
+        { name: "Fuente de Agua Canina", position: new Vector3(12, 0, 10), radius: 6, type: "fountain" },
+        { name: "Puente de Madera", position: new Vector3(-46, 0, -48), radius: 8, type: "bridge" },
+        { name: "Balanc\xEDn Cibern\xE9tico", position: new Vector3(48, 0, 32), radius: 6, type: "seesaw" },
+        { name: "Piscina de Pelotas", position: new Vector3(-32, 0, 48), radius: 6, type: "ballpit" },
+        { name: "Tobog\xE1n de Agilidad", position: new Vector3(-18, 0, -32), radius: 8, type: "slide" },
+        { name: "T\xFAnel de Agilidad", position: new Vector3(22, 0, -50), radius: 7, type: "tunnel" },
+        { name: "Diana de Tiro", position: new Vector3(76, 0, 18), radius: 6, type: "target" },
+        { name: "Pi\xF1ata Canina", position: new Vector3(-42, 0, 14), radius: 6, type: "pinata" }
+      ];
+    }
+    getTerrainHeightOnly(x, z) {
+      const distToLake = Math.hypot(x - LAKE_CENTER_X, z - LAKE_CENTER_Z);
+      if (distToLake < 65) {
+        const lakeFactor = Math.cos(distToLake / 65 * (Math.PI / 2));
+        return -4.5 * lakeFactor;
+      }
+      const distToPlayground = Math.hypot(x - 50, z - 40);
+      let y = Math.sin(x * 0.02) * 2.2 + Math.cos(z * 0.025) * 1.8 + Math.sin((x + z) * 0.015) * 1.5;
+      if (distToPlayground < 55) {
+        const blend = distToPlayground / 55;
+        y *= blend * blend;
+      }
+      return y;
+    }
+    getHeightAt(x, z) {
+      let y = this.getTerrainHeightOnly(x, z);
+      for (let i = 0; i < this.elevatedSurfaces.length; i++) {
+        const surf = this.elevatedSurfaces[i];
+        const dx = x - surf.x;
+        const dz = z - surf.z;
+        const cos = Math.cos(-surf.rotY);
+        const sin = Math.sin(-surf.rotY);
+        const localX = dx * cos - dz * sin;
+        const localZ = dx * sin + dz * cos;
+        if (Math.abs(localX) <= surf.halfW && Math.abs(localZ) <= surf.halfD) {
+          const surfY = surf.getHeight(localX, localZ);
+          if (surfY !== null && surfY > y) {
+            y = surfY;
+          }
+        }
+      }
+      return y;
+    }
+    clampToWorld(pos, margin = 0) {
+      const maxR = Math.max(10, WORLD_RADIUS - margin);
+      const dist = Math.hypot(pos.x, pos.z);
+      if (dist > maxR && dist > 1e-4) {
+        const f = maxR / dist;
+        pos.x *= f;
+        pos.z *= f;
+        return true;
+      }
+      return false;
+    }
+    resolveObstacleCollisions(pos, radius = 0.75, height = 1, outNormal = null) {
+      let collided = false;
+      const obstacles = this.getNearObstacles(pos.x, pos.z, this._nearCache);
+      const posY = pos.y;
+      for (let i = 0; i < obstacles.length; i++) {
+        const obs = obstacles[i];
+        if (obs.yMin !== void 0 && obs.yMax !== void 0) {
+          if (posY + height < obs.yMin || posY > obs.yMax) {
+            continue;
+          }
+        }
+        if (obs.shape === "box") {
+          const dx = pos.x - obs.x;
+          const dz = pos.z - obs.z;
+          const rotY = obs.rotY || 0;
+          const cos = Math.cos(-rotY);
+          const sin = Math.sin(-rotY);
+          const localX = dx * cos - dz * sin;
+          const localZ = dx * sin + dz * cos;
+          const clampedX = MathUtils.clamp(localX, -obs.halfW, obs.halfW);
+          const clampedZ = MathUtils.clamp(localZ, -obs.halfD, obs.halfD);
+          const diffX = localX - clampedX;
+          const diffZ = localZ - clampedZ;
+          const distSq = diffX * diffX + diffZ * diffZ;
+          if (distSq < radius * radius) {
+            collided = true;
+            let pushLocalX = 0;
+            let pushLocalZ = 0;
+            let nxLocal = 0;
+            let nzLocal = 0;
+            if (distSq > 1e-5) {
+              const dist = Math.sqrt(distSq);
+              const overlap = radius - dist;
+              nxLocal = diffX / dist;
+              nzLocal = diffZ / dist;
+              pushLocalX = nxLocal * overlap;
+              pushLocalZ = nzLocal * overlap;
+            } else {
+              const penX = obs.halfW - Math.abs(localX) + radius;
+              const penZ = obs.halfD - Math.abs(localZ) + radius;
+              if (penX < penZ) {
+                nxLocal = localX >= 0 ? 1 : -1;
+                pushLocalX = nxLocal * penX;
+              } else {
+                nzLocal = localZ >= 0 ? 1 : -1;
+                pushLocalZ = nzLocal * penZ;
+              }
+            }
+            const cosW = Math.cos(rotY);
+            const sinW = Math.sin(rotY);
+            pos.x += pushLocalX * cosW - pushLocalZ * sinW;
+            pos.z += pushLocalX * sinW + pushLocalZ * cosW;
+            if (outNormal) {
+              outNormal.set(
+                nxLocal * cosW - nzLocal * sinW,
+                0,
+                nxLocal * sinW + nzLocal * cosW
+              ).normalize();
+            }
+          }
+        } else {
+          const dx = pos.x - obs.x;
+          const dz = pos.z - obs.z;
+          const dist = Math.hypot(dx, dz);
+          const minDist = (obs.radius || 0.8) + radius;
+          if (dist < minDist && dist > 1e-4) {
+            collided = true;
+            const overlap = minDist - dist;
+            const nx = dx / dist;
+            const nz = dz / dist;
+            pos.x += nx * overlap;
+            pos.z += nz * overlap;
+            if (outNormal) outNormal.set(nx, 0, nz);
+          }
+        }
+      }
+      if (this.clampToWorld(pos, 0)) {
+        collided = true;
+        if (outNormal) {
+          const d = Math.hypot(pos.x, pos.z) || 1;
+          outNormal.set(-pos.x / d, 0, -pos.z / d);
+        }
+      }
+      return collided;
+    }
+    update(dt, elapsedTime = 0) {
+      const delta = Math.min(dt || 0.016, 0.05);
+      this.waterTime += delta;
+      if (this.waterMesh) {
+        this.waterMesh.material.opacity = 0.85 + Math.sin(this.waterTime * 2.2) * 0.04;
+        this.textures.water.offset.x = this.waterTime * 0.025 % 1;
+        this.textures.water.offset.y = this.waterTime * 0.018 % 1;
+      }
+      if (this.cloudsInst && this.clouds.length > 0) {
+        for (let i = 0; i < this.clouds.length; i++) {
+          const pf = this.clouds[i];
+          pf.orbitAngle += delta * pf.speed;
+          const cx = Math.cos(pf.orbitAngle) * pf.dist + pf.ox;
+          const cz = Math.sin(pf.orbitAngle) * pf.dist + pf.oz;
+          TMP.obj.position.set(cx, pf.cy, cz);
+          TMP.obj.rotation.set(0, pf.orbitAngle, 0);
+          TMP.obj.scale.setScalar(pf.rad);
+          TMP.obj.updateMatrix();
+          this.cloudsInst.setMatrixAt(i, TMP.obj.matrix);
+        }
+        this.cloudsInst.instanceMatrix.needsUpdate = true;
+      }
+      if (this.ambientParticles) {
+        this.ambientParticles.rotation.y += delta * 0.02;
+      }
+      if (this.targetBoard && this.targetBoard.rotor) {
+        this.targetBoard.rotor.rotation.z += delta * 0.85;
+      }
+      if (this.pinata) {
+        this.pinata.swingVel += -this.pinata.swingAngle * 14 * delta;
+        this.pinata.swingVel *= Math.exp(-2.2 * delta);
+        this.pinata.swingAngle += this.pinata.swingVel * delta;
+        this.pinata.pivot.rotation.z = this.pinata.swingAngle;
+      }
+      if (this.ballPitInst && this.ballPitBalls.length > 0) {
+        const ox = this.ballPitOrigin.x;
+        const oy = this.ballPitOrigin.y;
+        const oz = this.ballPitOrigin.z;
+        for (let i = 0; i < this.ballPitBalls.length; i++) {
+          const b = this.ballPitBalls[i];
+          b.localX = damp2(b.localX, b.originX, 2.5, delta);
+          b.localZ = damp2(b.localZ, b.originZ, 2.5, delta);
+          b.localY = b.originY + Math.sin(this.waterTime * 3 + b.originX) * 0.035;
+          TMP.obj.position.set(ox + b.localX, oy + b.localY, oz + b.localZ);
+          TMP.obj.rotation.set(0, 0, 0);
+          TMP.obj.scale.set(1, 1, 1);
+          TMP.obj.updateMatrix();
+          this.ballPitInst.setMatrixAt(b.index, TMP.obj.matrix);
+        }
+        this.ballPitInst.instanceMatrix.needsUpdate = true;
+      }
+      if (this.toyBoat) {
+        this.toyBoat.position.y = Math.sin(this.waterTime * 1.8) * 0.12;
+        this.toyBoat.rotation.z = Math.sin(this.waterTime * 1.4) * 0.06;
+        this.toyBoat.rotation.y += delta * 0.15;
+      }
+      if (this.carouselGroup) {
+        this.carouselAngle += delta * 1.2;
+        this.carouselGroup.rotation.y = this.carouselAngle;
+      }
+      if (this.discoPartyActive) {
+        this.discoTimer -= delta;
+        if (this.discoBall) this.discoBall.rotation.y += delta * 4;
+        this._discoBeatAccum += delta;
+        if (this._discoBeatAccum >= 0.36) {
+          this._discoBeatAccum -= 0.36;
+          if (roboAudio.playDanceBeat) roboAudio.playDanceBeat();
+        }
+        if (this.discoTilesInst) {
+          for (let i = 0; i < 16; i++) {
+            const pulse = 0.55 + Math.sin(this.waterTime * 10 + i) * 0.45;
+            TMP.color.setHex(this.discoTileColors[i]).multiplyScalar(pulse);
+            this.discoTilesInst.setColorAt(i, TMP.color);
+          }
+          if (this.discoTilesInst.instanceColor) this.discoTilesInst.instanceColor.needsUpdate = true;
+        }
+        if (this.discoTimer <= 0) {
+          this.discoPartyActive = false;
+          if (this.discoTilesInst) {
+            for (let i = 0; i < 16; i++) {
+              TMP.color.setHex(this.discoTileColors[i]).multiplyScalar(0.55);
+              this.discoTilesInst.setColorAt(i, TMP.color);
+            }
+            if (this.discoTilesInst.instanceColor) this.discoTilesInst.instanceColor.needsUpdate = true;
+          }
+        }
+      }
+      if (this.boneInst && this.boneToys.length > 0) {
+        for (let i = 0; i < this.boneToys.length; i++) {
+          const b = this.boneToys[i];
+          b.proxy.rotation.y += delta * 1.2;
+          b.proxy.updateMatrix();
+          this.boneInst.setMatrixAt(b.index, b.proxy.matrix);
+        }
+        this.boneInst.instanceMatrix.needsUpdate = true;
+      }
+      if (this.butterfliesInst && this.butterflies.length > 0) {
+        for (let i = 0; i < this.butterflies.length; i++) {
+          const b = this.butterflies[i];
+          b.phase += delta * b.speed;
+          const bx = b.baseX + Math.sin(b.phase) * 3;
+          const bz = b.baseZ + Math.cos(b.phase * 0.7) * 3;
+          const by = b.baseY + Math.sin(b.phase * 2.5) * 0.6;
+          b.position.set(bx, by, bz);
+          const flap = 0.55 + Math.abs(Math.sin(b.phase * 8)) * 0.6;
+          TMP.obj.position.set(bx, by, bz);
+          TMP.obj.rotation.set(-Math.PI * 0.35, b.phase, 0);
+          TMP.obj.scale.set(flap, 1, 1);
+          TMP.obj.updateMatrix();
+          this.butterfliesInst.setMatrixAt(b.index, TMP.obj.matrix);
+        }
+        this.butterfliesInst.instanceMatrix.needsUpdate = true;
+      }
+      if (this.fountainJet) {
+        this.fountainJet.rotation.y += delta * 0.75;
+        this.fountainJet.scale.y = 1 + Math.sin(this.waterTime * 6) * 0.16;
+      }
+      if (this.seesaw) {
+        this.seesaw.pivot.rotation.z = damp2(this.seesaw.pivot.rotation.z, this.seesaw.targetTilt, 5, delta);
+        this.seesaw.targetTilt = damp2(this.seesaw.targetTilt, 0, 2.5, delta);
+      }
+      const hitNormal = TMP.v1;
+      for (let i = 0; i < this.balls.length; i++) {
+        const ball = this.balls[i];
+        if (ball.carriedBy) continue;
+        const subSteps = 2;
+        const subDelta = delta / subSteps;
+        for (let step = 0; step < subSteps; step++) {
+          ball.velocity.y -= 9.8 * subDelta;
+          ball.mesh.position.addScaledVector(ball.velocity, subDelta);
+          const hitObstacle = this.resolveObstacleCollisions(ball.mesh.position, ball.radius, ball.radius * 2, hitNormal);
+          if (hitObstacle) {
+            const velDot = ball.velocity.x * hitNormal.x + ball.velocity.z * hitNormal.z;
+            if (velDot < 0) {
+              ball.velocity.x -= (1 + ball.bounciness) * velDot * hitNormal.x;
+              ball.velocity.z -= (1 + ball.bounciness) * velDot * hitNormal.z;
+            } else {
+              ball.velocity.x *= -0.75;
+              ball.velocity.z *= -0.75;
+            }
+          }
+          const groundY = this.getHeightAt(ball.mesh.position.x, ball.mesh.position.z) + ball.radius;
+          if (ball.mesh.position.y <= groundY) {
+            ball.mesh.position.y = groundY;
+            if (Math.abs(ball.velocity.y) > 0.5) {
+              ball.velocity.y = -ball.velocity.y * ball.bounciness;
+            } else {
+              ball.velocity.y = 0;
+            }
+          }
+        }
+        const dragFactor = Math.exp(-ball.drag * delta);
+        ball.velocity.x *= dragFactor;
+        ball.velocity.z *= dragFactor;
+        const rollSpeed = Math.hypot(ball.velocity.x, ball.velocity.z);
+        if (rollSpeed > 0.05) {
+          ball.mesh.rotation.x += ball.velocity.z * delta / ball.radius;
+          ball.mesh.rotation.z -= ball.velocity.x * delta / ball.radius;
+        }
+        if (ball.type === "soccer" && this.soccerGoal) {
+          const gx = this.soccerGoal.position.x;
+          const gz = this.soccerGoal.position.z;
+          const bx = ball.mesh.position.x;
+          const bz = ball.mesh.position.z;
+          if (bx < gx + 0.3 && bx > gx - this.soccerGoal.depth && Math.abs(bz - gz) < this.soccerGoal.width * 0.46 && ball.mesh.position.y < this.soccerGoal.height) {
+            this.handleGoalScored(ball);
+          }
+        }
+        if (this.targetBoard) {
+          const tx = this.targetBoard.position.x;
+          const tz = this.targetBoard.position.z;
+          const ty = this.targetBoard.position.y;
+          const distXZ = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.z - tz);
+          const distY = Math.abs(ball.mesh.position.y - ty);
+          if (distXZ < this.targetBoard.radius && distY < 2.2) {
+            const hitRadius = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.y - ty);
+            let pts = 10;
+            if (hitRadius < 0.65) pts = 50;
+            else if (hitRadius < 1.35) pts = 25;
+            this.triggerTargetHit(pts, ball);
+          }
+        }
+      }
+      const diff = TMP.v2;
+      const relVel = TMP.v3;
+      for (let i = 0; i < this.balls.length; i++) {
+        for (let j = i + 1; j < this.balls.length; j++) {
+          const b1 = this.balls[i];
+          const b2 = this.balls[j];
+          if (b1.carriedBy || b2.carriedBy) continue;
+          diff.subVectors(b2.mesh.position, b1.mesh.position);
+          const dist = diff.length();
+          const minDist = b1.radius + b2.radius;
+          if (dist < minDist && dist > 1e-3) {
+            diff.divideScalar(dist);
+            const overlap = minDist - dist;
+            b1.mesh.position.addScaledVector(diff, -overlap * 0.5);
+            b2.mesh.position.addScaledVector(diff, overlap * 0.5);
+            relVel.subVectors(b2.velocity, b1.velocity);
+            const sepVel = relVel.dot(diff);
+            if (sepVel < 0) {
+              const impulse = -(1 + 0.8) * sepVel / (1 / b1.mass + 1 / b2.mass);
+              b1.velocity.addScaledVector(diff, -impulse / b1.mass);
+              b2.velocity.addScaledVector(diff, impulse / b2.mass);
+            }
+          }
+        }
+      }
+      for (let i = this.snacks.length - 1; i >= 0; i--) {
+        const snack = this.snacks[i];
+        snack.age += delta;
+        snack.group.rotation.y += delta * 2;
+        snack.group.position.y = this.getHeightAt(snack.group.position.x, snack.group.position.z) + 0.35 + Math.sin(snack.age * 3) * 0.1;
+      }
+    }
+    handleGoalScored(ball) {
+      this.goalScore++;
+      this.logActivity(`\u26BD \xA1\xA1\xA1GOOOOOOLAZO!!! Marcador: ${this.goalScore}`);
+      if (roboAudio.playSuccess) roboAudio.playSuccess();
+      if (this.eventBus) {
+        this.eventBus.emit("world:scoreGoal", { score: this.goalScore });
+        this.eventBus.emit("camera:trauma", { amount: 0.45 });
+        this.eventBus.emit("haptic:pulse", { pattern: [25, 40, 25] });
+      }
+      ball.mesh.position.set(45, 1.5, 40);
+      ball.velocity.set(0, 2, 0);
+    }
+    launchTrampoline(robot) {
+      if (!robot) return;
+      const rPos = robot.group.position;
+      rPos.x = this.trampolinePos.x;
+      rPos.z = this.trampolinePos.z;
+      if (roboAudio.playTrampoline) roboAudio.playTrampoline();
+      const anim = robot.animController;
+      if (anim) anim.play("backflip", 1.8);
+      if (robot.physics) {
+        robot.physics.velocityY = 14.5;
+        robot.physics.isGrounded = false;
+      } else {
+        robot.velocityY = 14.5;
+      }
+      robot.energy = Math.min(100, (robot.energy || 100) + 20);
+      if (robot.isPlayer && this.eventBus) {
+        this.eventBus.emit("camera:trauma", { amount: 0.35 });
+        this.eventBus.emit("haptic:pulse", { pattern: 20 });
+      }
+      this.logActivity(`\u{1F938} \xA1${robot.name} ejecut\xF3 una gran pirueta a\xE9rea en el trampol\xEDn!`);
+    }
+    handleRobotInteractions(robot, animController = null, dt = 0.016) {
+      if (!robot || !robot.group) return;
+      const rPos = robot.group.position;
+      const anim = animController || robot.animController;
+      const delta = Math.min(dt || 0.016, 0.05);
+      const now = performance.now();
+      this.resolveObstacleCollisions(rPos, 0.75, 1.2);
+      const distToLake = Math.hypot(rPos.x - LAKE_CENTER_X, rPos.z - LAKE_CENTER_Z);
+      const surfaceY = this.getHeightAt(rPos.x, rPos.z);
+      if (distToLake < 58 && surfaceY < -0.1) {
+        robot.isInWater = true;
+        rPos.y = -0.52;
+        if (!robot.wasInWater) {
+          robot.wasInWater = true;
+          if (roboAudio.playJump) roboAudio.playJump(0.75);
+          this.logActivity(`\u{1F3CA} \xA1${robot.name} se zambull\xF3 en el Lago de Cristal y est\xE1 nadando!`);
+          if (anim && anim.currentAnim !== "swimming") {
+            anim.play("swimming");
+          }
+        }
+      } else if (robot.wasInWater) {
+        robot.wasInWater = false;
+        robot.isInWater = false;
+        if (roboAudio.playFootstep) roboAudio.playFootstep(0.8);
+        this.logActivity(`\u{1F415} \xA1${robot.name} sali\xF3 del lago a tierra firme y se sacude para secarse!`);
+        if (anim) anim.play("shakeOff", 2);
+      }
+      if (this.slalomRings) {
+        for (let i = 0; i < this.slalomRings.length; i++) {
+          const ring = this.slalomRings[i];
+          const d = rPos.distanceTo(ring.position);
+          if (d < ring.radius + 0.4 && (!ring.lastCleared || now - ring.lastCleared > 3e3)) {
+            ring.lastCleared = now;
+            if (roboAudio.playSuccess) roboAudio.playSuccess();
+            this.logActivity(`\u2B55 \xA1${robot.name} atraves\xF3 con precisi\xF3n el aro #${ring.index + 1}!`);
+          }
+        }
+      }
+      if (this.waterFountain) {
+        const fDist = Math.hypot(rPos.x - this.waterFountain.position.x, rPos.z - this.waterFountain.position.z);
+        if (fDist < 2.9 && (!robot.lastDrinkTime || now - robot.lastDrinkTime > 7e3)) {
+          robot.lastDrinkTime = now;
+          if (robot.quenchThirst) robot.quenchThirst(35);
+          else robot.hydration = 100;
+          this.logActivity(`\u{1F4A7} \xA1${robot.name} tom\xF3 agua fresca en la cibercuenca y calm\xF3 su sed!`);
+        }
+      }
+      if (this.seesaw) {
+        const sDist = Math.hypot(rPos.x - this.seesaw.position.x, rPos.z - this.seesaw.position.z);
+        if (sDist < 5.4) {
+          const relX = rPos.x - this.seesaw.position.x;
+          this.seesaw.targetTilt = MathUtils.clamp(-relX * 0.055, -0.25, 0.25);
+        }
+      }
+      const trampDist = Math.hypot(rPos.x - this.trampolinePos.x, rPos.z - this.trampolinePos.z);
+      if (trampDist < 2.8 && (!robot.lastTrampTime || now - robot.lastTrampTime > 1200)) {
+        robot.lastTrampTime = now;
+        robot.trampConsecutiveHits = (robot.trampConsecutiveHits || 0) % 4 + 1;
+        const bounceVel = 9.5 + robot.trampConsecutiveHits * 2.2;
+        if (roboAudio.playTrampoline) roboAudio.playTrampoline();
+        if (anim) anim.play("backflip", 1.8);
+        if (robot.physics) {
+          robot.physics.velocityY = bounceVel;
+          robot.physics.isGrounded = false;
+        } else {
+          robot.velocityY = bounceVel;
+        }
+        robot.energy = Math.min(100, (robot.energy || 100) + 10);
+        if (robot.isPlayer && this.eventBus) {
+          this.eventBus.emit("camera:trauma", { amount: 0.32 });
+          this.eventBus.emit("haptic:pulse", { pattern: 20 });
+        }
+        this.logActivity(`\u{1F938} \xA1${robot.name} dio su rebote #${robot.trampConsecutiveHits} en el trampol\xEDn!`);
+      }
+      if (this.carousel) {
+        const dist = Math.hypot(rPos.x - this.carousel.position.x, rPos.z - this.carousel.position.z);
+        if (dist < 3.6 && dist > 0.6) {
+          const a = Math.atan2(rPos.z - this.carousel.position.z, rPos.x - this.carousel.position.x);
+          const stepA = 1.2 * delta;
+          const newA = a + stepA;
+          rPos.x = this.carousel.position.x + Math.cos(newA) * dist;
+          rPos.z = this.carousel.position.z + Math.sin(newA) * dist;
+          robot.group.rotation.y += stepA;
+        }
+      }
+      if (this.ballPit && this.ballPitInst) {
+        const bDist = Math.hypot(rPos.x - this.ballPit.position.x, rPos.z - this.ballPit.position.z);
+        if (bDist < 3.2) {
+          const relX = rPos.x - this.ballPit.position.x;
+          const relZ = rPos.z - this.ballPit.position.z;
+          const pushScale = Math.min(1, delta * 14) * 0.25;
+          for (let i = 0; i < this.ballPitBalls.length; i++) {
+            const b = this.ballPitBalls[i];
+            const dx = b.localX - relX;
+            const dz = b.localZ - relZ;
+            const d = Math.hypot(dx, dz);
+            if (d < 1.4 && d > 0.01) {
+              b.localX = MathUtils.clamp(b.localX + dx / d * pushScale, -3.1, 3.1);
+              b.localZ = MathUtils.clamp(b.localZ + dz / d * pushScale, -3.1, 3.1);
+            }
+          }
+          if (!robot.lastBallPitTime || now - robot.lastBallPitTime > 3500) {
+            robot.lastBallPitTime = now;
+            if (roboAudio.playFootstep) roboAudio.playFootstep(1.3);
+            this.logActivity(`\u{1F3CA} \xA1${robot.name} se zambull\xF3 en la piscina de pelotas de colores!`);
+            robot.playfulness = 100;
+            robot.energy = Math.min(100, (robot.energy || 100) + 8);
+          }
+        }
+      }
+      if (this.slide) {
+        if (robot.isSliding) {
+          robot._slideProgress = Math.min(1, (robot._slideProgress || 0) + delta * 1.4);
+          rPos.lerpVectors(this.slide.topPos, this.slide.endPos, robot._slideProgress);
+          if (robot._slideProgress >= 1) {
+            robot.isSliding = false;
+            robot._slideProgress = 0;
+            rPos.copy(this.slide.endPos);
+            if (anim) anim.play("backflip", 1.5);
+            if (roboAudio.playSuccess) roboAudio.playSuccess();
+            this.logActivity(`\u{1F938} \xA1${robot.name} aterriz\xF3 en la colchoneta del tobog\xE1n con estilo!`);
+          }
+        } else {
+          const distToTop = Math.hypot(rPos.x - this.slide.topPos.x, rPos.z - this.slide.topPos.z);
+          if (distToTop < 2) {
+            robot.isSliding = true;
+            robot._slideProgress = 0;
+            this.logActivity(`\u{1F3A2} \xA1${robot.name} se subi\xF3 al tobog\xE1n y se desliza a toda velocidad!`);
+            if (roboAudio.playJump) roboAudio.playJump(1.2);
+            if (anim) anim.play("roll", 1.2);
+          }
+        }
+      }
+      if (this.obstacleCourse && this.obstacleCourse.tunnel) {
+        if (robot.inTunnel) {
+          robot._tunnelTimer = (robot._tunnelTimer || 0) - delta;
+          if (robot._tunnelTimer <= 0) {
+            robot.inTunnel = false;
+            if (anim) anim.play("howl", 1.5);
+          }
+        } else {
+          const tStart = this.obstacleCourse.tunnel.start;
+          const tDist = Math.hypot(rPos.x - tStart.x, rPos.z - tStart.z);
+          if (tDist < 1.5) {
+            robot.inTunnel = true;
+            robot._tunnelTimer = 1.6;
+            this.logActivity(`\u{1F300} \xA1${robot.name} se agach\xF3 y pas\xF3 velozmente por el t\xFAnel de agilidad!`);
+            if (anim) anim.play("sneak", 1.6);
+            if (roboAudio.playFootstep) roboAudio.playFootstep(1.1);
+          }
+        }
+      }
+      if (this.pinata) {
+        const pDist = Math.hypot(rPos.x - this.pinata.position.x, rPos.z - this.pinata.position.z);
+        const groundY = this.getHeightAt(rPos.x, rPos.z);
+        if (pDist < 2 && rPos.y > groundY + 0.3 && (!this.pinata.lastHit || now - this.pinata.lastHit > 1e3)) {
+          this.pinata.lastHit = now;
+          this.pinata.hits++;
+          this.pinata.swingVel = 4.2;
+          if (roboAudio.playBark) roboAudio.playBark(1.3);
+          if (this.eventBus) this.eventBus.emit("camera:trauma", { amount: 0.25 });
+          this.logActivity(`\u{1FA85} \xA1${robot.name} golpe\xF3 la pi\xF1ata! (Golpe ${this.pinata.hits}/${this.pinata.maxHits})`);
+          if (this.pinata.hits >= this.pinata.maxHits) {
+            this.pinata.hits = 0;
+            this.logActivity(`\u{1F38A} \xA1\xA1\xA1LA PI\xD1ATA EXPLOT\xD3 EN GALLETAS PARA TODA LA MANADA!!! \u{1F36A}`);
+            if (roboAudio.playSuccess) roboAudio.playSuccess();
+            for (let k = 0; k < 5; k++) {
+              const a = k / 5 * Math.PI * 2;
+              TMP.v4.set(
+                this.pinata.position.x + Math.cos(a) * (2 + Math.random() * 2),
+                0,
+                this.pinata.position.z + Math.sin(a) * (2 + Math.random() * 2)
+              );
+              this.spawnCyberSnack(TMP.v4);
+            }
+          }
+        }
+      }
+      if (this.discoPad && !this.discoPartyActive) {
+        const dist = Math.hypot(rPos.x - this.discoPad.position.x, rPos.z - this.discoPad.position.z);
+        if (dist < 2.8) {
+          this.triggerDiscoParty();
+        }
+      }
+      for (let i = this.snacks.length - 1; i >= 0; i--) {
+        const snack = this.snacks[i];
+        const dist = Math.hypot(rPos.x - snack.group.position.x, rPos.z - snack.group.position.z);
+        if (dist < 1.4) {
+          this.scene.remove(snack.group);
+          this.snacks.splice(i, 1);
+          robot.energy = 100;
+          if (roboAudio.playSuccess) roboAudio.playSuccess();
+          this.logActivity(`\u{1F60B} \xA1${robot.name} se comi\xF3 una galleta y recuper\xF3 100% de energ\xEDa!`);
+        }
+      }
+      for (let i = 0; i < this.balls.length; i++) {
+        const ball = this.balls[i];
+        if (ball.carriedBy) continue;
+        const dist = Math.hypot(rPos.x - ball.mesh.position.x, rPos.z - ball.mesh.position.z);
+        const minDist = 0.95 + ball.radius;
+        if (dist < minDist) {
+          const overlap = minDist - dist;
+          TMP.v5.set(ball.mesh.position.x - rPos.x, 0, ball.mesh.position.z - rPos.z);
+          if (TMP.v5.lengthSq() > 1e-6) TMP.v5.normalize();
+          else TMP.v5.set(0, 0, 1);
+          ball.mesh.position.x += TMP.v5.x * overlap;
+          ball.mesh.position.z += TMP.v5.z * overlap;
+          const kickStrength = 6.2;
+          ball.velocity.x += TMP.v5.x * kickStrength;
+          ball.velocity.z += TMP.v5.z * kickStrength;
+          ball.velocity.y += 2.2;
+          if (roboAudio.playFootstep) roboAudio.playFootstep(robot.profile ? robot.profile.voicePitch : 1);
+          if (robot.isPlayer && this.eventBus) {
+            this.eventBus.emit("camera:trauma", { amount: 0.14 });
+            this.eventBus.emit("haptic:pulse", { pattern: 12 });
+          }
+        }
+      }
+    }
+    getMinimapSnapshot(outObj = this._minimapSnapshot) {
+      outObj.lakeCenter = this.lakeCenter;
+      outObj.lakeRadius = this.lakeRadius;
+      outObj.goalScore = this.goalScore;
+      outObj.targetScore = this.targetScore;
+      outObj.soccerBallPos = this.soccerBall ? this.soccerBall.mesh.position : null;
+      outObj.ballPositions.length = 0;
+      for (let i = 0; i < this.balls.length; i++) {
+        if (this.balls[i] !== this.soccerBall) {
+          outObj.ballPositions.push(this.balls[i].mesh.position);
+        }
+      }
+      outObj.snackPositions.length = 0;
+      for (let i = 0; i < this.snacks.length; i++) {
+        outObj.snackPositions.push(this.snacks[i].group.position);
+      }
+      return outObj;
+    }
+    dispose() {
+      this.timers.clearAll();
+      this.camColliders.length = 0;
+      this.balls.length = 0;
+      this.interactiveObjects.length = 0;
+      this.snacks.length = 0;
+      this.pointsOfInterest.length = 0;
+      this.solidObstacles.length = 0;
+      this.elevatedSurfaces.length = 0;
+      this.spatialGrid.clear();
+      this.ballPitBalls.length = 0;
+      this.butterflies.length = 0;
+      this.clouds.length = 0;
+      this.boneToys.length = 0;
+    }
+  };
+
+  // public/js/physics.js
+  var WORLD_RADIUS2 = 195;
+  var GRAVITY = 20;
+  var COYOTE_DURATION = 0.14;
+  var JUMP_BUFFER_DURATION = 0.14;
+  var GROUND_STICK_TOLERANCE = 0.22;
+  var JUMP_VELOCITY = 7.8;
+  var ROBOT_RADIUS = 0.75;
+  function ensurePhysicsState(dog) {
+    if (!dog.physics) {
+      dog.physics = {
+        velocity: new Vector3(),
+        isGrounded: true,
+        coyoteTimer: COYOTE_DURATION,
+        jumpBufferTimer: 0,
+        speedScalar: 0,
+        bankAngle: 0
+      };
+    } else if (!dog.physics.velocity) {
+      dog.physics.velocity = new Vector3();
+    }
+    return dog.physics;
+  }
+  function clampRadialWorld(pos, radiusLimit) {
+    const distSq = pos.x * pos.x + pos.z * pos.z;
+    if (distSq > radiusLimit * radiusLimit) {
+      const invDist = radiusLimit / Math.sqrt(distSq);
+      pos.x *= invDist;
+      pos.z *= invDist;
+    }
+  }
+  function stepRobotPhysics(dog, moveDirX, moveDirZ, isRunning, jumpPressed, world, dt, eventBus2) {
+    if (!dog || !dog.group) return;
+    const clampedDt = Math.min(Math.max(dt || 0, 0), 0.05);
+    const p = ensurePhysicsState(dog);
+    const pos = dog.group.position;
+    if (dog.isPickedUp || dog.isSliding) {
+      p.velocity.set(0, 0, 0);
+      p.speedScalar = 0;
+      dog.speedScalar = 0;
+      dog.velocityY = 0;
+      return;
+    }
+    if (jumpPressed) {
+      p.jumpBufferTimer = JUMP_BUFFER_DURATION;
+    } else if (p.jumpBufferTimer > 0) {
+      p.jumpBufferTimer = Math.max(0, p.jumpBufferTimer - clampedDt);
+    }
+    if (p.isGrounded) {
+      p.coyoteTimer = COYOTE_DURATION;
+    } else if (p.coyoteTimer > 0) {
+      p.coyoteTimer = Math.max(0, p.coyoteTimer - clampedDt);
+    }
+    if (p.jumpBufferTimer > 0 && p.coyoteTimer > 0 && !dog.isInWater) {
+      p.velocity.y = JUMP_VELOCITY;
+      p.isGrounded = false;
+      p.coyoteTimer = 0;
+      p.jumpBufferTimer = 0;
+      dog.velocityY = JUMP_VELOCITY;
+      if (dog.animController && dog.animController.play) {
+        dog.animController.play("jump", 0.65);
+      }
+      if (eventBus2) {
+        eventBus2.emit("robot:action", {
+          name: dog.name,
+          action: "jump",
+          source: dog.isPlayer ? "player" : "ai"
+        });
+        if (dog.isPlayer) {
+          eventBus2.emit("haptic:pulse", { pattern: 12 });
+        }
+      }
+    }
+    let inX = moveDirX || 0;
+    let inZ = moveDirZ || 0;
+    const inputMagSq = inX * inX + inZ * inZ;
+    const hasInput = inputMagSq > 25e-4;
+    if (inputMagSq > 1) {
+      const invLen = 1 / Math.sqrt(inputMagSq);
+      inX *= invLen;
+      inZ *= invLen;
+    }
+    const speedMult = dog.profile ? dog.profile.speedMultiplier || 1 : 1;
+    const baseSpeed = isRunning ? 9.5 : 4.8;
+    const waterFactor = dog.isInWater ? 0.62 : 1;
+    const maxSpeed = baseSpeed * speedMult * waterFactor;
+    const targetVx = hasInput ? inX * maxSpeed : 0;
+    const targetVz = hasInput ? inZ * maxSpeed : 0;
+    const horizLambda = p.isGrounded ? hasInput ? 16 : 14 : hasInput ? 6 : 2.5;
+    p.velocity.x = damp2(p.velocity.x, targetVx, horizLambda, clampedDt);
+    p.velocity.z = damp2(p.velocity.z, targetVz, horizLambda, clampedDt);
+    if (!hasInput && p.velocity.x * p.velocity.x + p.velocity.z * p.velocity.z < 4e-4) {
+      p.velocity.x = 0;
+      p.velocity.z = 0;
+    }
+    if (hasInput) {
+      const targetYaw = Math.atan2(inX, inZ);
+      const yawDiff = wrapAngle(targetYaw - dog.group.rotation.y);
+      dog.group.rotation.y = dampAngle(dog.group.rotation.y, targetYaw, 13, clampedDt);
+      const targetBank = MathUtils.clamp(-yawDiff * 0.35, -0.24, 0.24);
+      p.bankAngle = damp2(p.bankAngle || 0, targetBank, 12, clampedDt);
+    } else {
+      p.bankAngle = damp2(p.bankAngle || 0, 0, 10, clampedDt);
+    }
+    dog.bankAngle = p.bankAngle;
+    pos.x += p.velocity.x * clampedDt;
+    pos.z += p.velocity.z * clampedDt;
+    if (world && world.resolveObstacleCollisions) {
+      world.resolveObstacleCollisions(pos, ROBOT_RADIUS);
+    }
+    if (world && world.clampToWorld) {
+      world.clampToWorld(pos, 2);
+    }
+    clampRadialWorld(pos, WORLD_RADIUS2);
+    const groundY = world ? world.getHeightAt(pos.x, pos.z) : 0;
+    let inLake = false;
+    if (world && world.lakeCenter) {
+      const ldx = pos.x - world.lakeCenter.x;
+      const ldz = pos.z - world.lakeCenter.z;
+      const lakeRad = (world.lakeRadius || 60) - 2;
+      if (ldx * ldx + ldz * ldz < lakeRad * lakeRad && groundY < -0.1) {
+        inLake = true;
+      }
+    }
+    if (inLake) {
+      dog.isInWater = true;
+      p.isGrounded = false;
+      p.velocity.y = 0;
+      pos.y = damp2(pos.y, -0.52, 10, clampedDt);
+    } else {
+      dog.isInWater = false;
+      if (!p.isGrounded || p.velocity.y > 0) {
+        p.velocity.y -= GRAVITY * clampedDt;
+        pos.y += p.velocity.y * clampedDt;
+        if (pos.y <= groundY) {
+          if (!p.isGrounded && p.velocity.y < -9.5 && dog.isPlayer && eventBus2) {
+            const impactTrauma = Math.min(0.45, (-p.velocity.y - 9) * 0.04);
+            eventBus2.emit("camera:trauma", { amount: impactTrauma });
+            eventBus2.emit("haptic:pulse", { pattern: 18 });
+          }
+          pos.y = groundY;
+          p.velocity.y = 0;
+          p.isGrounded = true;
+        }
+      } else {
+        const drop = pos.y - groundY;
+        if (drop <= GROUND_STICK_TOLERANCE) {
+          pos.y = groundY;
+          p.velocity.y = 0;
+          p.isGrounded = true;
+        } else {
+          p.isGrounded = false;
+        }
+      }
+    }
+    p.speedScalar = Math.hypot(p.velocity.x, p.velocity.z);
+    dog.speedScalar = p.speedScalar;
+    dog.velocityY = p.velocity.y;
+  }
+  function resolvePackPushout(dogsArray, world) {
+    if (!dogsArray || dogsArray.length < 2) return;
+    const minDist = 1.4;
+    const minDistSq = minDist * minDist;
+    for (let i = 0; i < dogsArray.length; i++) {
+      const a = dogsArray[i];
+      if (!a || a.isPickedUp || a.isSliding) continue;
+      const posA = a.group.position;
+      for (let j = i + 1; j < dogsArray.length; j++) {
+        const b = dogsArray[j];
+        if (!b || b.isPickedUp || b.isSliding) continue;
+        const posB = b.group.position;
+        if (Math.abs(posA.y - posB.y) >= 1.2) continue;
+        const dx = posA.x - posB.x;
+        const dz = posA.z - posB.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < minDistSq && distSq > 1e-6) {
+          const dist = Math.sqrt(distSq);
+          const overlap = (minDist - dist) * 0.5;
+          const nx = dx / dist;
+          const nz = dz / dist;
+          posA.x += nx * overlap;
+          posA.z += nz * overlap;
+          posB.x -= nx * overlap;
+          posB.z -= nz * overlap;
+        }
+      }
+      if (world && world.resolveObstacleCollisions) {
+        world.resolveObstacleCollisions(posA, ROBOT_RADIUS);
+      }
+      clampRadialWorld(posA, WORLD_RADIUS2);
+    }
+  }
+
+  // public/js/camera_controller.js
+  var PITCH_LIMIT = Math.PI / 2.2;
+  var MIN_TERRAIN_CLEARANCE = 0.65;
+  var BASE_FOV = 50;
+  var MODE_LABELS = {
+    diagonal: "Diag",
+    follow: "Seguir",
+    orbit: "\xD3rbita",
+    free: "Vuelo",
+    eye: "Ojos",
+    drone: "Drone"
+  };
+  var CameraController = class {
+    constructor(camera, domElement, world, eventBus2) {
+      this.camera = camera;
+      this.domElement = domElement;
+      this.world = world;
+      this.eventBus = eventBus2;
+      this.camera.rotation.order = "YXZ";
+      this.mode = "diagonal";
+      this.yaw = Math.PI * 0.25;
+      this.pitch = 0.58;
+      this.targetDistance = 21;
+      this.currentDistance = 21;
+      this.targetPos = new Vector3(0, 1.3, 0);
+      this.currentPos = camera.position.clone();
+      this.freeVel = new Vector3();
+      this.rollTilt = 0;
+      this.trauma = 0;
+      this.elapsedTime = 0;
+      this.droneAngle = 0;
+      this.currentFov = BASE_FOV;
+      this._orbitIdleTimer = 2;
+      this._prevYaw = this.yaw;
+      this._rotSens = 55e-4;
+      this._pointerDragEnabled = true;
+      this._draggingPointerId = null;
+      this._lastPointerX = 0;
+      this._lastPointerY = 0;
+      this._raycaster = new Raycaster();
+      this._hits = [];
+      this._pivot = new Vector3();
+      this._desiredCamPos = new Vector3();
+      this._rayDir = new Vector3();
+      this._eyeForward = new Vector3(0, 0, -1);
+      this._unsubTrauma = null;
+      if (this.eventBus) {
+        this._unsubTrauma = this.eventBus.on("camera:trauma", (payload) => {
+          if (payload && typeof payload.amount === "number") {
+            this.addTrauma(payload.amount);
+          }
+        });
+      }
+      this._bindDomListeners();
+    }
+    _bindDomListeners() {
+      if (!this.domElement) return;
+      this._onPointerDown = (e) => {
+        if (!this._pointerDragEnabled || e.pointerType === "touch") return;
+        if (e.button !== 0 && e.button !== 2) return;
+        this._draggingPointerId = e.pointerId;
+        this._lastPointerX = e.clientX;
+        this._lastPointerY = e.clientY;
+      };
+      this._onPointerMove = (e) => {
+        if (!this._pointerDragEnabled || e.pointerId !== this._draggingPointerId) return;
+        const dx = e.clientX - this._lastPointerX;
+        const dy = e.clientY - this._lastPointerY;
+        this._lastPointerX = e.clientX;
+        this._lastPointerY = e.clientY;
+        this.addOrbitDelta(dx, dy);
+      };
+      this._onPointerUp = (e) => {
+        if (e.pointerId === this._draggingPointerId) {
+          this._draggingPointerId = null;
+        }
+      };
+      this._onWheel = (e) => {
+        this.addZoomDelta(e.deltaY);
+      };
+      this.domElement.addEventListener("pointerdown", this._onPointerDown);
+      window.addEventListener("pointermove", this._onPointerMove);
+      window.addEventListener("pointerup", this._onPointerUp);
+      window.addEventListener("pointercancel", this._onPointerUp);
+      this.domElement.addEventListener("wheel", this._onWheel, { passive: true });
+    }
+    setPointerDragEnabled(enabled) {
+      this._pointerDragEnabled = !!enabled;
+      if (!this._pointerDragEnabled) {
+        this._draggingPointerId = null;
+      }
+    }
+    setMode(mode) {
+      if (!MODE_LABELS[mode]) return;
+      const prevMode = this.mode;
+      this.mode = mode;
+      if (mode === "diagonal") {
+        this.targetDistance = 21;
+        this.pitch = 0.58;
+        if (prevMode === "free" || prevMode === "eye") {
+          this.yaw = Math.PI * 0.25;
+        }
+      } else if (mode === "follow") {
+        this.targetDistance = 8.4;
+        this.pitch = 0.34;
+      } else if (mode === "orbit") {
+        this.targetDistance = 12;
+        this.pitch = MathUtils.clamp(this.pitch, -0.1, 1.1);
+      } else if (mode === "drone") {
+        this.targetDistance = 18;
+        this.pitch = 0.48;
+        this.droneAngle = this.yaw;
+      } else if (mode === "free") {
+        this.freeVel.set(0, 0, 0);
+      }
+      if (this.eventBus) {
+        this.eventBus.emit("camera:modeChanged", {
+          mode: this.mode,
+          label: MODE_LABELS[this.mode]
+        });
+      }
+    }
+    addOrbitDelta(dx, dy) {
+      this.yaw = wrapAngle(this.yaw - dx * this._rotSens);
+      const pitchSign = this.mode === "free" ? -1 : 1;
+      this.pitch = MathUtils.clamp(
+        this.pitch + dy * this._rotSens * pitchSign,
+        -PITCH_LIMIT,
+        PITCH_LIMIT
+      );
+      this._orbitIdleTimer = 0;
+    }
+    addZoomDelta(dz) {
+      if (this.mode === "free" || this.mode === "eye") return;
+      this.targetDistance = MathUtils.clamp(this.targetDistance + dz * 0.015, 3.2, 65);
+    }
+    addTrauma(amount) {
+      this.trauma = MathUtils.clamp(this.trauma + Math.max(0, amount), 0, 1);
+    }
+    /**
+     * Writes camera-aligned XZ forward and right vectors into caller-supplied Vector3s (zero alloc).
+     */
+    getGroundForwardRight(outForward, outRight) {
+      if (this.mode === "eye") {
+        outForward.copy(this._eyeForward);
+        outForward.y = 0;
+        if (outForward.lengthSq() < 1e-4) {
+          outForward.set(0, 0, -1);
+        } else {
+          outForward.normalize();
+        }
+      } else {
+        outForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+      }
+      outRight.set(-outForward.z, 0, outForward.x);
+    }
+    _computeSafeDistance(pivot, desiredPos, desiredDist) {
+      let safeDist = desiredDist;
+      this._rayDir.subVectors(desiredPos, pivot);
+      const len = this._rayDir.length();
+      if (len < 1e-3) return desiredDist;
+      this._rayDir.multiplyScalar(1 / len);
+      if (this.world && this.world.camColliders && this.world.camColliders.length > 0) {
+        this._raycaster.set(pivot, this._rayDir);
+        this._raycaster.near = 0.25;
+        this._raycaster.far = len;
+        this._hits.length = 0;
+        this._raycaster.intersectObjects(this.world.camColliders, false, this._hits);
+        if (this._hits.length > 0 && this._hits[0].distance < safeDist) {
+          safeDist = Math.max(1.5, this._hits[0].distance - 0.45);
+        }
+      }
+      if (this.world && this.world.getHeightAt) {
+        const steps = 4;
+        for (let i = 1; i <= steps; i++) {
+          const frac = i / steps;
+          const probeDist = safeDist * frac;
+          const px2 = pivot.x + this._rayDir.x * probeDist;
+          const py2 = pivot.y + this._rayDir.y * probeDist;
+          const pz2 = pivot.z + this._rayDir.z * probeDist;
+          const groundY = this.world.getHeightAt(px2, pz2) + MIN_TERRAIN_CLEARANCE;
+          if (py2 < groundY && this._rayDir.y < -0.05) {
+            const denom = Math.max(0.05, pivot.y - py2);
+            const ratio = MathUtils.clamp((pivot.y - groundY) / denom, 0.2, 1);
+            safeDist = Math.max(1.5, Math.min(safeDist, probeDist * ratio));
+          }
+        }
+      }
+      return safeDist;
+    }
+    _clampAboveTerrain(pos, minClearance) {
+      if (!this.world || !this.world.getHeightAt) return;
+      let maxFloor = this.world.getHeightAt(pos.x, pos.z);
+      const r = 0.45;
+      const h1 = this.world.getHeightAt(pos.x + r, pos.z);
+      const h2 = this.world.getHeightAt(pos.x - r, pos.z);
+      const h3 = this.world.getHeightAt(pos.x, pos.z + r);
+      const h4 = this.world.getHeightAt(pos.x, pos.z - r);
+      if (h1 > maxFloor) maxFloor = h1;
+      if (h2 > maxFloor) maxFloor = h2;
+      if (h3 > maxFloor) maxFloor = h3;
+      if (h4 > maxFloor) maxFloor = h4;
+      const minAllowedY = maxFloor + minClearance;
+      if (pos.y < minAllowedY) {
+        pos.y = minAllowedY;
+      }
+    }
+    update(dt, targetRobot, moveInput, eyeCamera) {
+      const clampedDt = Math.min(Math.max(dt || 0, 0), 0.05);
+      this.elapsedTime += clampedDt;
+      this._orbitIdleTimer += clampedDt;
+      if (this.trauma > 0) {
+        this.trauma = Math.max(0, this.trauma - 1.65 * clampedDt);
+      }
+      const shake = this.trauma * this.trauma;
+      const shakeYaw = shake * 0.032 * Math.sin(this.elapsedTime * 37.3);
+      const shakePitch = shake * 0.026 * Math.cos(this.elapsedTime * 43.1);
+      const shakeRoll = shake * 0.04 * Math.sin(this.elapsedTime * 29.7);
+      const robotPos = targetRobot ? targetRobot.group.position : this.targetPos;
+      const robotRotY = targetRobot ? targetRobot.group.rotation.y : 0;
+      const robotSpeed = targetRobot ? targetRobot.physics ? targetRobot.physics.speedScalar : targetRobot.speedScalar || 0 : 0;
+      const robotBank = targetRobot ? targetRobot.physics ? targetRobot.physics.bankAngle : targetRobot.bankAngle || 0 : 0;
+      const velY = targetRobot ? targetRobot.physics ? targetRobot.physics.velocity.y : targetRobot.velocityY || 0 : 0;
+      const speedRatio = MathUtils.clamp((robotSpeed - 5.2) / 6, 0, 1);
+      const airRatio = MathUtils.clamp((Math.abs(velY) - 3) / 8, 0, 1);
+      const targetFov = BASE_FOV + speedRatio * 5.5 + airRatio * 2.5;
+      const nextFov = damp2(this.currentFov, targetFov, 6, clampedDt);
+      if (Math.abs(nextFov - this.camera.fov) > 0.02) {
+        this.camera.fov = nextFov;
+        this.camera.updateProjectionMatrix();
+      }
+      this.currentFov = nextFov;
+      this._pivot.set(robotPos.x, robotPos.y + 1.35, robotPos.z);
+      this.targetPos.x = damp2(this.targetPos.x, this._pivot.x, 14, clampedDt);
+      this.targetPos.y = damp2(this.targetPos.y, this._pivot.y, 12, clampedDt);
+      this.targetPos.z = damp2(this.targetPos.z, this._pivot.z, 14, clampedDt);
+      if (this.mode === "eye" && eyeCamera) {
+        eyeCamera.updateWorldMatrix(true, false);
+        eyeCamera.getWorldPosition(this.currentPos);
+        eyeCamera.getWorldQuaternion(TMP.q1);
+        eyeCamera.getWorldDirection(this._eyeForward);
+        TMP.e1.setFromQuaternion(TMP.q1, "YXZ");
+        TMP.e1.x = MathUtils.clamp(TMP.e1.x + shakePitch, -PITCH_LIMIT, PITCH_LIMIT);
+        TMP.e1.y += shakeYaw;
+        TMP.e1.z = damp2(TMP.e1.z, 0, 10, clampedDt) + shakeRoll;
+        this.camera.position.copy(this.currentPos);
+        this.camera.quaternion.setFromEuler(TMP.e1);
+        this._prevYaw = TMP.e1.y;
+        return;
+      }
+      if (this.mode === "free") {
+        const isShift = moveInput && moveInput.isRunning;
+        const flySpeed = isShift ? 42 : 22;
+        const sinY2 = Math.sin(this.yaw);
+        const cosY2 = Math.cos(this.yaw);
+        const cosP2 = Math.cos(this.pitch);
+        const sinP2 = Math.sin(this.pitch);
+        TMP.v1.set(-sinY2 * cosP2, sinP2, -cosY2 * cosP2).normalize();
+        TMP.v2.set(cosY2, 0, -sinY2).normalize();
+        const mx = moveInput ? moveInput.x || 0 : 0;
+        const mz = moveInput ? moveInput.z || 0 : 0;
+        const my = moveInput ? moveInput.y || 0 : 0;
+        TMP.v3.set(0, 0, 0);
+        TMP.v3.addScaledVector(TMP.v1, -mz * flySpeed);
+        TMP.v3.addScaledVector(TMP.v2, mx * flySpeed);
+        TMP.v3.y += my * flySpeed;
+        this.freeVel.x = damp2(this.freeVel.x, TMP.v3.x, 10, clampedDt);
+        this.freeVel.y = damp2(this.freeVel.y, TMP.v3.y, 10, clampedDt);
+        this.freeVel.z = damp2(this.freeVel.z, TMP.v3.z, 10, clampedDt);
+        this.currentPos.addScaledVector(this.freeVel, clampedDt);
+        const flyMax = WORLD_RADIUS2 + 40;
+        const distSq = this.currentPos.x * this.currentPos.x + this.currentPos.z * this.currentPos.z;
+        if (distSq > flyMax * flyMax) {
+          const s = flyMax / Math.sqrt(distSq);
+          this.currentPos.x *= s;
+          this.currentPos.z *= s;
+        }
+        this.currentPos.y = Math.min(this.currentPos.y, 140);
+        this._clampAboveTerrain(this.currentPos, 1.2);
+        this.camera.position.copy(this.currentPos);
+        TMP.e1.set(
+          MathUtils.clamp(this.pitch + shakePitch, -PITCH_LIMIT, PITCH_LIMIT),
+          this.yaw + shakeYaw,
+          shakeRoll,
+          "YXZ"
+        );
+        this.camera.quaternion.setFromEuler(TMP.e1);
+        this._prevYaw = this.yaw;
+        return;
+      }
+      if (this.mode === "drone") {
+        this.droneAngle = wrapAngle(this.droneAngle + clampedDt * 0.35);
+        this.yaw = this.droneAngle;
+      } else if (this.mode === "follow" && this._orbitIdleTimer > 1.1 && robotSpeed > 0.6) {
+        const desiredChaseYaw = wrapAngle(robotRotY + Math.PI);
+        this.yaw = dampAngle(this.yaw, desiredChaseYaw, 2.2, clampedDt);
+      }
+      const cosP = Math.cos(this.pitch);
+      const sinP = Math.sin(this.pitch);
+      const sinY = Math.sin(this.yaw);
+      const cosY = Math.cos(this.yaw);
+      this._desiredCamPos.set(
+        this.targetPos.x + sinY * cosP * this.targetDistance,
+        this.targetPos.y + sinP * this.targetDistance,
+        this.targetPos.z + cosY * cosP * this.targetDistance
+      );
+      const safeDist = this._computeSafeDistance(this.targetPos, this._desiredCamPos, this.targetDistance);
+      const distLambda = safeDist < this.currentDistance ? 24 : 6;
+      this.currentDistance = damp2(this.currentDistance, safeDist, distLambda, clampedDt);
+      this.currentPos.set(
+        this.targetPos.x + sinY * cosP * this.currentDistance,
+        this.targetPos.y + sinP * this.currentDistance,
+        this.targetPos.z + cosY * cosP * this.currentDistance
+      );
+      this._clampAboveTerrain(this.currentPos, MIN_TERRAIN_CLEARANCE);
+      this.camera.position.copy(this.currentPos);
+      this.camera.lookAt(this.targetPos);
+      const yawRate = wrapAngle(this.yaw - this._prevYaw) / Math.max(clampedDt, 1e-3);
+      this._prevYaw = this.yaw;
+      const targetRoll = MathUtils.clamp(robotBank * 0.2 + yawRate * 0.015, -0.09, 0.09);
+      this.rollTilt = damp2(this.rollTilt, targetRoll, 8, clampedDt);
+      TMP.e1.setFromQuaternion(this.camera.quaternion, "YXZ");
+      TMP.e1.x = MathUtils.clamp(TMP.e1.x + shakePitch, -PITCH_LIMIT, PITCH_LIMIT);
+      TMP.e1.y += shakeYaw;
+      TMP.e1.z += this.rollTilt + shakeRoll;
+      this.camera.quaternion.setFromEuler(TMP.e1);
+    }
+    dispose() {
+      if (this._unsubTrauma) {
+        this._unsubTrauma();
+        this._unsubTrauma = null;
+      }
+      if (this.domElement) {
+        this.domElement.removeEventListener("pointerdown", this._onPointerDown);
+        this.domElement.removeEventListener("wheel", this._onWheel);
+      }
+      window.removeEventListener("pointermove", this._onPointerMove);
+      window.removeEventListener("pointerup", this._onPointerUp);
+      window.removeEventListener("pointercancel", this._onPointerUp);
+      this._hits.length = 0;
+    }
+  };
 
   // public/js/emotions.js
   var EMOTIONS = {
@@ -34090,7 +37158,28 @@ void main() {
       this.canvas.width = 512;
       this.canvas.height = 256;
       this.ctx = this.canvas.getContext("2d");
+      this.bgCanvas = document.createElement("canvas");
+      this.bgCanvas.width = 512;
+      this.bgCanvas.height = 256;
+      const bgCtx = this.bgCanvas.getContext("2d");
+      const bgGrad = bgCtx.createRadialGradient(256, 128, 20, 256, 128, 307);
+      bgGrad.addColorStop(0, "#0a1120");
+      bgGrad.addColorStop(1, "#04070d");
+      bgCtx.fillStyle = bgGrad;
+      bgCtx.fillRect(0, 0, 512, 256);
+      bgCtx.strokeStyle = "rgba(0, 229, 255, 0.045)";
+      bgCtx.lineWidth = 1;
+      bgCtx.beginPath();
+      for (let y = 0; y < 256; y += 10) {
+        bgCtx.moveTo(0, y);
+        bgCtx.lineTo(512, y);
+      }
+      bgCtx.stroke();
       this.texture = new CanvasTexture(this.canvas);
+      this.texture.colorSpace = SRGBColorSpace;
+      this.texture.minFilter = LinearFilter;
+      this.texture.magFilter = LinearFilter;
+      this.texture.generateMipmaps = false;
       this.texture.needsUpdate = true;
       this.blinkTimer = 0;
       this.nextBlinkInterval = 3.2 + Math.random() * 2.2;
@@ -34099,29 +37188,17 @@ void main() {
       this.redrawAccumulator = 0;
       this.lastExpression = "";
       this.lastGlowColor = "";
+      this.disposed = false;
     }
     drawFace(expression = "happy", glowColor = "#00e5ff", isBlinking = false) {
+      if (this.disposed) return;
       const ctx = this.ctx;
       const w = this.canvas.width;
       const h = this.canvas.height;
       this.lastExpression = expression;
       this.lastGlowColor = glowColor;
-      const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 20, w * 0.5, h * 0.5, w * 0.6);
-      bgGrad.addColorStop(0, "#0a1120");
-      bgGrad.addColorStop(1, "#04070d");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(0, 229, 255, 0.045)";
-      ctx.lineWidth = 1;
-      for (let y = 0; y < h; y += 10) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
+      ctx.drawImage(this.bgCanvas, 0, 0);
       ctx.save();
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 24;
       ctx.fillStyle = glowColor;
       ctx.strokeStyle = glowColor;
       ctx.lineWidth = 14;
@@ -34318,7 +37395,6 @@ void main() {
             const by = eyeY + 46 - barH;
             const hue = (this.animTime * 140 + i * 42) % 360;
             ctx.fillStyle = `hsl(${hue}, 100%, 65%)`;
-            ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
             ctx.fillRect(bx, by, barWidth, barH);
           }
           break;
@@ -34368,26 +37444,20 @@ void main() {
     }
     drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotationOffset = 0) {
       let rot = Math.PI / 2 * 3 + rotationOffset;
-      let x = cx;
-      let y = cy;
       const step = Math.PI / spikes;
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
       for (let i = 0; i < spikes; i++) {
-        x = cx + Math.cos(rot) * outerRadius;
-        y = cy + Math.sin(rot) * outerRadius;
-        ctx.lineTo(x, y);
+        ctx.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
         rot += step;
-        x = cx + Math.cos(rot) * innerRadius;
-        y = cy + Math.sin(rot) * innerRadius;
-        ctx.lineTo(x, y);
+        ctx.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
         rot += step;
       }
       ctx.closePath();
       ctx.fill();
     }
-    // FIXED: Smoothly updates animated expressions (party, scared, loving, etc.) at ~24 FPS without freezing
     update(delta, expression = "happy", glowColor = "#00e5ff") {
+      if (this.disposed) return;
       this.animTime += delta;
       this.blinkTimer += delta;
       this.redrawAccumulator += delta;
@@ -34399,145 +37469,426 @@ void main() {
         this.drawFace(expression, glowColor, true);
         return;
       }
-      if (this.isBlinking && this.blinkTimer > 0.15) {
+      if (this.isBlinking && this.blinkTimer > 0.14) {
         this.isBlinking = false;
         this.blinkTimer = 0;
         this.drawFace(expression, glowColor, false);
         return;
       }
       if (!this.isBlinking) {
-        if (stateChanged || ANIMATED_EXPRESSIONS.has(expression) && this.redrawAccumulator >= 0.042) {
+        if (stateChanged || ANIMATED_EXPRESSIONS.has(expression) && this.redrawAccumulator >= 0.066) {
           this.redrawAccumulator = 0;
           this.drawFace(expression, glowColor, false);
         }
       }
     }
-  };
-  var EmotionParticleSystem = class {
-    constructor(scene) {
-      this.scene = scene;
-      this.particles = [];
-      this.textureCache = /* @__PURE__ */ new Map();
+    dispose() {
+      this.disposed = true;
+      if (this.texture) {
+        this.texture.dispose();
+        this.texture = null;
+      }
+      this.canvas = null;
+      this.bgCanvas = null;
+      this.ctx = null;
     }
-    getOrCreateTexture(emotionType) {
-      const key = emotionType || "HAPPY";
-      if (this.textureCache.has(key)) {
-        return this.textureCache.get(key);
+  };
+  var EMOTION_CELL_MAP = {
+    HAPPY: 0,
+    LOVING: 1,
+    CURIOUS: 2,
+    EXCITED: 3,
+    SLEEPY: 4,
+    ALERT: 5,
+    MISCHIEVOUS: 6,
+    PROUD: 7,
+    SCARED: 8,
+    HUNGRY: 9,
+    PARTY: 10,
+    CONFUSED: 11
+  };
+  var CELL_DUST = 12;
+  var CELL_SPLASH = 13;
+  var CELL_SPARK = 14;
+  var POOL_SIZE = 96;
+  var EmotionParticleSystem = class {
+    constructor(scene, assetCache2 = null) {
+      this.scene = scene;
+      this.assetCache = assetCache2;
+      this.activeCount = 0;
+      this.disposed = false;
+      this.pool = new Array(POOL_SIZE);
+      for (let i = 0; i < POOL_SIZE; i++) {
+        this.pool[i] = {
+          x: 0,
+          y: 0,
+          z: 0,
+          vx: 0,
+          vy: 0,
+          vz: 0,
+          gravity: 0.85,
+          drag: 1.5,
+          baseScale: 0.6,
+          scaleGrow: 0.35,
+          swirlPhase: 0,
+          swirlAmp: 0.35,
+          age: 0,
+          lifetime: 1,
+          cell: 0,
+          r: 1,
+          g: 1,
+          b: 1
+        };
       }
-      const textureCanvas = document.createElement("canvas");
-      textureCanvas.width = 96;
-      textureCanvas.height = 96;
-      const ctx = textureCanvas.getContext("2d");
-      let symbol = "\u2728";
-      let glow = "#22ff88";
-      if (key === "LOVING") {
-        symbol = "\u{1F496}";
-        glow = "#ff3399";
-      } else if (key === "CURIOUS") {
-        symbol = "\u{1F50D}";
-        glow = "#00e5ff";
-      } else if (key === "EXCITED") {
-        symbol = "\u2B50";
-        glow = "#ff9100";
-      } else if (key === "SLEEPY") {
-        symbol = "\u{1F4A4}";
-        glow = "#7986cb";
-      } else if (key === "ALERT") {
-        symbol = "\u26A1";
-        glow = "#ff3d00";
-      } else if (key === "MISCHIEVOUS") {
-        symbol = "\u{1F608}";
-        glow = "#a855f7";
-      } else if (key === "PROUD") {
-        symbol = "\u{1F451}";
-        glow = "#fbbf24";
-      } else if (key === "SCARED") {
-        symbol = "\u{1F4A6}";
-        glow = "#38bdf8";
-      } else if (key === "HUNGRY") {
-        symbol = "\u{1F36A}";
-        glow = "#f97316";
-      } else if (key === "PARTY") {
-        symbol = "\u{1FAA9}";
-        glow = "#ec4899";
-      } else if (key === "CONFUSED") {
-        symbol = "\u2753";
-        glow = "#818cf8";
+      this.atlasTexture = this._buildAtlasTexture();
+      this.geometry = new PlaneGeometry(1, 1);
+      this.atlasArray = new Float32Array(POOL_SIZE * 4);
+      this.tintArray = new Float32Array(POOL_SIZE * 4);
+      this.atlasAttr = new InstancedBufferAttribute(this.atlasArray, 4);
+      this.atlasAttr.setUsage(DynamicDrawUsage);
+      this.geometry.setAttribute("aAtlas", this.atlasAttr);
+      this.tintAttr = new InstancedBufferAttribute(this.tintArray, 4);
+      this.tintAttr.setUsage(DynamicDrawUsage);
+      this.geometry.setAttribute("aTint", this.tintAttr);
+      this.material = new ShaderMaterial({
+        uniforms: {
+          uMap: { value: this.atlasTexture }
+        },
+        vertexShader: `
+        attribute vec4 aAtlas;
+        attribute vec4 aTint;
+        varying vec2 vUv;
+        varying vec4 vTint;
+        void main() {
+          vUv = aAtlas.xy + uv * aAtlas.zw;
+          vTint = aTint;
+          vec4 worldCenter = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          float scale = instanceMatrix[0][0];
+          vec4 mvCenter = viewMatrix * worldCenter;
+          mvCenter.xy += position.xy * scale;
+          gl_Position = projectionMatrix * mvCenter;
+        }
+      `,
+        fragmentShader: `
+        uniform sampler2D uMap;
+        varying vec2 vUv;
+        varying vec4 vTint;
+        void main() {
+          vec4 tex = texture2D(uMap, vUv);
+          float alpha = tex.a * vTint.a;
+          if (alpha < 0.01) discard;
+          gl_FragColor = vec4(tex.rgb * vTint.rgb, alpha);
+        }
+      `,
+        transparent: true,
+        depthWrite: false
+      });
+      this.mesh = new InstancedMesh(this.geometry, this.material, POOL_SIZE);
+      this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      this.mesh.frustumCulled = false;
+      this.mesh.count = 0;
+      this.mesh.visible = false;
+      this.mesh.name = "PooledParticleSystem";
+      const mArr = this.mesh.instanceMatrix.array;
+      for (let i = 0; i < POOL_SIZE; i++) {
+        const o = i * 16;
+        mArr[o] = 1;
+        mArr[o + 5] = 1;
+        mArr[o + 10] = 1;
+        mArr[o + 15] = 1;
       }
-      const grad = ctx.createRadialGradient(48, 48, 6, 48, 48, 44);
-      grad.addColorStop(0, glow);
-      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(48, 48, 44, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = "50px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(symbol, 48, 50);
-      const texture = new CanvasTexture(textureCanvas);
-      this.textureCache.set(key, texture);
-      return texture;
+      if (this.scene) {
+        this.scene.add(this.mesh);
+      }
+    }
+    _buildAtlasTexture() {
+      const size = 512;
+      const cell = 128;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const cells = [
+        { sym: "\u2728", glow: "#22ff88" },
+        // 0 HAPPY
+        { sym: "\u{1F496}", glow: "#ff3399" },
+        // 1 LOVING
+        { sym: "\u{1F50D}", glow: "#00e5ff" },
+        // 2 CURIOUS
+        { sym: "\u2B50", glow: "#ff9100" },
+        // 3 EXCITED
+        { sym: "\u{1F4A4}", glow: "#7986cb" },
+        // 4 SLEEPY
+        { sym: "\u26A1", glow: "#ff3d00" },
+        // 5 ALERT
+        { sym: "\u{1F608}", glow: "#a855f7" },
+        // 6 MISCHIEVOUS
+        { sym: "\u{1F451}", glow: "#fbbf24" },
+        // 7 PROUD
+        { sym: "\u{1F4A6}", glow: "#38bdf8" },
+        // 8 SCARED
+        { sym: "\u{1F36A}", glow: "#f97316" },
+        // 9 HUNGRY
+        { sym: "\u{1FAA9}", glow: "#ec4899" },
+        // 10 PARTY
+        { sym: "\u2753", glow: "#818cf8" }
+        // 11 CONFUSED
+      ];
+      for (let i = 0; i < cells.length; i++) {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const cx = col * cell + cell * 0.5;
+        const cy = row * cell + cell * 0.5;
+        const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, 56);
+        grad.addColorStop(0, cells[i].glow);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 56, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = "62px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(cells[i].sym, cx, cy + 2);
+      }
+      {
+        const cx = 0 * cell + 64;
+        const cy = 3 * cell + 64;
+        const grad = ctx.createRadialGradient(cx, cy, 6, cx, cy, 54);
+        grad.addColorStop(0, "rgba(241, 245, 249, 0.95)");
+        grad.addColorStop(0.55, "rgba(203, 213, 225, 0.55)");
+        grad.addColorStop(1, "rgba(203, 213, 225, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 54, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      {
+        const cx = 1 * cell + 64;
+        const cy = 3 * cell + 64;
+        const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 48);
+        grad.addColorStop(0, "rgba(224, 242, 254, 1.0)");
+        grad.addColorStop(0.5, "rgba(56, 189, 248, 0.8)");
+        grad.addColorStop(1, "rgba(14, 165, 233, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      {
+        const cx = 2 * cell + 64;
+        const cy = 3 * cell + 64;
+        const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 52);
+        grad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+        grad.addColorStop(0.35, "rgba(255, 255, 255, 0.75)");
+        grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 52, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.minFilter = LinearFilter;
+      tex.magFilter = LinearFilter;
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      return tex;
+    }
+    _allocSlot() {
+      if (this.activeCount < POOL_SIZE) {
+        return this.pool[this.activeCount++];
+      }
+      return this.pool[0];
     }
     spawnBurst(position, emotionType = "HAPPY") {
-      if (!position) return;
-      const count = 16;
-      const texture = this.getOrCreateTexture(emotionType);
+      if (this.disposed || !position) return;
+      const cell = EMOTION_CELL_MAP[emotionType] ?? 0;
+      const count = 14;
       for (let i = 0; i < count; i++) {
-        const material = new SpriteMaterial({
-          map: texture,
-          transparent: true,
-          opacity: 0.95,
-          depthWrite: false
-        });
-        const sprite = new Sprite(material);
-        const baseScale = 0.65 + Math.random() * 0.25;
-        sprite.scale.set(baseScale, baseScale, baseScale);
+        const p = this._allocSlot();
         const offsetRadius = 0.25 + Math.random() * 0.55;
         const angle = i / count * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-        sprite.position.set(
-          position.x + Math.cos(angle) * offsetRadius,
-          position.y + 1.3 + Math.random() * 0.6,
-          position.z + Math.sin(angle) * offsetRadius
-        );
         const speedOut = 1.1 + Math.random() * 1.4;
-        const velocity = new Vector3(
-          Math.cos(angle) * speedOut,
-          1.6 + Math.random() * 2,
-          Math.sin(angle) * speedOut
-        );
-        this.scene.add(sprite);
-        this.particles.push({
-          sprite,
-          velocity,
-          baseScale,
-          swirlPhase: Math.random() * Math.PI * 2,
-          lifetime: 1.7 + Math.random() * 0.6,
-          age: 0
-        });
+        p.x = position.x + Math.cos(angle) * offsetRadius;
+        p.y = position.y + 1.3 + Math.random() * 0.6;
+        p.z = position.z + Math.sin(angle) * offsetRadius;
+        p.vx = Math.cos(angle) * speedOut;
+        p.vy = 1.6 + Math.random() * 2;
+        p.vz = Math.sin(angle) * speedOut;
+        p.gravity = 0.85;
+        p.drag = 1.4;
+        p.baseScale = 0.65 + Math.random() * 0.25;
+        p.scaleGrow = 0.35;
+        p.swirlPhase = Math.random() * Math.PI * 2;
+        p.swirlAmp = 0.35;
+        p.age = 0;
+        p.lifetime = 1.5 + Math.random() * 0.55;
+        p.cell = cell;
+        p.r = 1;
+        p.g = 1;
+        p.b = 1;
       }
     }
-    update(delta) {
-      for (let i = this.particles.length - 1; i >= 0; i--) {
-        const p = this.particles[i];
-        p.age += delta;
-        if (p.age >= p.lifetime) {
-          this.scene.remove(p.sprite);
-          p.sprite.material.dispose();
-          this.particles.splice(i, 1);
-        } else {
-          p.swirlPhase += delta * 4;
-          p.sprite.position.addScaledVector(p.velocity, delta);
-          p.sprite.position.x += Math.sin(p.swirlPhase) * delta * 0.35;
-          p.velocity.y -= delta * 0.85;
-          p.velocity.x *= 0.98;
-          p.velocity.z *= 0.98;
-          const progress = p.age / p.lifetime;
-          p.sprite.material.opacity = Math.max(0, 1 - Math.pow(progress, 1.5));
-          const s = p.baseScale * (1 + Math.sin(progress * Math.PI) * 0.35);
-          p.sprite.scale.set(s, s, s);
-        }
+    spawnDust(position, intensity = 1) {
+      if (this.disposed || !position) return;
+      const count = intensity > 1.2 ? 5 : 2;
+      for (let i = 0; i < count; i++) {
+        const p = this._allocSlot();
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (0.45 + Math.random() * 0.85) * intensity;
+        p.x = position.x + (Math.random() - 0.5) * 0.45;
+        p.y = position.y + 0.14;
+        p.z = position.z + (Math.random() - 0.5) * 0.45;
+        p.vx = Math.cos(angle) * speed;
+        p.vy = 0.45 + Math.random() * 0.55 * intensity;
+        p.vz = Math.sin(angle) * speed;
+        p.gravity = -0.35;
+        p.drag = 3.2;
+        p.baseScale = 0.38 + Math.random() * 0.22 * intensity;
+        p.scaleGrow = 0.7;
+        p.swirlPhase = 0;
+        p.swirlAmp = 0;
+        p.age = 0;
+        p.lifetime = 0.42 + Math.random() * 0.24;
+        p.cell = CELL_DUST;
+        p.r = 0.92;
+        p.g = 0.94;
+        p.b = 0.96;
       }
+    }
+    spawnSplash(position, count = 8) {
+      if (this.disposed || !position) return;
+      const n = Math.min(count, 12);
+      for (let i = 0; i < n; i++) {
+        const p = this._allocSlot();
+        const angle = i / n * Math.PI * 2 + Math.random() * 0.4;
+        const speed = 1.4 + Math.random() * 1.8;
+        p.x = position.x + Math.cos(angle) * 0.35;
+        p.y = position.y + 0.35;
+        p.z = position.z + Math.sin(angle) * 0.35;
+        p.vx = Math.cos(angle) * speed;
+        p.vy = 2.6 + Math.random() * 1.9;
+        p.vz = Math.sin(angle) * speed;
+        p.gravity = 9.5;
+        p.drag = 0.8;
+        p.baseScale = 0.26 + Math.random() * 0.18;
+        p.scaleGrow = 0.15;
+        p.swirlPhase = 0;
+        p.swirlAmp = 0;
+        p.age = 0;
+        p.lifetime = 0.55 + Math.random() * 0.25;
+        p.cell = CELL_SPLASH;
+        p.r = 0.85;
+        p.g = 0.96;
+        p.b = 1;
+      }
+    }
+    emitTrail(position, velocity = null, colorHex = 16771584) {
+      if (this.disposed || !position) return;
+      const p = this._allocSlot();
+      const r = (colorHex >> 16 & 255) / 255;
+      const g = (colorHex >> 8 & 255) / 255;
+      const b = (colorHex & 255) / 255;
+      p.x = position.x + (Math.random() - 0.5) * 0.22;
+      p.y = position.y + 0.72 + (Math.random() - 0.5) * 0.14;
+      p.z = position.z + (Math.random() - 0.5) * 0.22;
+      p.vx = velocity ? -velocity.x * 0.2 + (Math.random() - 0.5) * 0.5 : (Math.random() - 0.5) * 0.4;
+      p.vy = 0.25 + Math.random() * 0.45;
+      p.vz = velocity ? -velocity.z * 0.2 + (Math.random() - 0.5) * 0.5 : (Math.random() - 0.5) * 0.4;
+      p.gravity = -0.2;
+      p.drag = 3;
+      p.baseScale = 0.34 + Math.random() * 0.14;
+      p.scaleGrow = -0.35;
+      p.swirlPhase = 0;
+      p.swirlAmp = 0;
+      p.age = 0;
+      p.lifetime = 0.28 + Math.random() * 0.14;
+      p.cell = CELL_SPARK;
+      p.r = r;
+      p.g = g;
+      p.b = b;
+    }
+    update(dt) {
+      if (this.disposed) return;
+      if (this.activeCount === 0) {
+        if (this.mesh.visible) {
+          this.mesh.visible = false;
+          this.mesh.count = 0;
+        }
+        return;
+      }
+      const mArr = this.mesh.instanceMatrix.array;
+      const aArr = this.atlasArray;
+      const tArr = this.tintArray;
+      let i = 0;
+      while (i < this.activeCount) {
+        const p = this.pool[i];
+        p.age += dt;
+        if (p.age >= p.lifetime) {
+          const lastIdx = this.activeCount - 1;
+          if (i !== lastIdx) {
+            const temp = this.pool[i];
+            this.pool[i] = this.pool[lastIdx];
+            this.pool[lastIdx] = temp;
+          }
+          this.activeCount--;
+          continue;
+        }
+        const dampFactor = Math.exp(-p.drag * dt);
+        p.vx *= dampFactor;
+        p.vz *= dampFactor;
+        p.vy -= p.gravity * dt;
+        if (p.swirlAmp > 0) {
+          p.swirlPhase += dt * 4;
+          p.x += Math.sin(p.swirlPhase) * dt * p.swirlAmp;
+        }
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.z += p.vz * dt;
+        const progress = p.age / p.lifetime;
+        const alpha = Math.max(0, 1 - Math.pow(progress, 1.5));
+        const scale = Math.max(0.02, p.baseScale * (1 + Math.sin(progress * Math.PI) * p.scaleGrow));
+        const mOff = i * 16;
+        mArr[mOff] = scale;
+        mArr[mOff + 5] = scale;
+        mArr[mOff + 10] = scale;
+        mArr[mOff + 12] = p.x;
+        mArr[mOff + 13] = p.y;
+        mArr[mOff + 14] = p.z;
+        const col = p.cell & 3;
+        const row = p.cell >> 2;
+        const aOff = i * 4;
+        aArr[aOff] = col * 0.25;
+        aArr[aOff + 1] = 1 - (row + 1) * 0.25;
+        aArr[aOff + 2] = 0.25;
+        aArr[aOff + 3] = 0.25;
+        tArr[aOff] = p.r;
+        tArr[aOff + 1] = p.g;
+        tArr[aOff + 2] = p.b;
+        tArr[aOff + 3] = alpha;
+        i++;
+      }
+      this.mesh.count = this.activeCount;
+      this.mesh.visible = this.activeCount > 0;
+      if (this.activeCount > 0) {
+        this.mesh.instanceMatrix.needsUpdate = true;
+        this.atlasAttr.needsUpdate = true;
+        this.tintAttr.needsUpdate = true;
+      }
+    }
+    dispose() {
+      this.disposed = true;
+      if (this.scene && this.mesh) {
+        this.scene.remove(this.mesh);
+      }
+      if (this.geometry) this.geometry.dispose();
+      if (this.material) this.material.dispose();
+      if (this.atlasTexture) this.atlasTexture.dispose();
+      this.mesh = null;
+      this.geometry = null;
+      this.material = null;
+      this.atlasTexture = null;
     }
   };
 
@@ -34639,7 +37990,7 @@ void main() {
       ]
     }
   };
-  function createBeveledBox(width, height, depth, radius = 0.08, smoothness = 3) {
+  function createBeveledBox(width, height, depth, radius = 0.08, smoothness = 2) {
     const shape = new Shape();
     const eps = 1e-5;
     const r = Math.min(radius, width * 0.45, height * 0.45, depth * 0.45) - eps;
@@ -34652,7 +38003,7 @@ void main() {
     const geo = new ExtrudeGeometry(shape, {
       depth: depth - r * 2,
       bevelEnabled: true,
-      bevelSegments: smoothness * 2,
+      bevelSegments: smoothness,
       steps: 1,
       bevelSize: r,
       bevelThickness: r,
@@ -34661,40 +38012,85 @@ void main() {
     geo.center();
     return geo;
   }
+  function bakeSkinnedPart(geo, hexColor, boneIndex, boneWorldMatrix, tx = 0, ty = 0, tz = 0, rx = 0, ry = 0, rz = 0) {
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    if (g.attributes.uv) g.deleteAttribute("uv");
+    if (rx !== 0) g.rotateX(rx);
+    if (ry !== 0) g.rotateY(ry);
+    if (rz !== 0) g.rotateZ(rz);
+    if (tx !== 0 || ty !== 0 || tz !== 0) g.translate(tx, ty, tz);
+    g.applyMatrix4(boneWorldMatrix);
+    const count = g.attributes.position.count;
+    const colors = new Float32Array(count * 3);
+    const skinIndices = new Uint16Array(count * 4);
+    const skinWeights = new Float32Array(count * 4);
+    const c = TMP.color.setHex(hexColor);
+    for (let i = 0; i < count; i++) {
+      const o3 = i * 3;
+      colors[o3] = c.r;
+      colors[o3 + 1] = c.g;
+      colors[o3 + 2] = c.b;
+      const o4 = i * 4;
+      skinIndices[o4] = boneIndex;
+      skinWeights[o4] = 1;
+    }
+    g.setAttribute("color", new BufferAttribute(colors, 3));
+    g.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndices, 4));
+    g.setAttribute("skinWeight", new Float32BufferAttribute(skinWeights, 4));
+    return g;
+  }
+  function safeMerge(parts) {
+    const merged = mergeGeometries(parts, false);
+    for (let i = 0; i < parts.length; i++) parts[i].dispose();
+    merged.boundingSphere = new Sphere(new Vector3(0, 1, 0), 2.8);
+    return merged;
+  }
   var ChibiRobotDog = class {
-    constructor(name = "Sparky", options = {}) {
+    constructor(name = "Sparky", optionsOrIsPlayer = false, assetCache2 = null) {
+      const isObjOpts = typeof optionsOrIsPlayer === "object" && optionsOrIsPlayer !== null;
+      const isPlayer = isObjOpts ? Boolean(optionsOrIsPlayer.isPlayer) : Boolean(optionsOrIsPlayer);
+      const opts = isObjOpts ? optionsOrIsPlayer : {};
       this.name = name;
+      this.assetCache = assetCache2;
       this.profile = CHARACTER_PROFILES[name] || {
         name,
         title: "RoboPup",
         description: "Un tierno perrito robot chibi.",
-        primaryColor: options.primaryColor || 16317180,
-        secondaryColor: options.secondaryColor || 1976635,
-        glowColor: options.glowColor || 58879,
+        primaryColor: opts.primaryColor || 16317180,
+        secondaryColor: opts.secondaryColor || 1976635,
+        glowColor: opts.glowColor || 58879,
         speedMultiplier: 1,
         voicePitch: 1,
         avatarIcon: "\u{1F43E}",
         favoritePlace: "Prado",
         thoughts: ["Explorando felizmente el entorno virtual."]
       };
-      this.isPlayer = options.isPlayer !== void 0 ? options.isPlayer : false;
-      this.primaryColor = options.primaryColor || this.profile.primaryColor;
-      this.secondaryColor = options.secondaryColor || this.profile.secondaryColor;
-      this.accentMetalColor = options.accentColor || 6583435;
-      this.defaultGlowColor = options.glowColor || this.profile.glowColor;
+      this.isPlayer = isPlayer;
+      this.primaryColor = opts.primaryColor || this.profile.primaryColor;
+      this.secondaryColor = opts.secondaryColor || this.profile.secondaryColor;
+      this.accentMetalColor = opts.accentColor || 6583435;
+      this.defaultGlowColor = opts.glowColor || this.profile.glowColor;
       this.currentEmotion = EMOTIONS.HAPPY;
       this.faceGen = new FaceTextureGenerator();
       this.group = new Group();
       this.group.name = `ChibiRobot_${name}`;
       this.nodes = {};
       this.materials = {};
+      this.skeleton = null;
+      this._ownedDisposables = [];
       this.buildDetailedModel();
-      this.setEmotion(this.currentEmotion);
-      this.velocity = new Vector3();
-      this.rotationY = 0;
-      this.targetRotation = 0;
+      this.setEmotion(this.currentEmotion, true);
+      this.physics = {
+        velocity: new Vector3(),
+        velocityY: 0,
+        isGrounded: true,
+        coyoteTimer: 0,
+        jumpBufferTimer: 0,
+        groundY: 0,
+        speedScalar: 0
+      };
       this.bankAngle = 0;
-      this.speed = 0;
+      this.pitchLean = 0;
       this.energy = 100;
       this.curiosity = 85;
       this.sociability = 90;
@@ -34703,28 +38099,59 @@ void main() {
       this.playfulness = 80;
       this.carriedObject = null;
       this.tailHelicopterTimer = 0;
-      this.isResting = false;
-      this.earSpringAngleL = 0.25;
-      this.earSpringAngleR = -0.25;
       this.earSpringVelL = 0;
       this.earSpringVelR = 0;
+      this.earSpringX = 0;
+      this.earSpringVelX = 0;
       this.tailSpringAngle = 0;
       this.tailSpringVel = 0;
+      this.antennaSpringX = 0;
+      this.antennaSpringVelX = 0;
+      this.antennaSpringZ = 0;
+      this.antennaSpringVelZ = 0;
+      this.medalSwing = 0;
+      this.medalVel = 0;
       this.lastPosition = this.group.position.clone();
-      this.speedScalar = 0;
+      this.lastVelocityY = 0;
       this.lookTarget = new Vector3();
       this.hasTarget = false;
+      this.lookTimeout = 0;
       this.dialogueHistory = [];
       this.activeMission = null;
       this.isPickedUp = false;
-      this.fallVelocityY = 0;
-      this.stuckCount = 0;
+      this.isSliding = false;
       this.isInWater = false;
       this.wasInWater = false;
       this.hasDugTreasure = false;
-      this.dizzyTimer = 0;
-      this.swimmingTimer = 0;
-      this.shakeOffTimer = 0;
+      this.disposed = false;
+    }
+    get velocityY() {
+      return this.physics.velocityY;
+    }
+    set velocityY(v) {
+      this.physics.velocityY = v;
+    }
+    get speedScalar() {
+      return this.physics.speedScalar;
+    }
+    set speedScalar(v) {
+      this.physics.speedScalar = v;
+    }
+    _getGeo(key, factory) {
+      if (this.assetCache) {
+        return this.assetCache.getGeometry(key, factory);
+      }
+      const geo = factory();
+      this._ownedDisposables.push(geo);
+      return geo;
+    }
+    _getMat(key, factory) {
+      if (this.assetCache) {
+        return this.assetCache.getMaterial(key, factory);
+      }
+      const mat = factory();
+      this._ownedDisposables.push(mat);
+      return mat;
     }
     addDialogue(role, author, text) {
       this.dialogueHistory.push({
@@ -34765,325 +38192,369 @@ void main() {
       return arr[Math.floor(Math.random() * arr.length)] || "Explorando con alegr\xEDa.";
     }
     buildDetailedModel() {
-      const mainMat = new MeshPhysicalMaterial({
-        color: this.primaryColor,
-        roughness: 0.2,
-        metalness: 0.25,
+      const pKey = this.name;
+      const shellMat = this._getMat(`robot_shell_skin_${pKey}`, () => new MeshPhysicalMaterial({
+        vertexColors: true,
+        roughness: 0.22,
+        metalness: 0.38,
         clearcoat: 0.85,
         clearcoatRoughness: 0.12
-      });
-      const darkMat = new MeshStandardMaterial({
-        color: this.secondaryColor,
-        roughness: 0.35,
-        metalness: 0.7
-      });
-      const jointMat = new MeshStandardMaterial({
-        color: this.accentMetalColor,
-        roughness: 0.22,
-        metalness: 0.85
-      });
-      const chromeMat = new MeshStandardMaterial({
-        color: 15857145,
-        roughness: 0.1,
-        metalness: 0.95
-      });
+      }));
       const neonMat = new MeshStandardMaterial({
         color: this.defaultGlowColor,
         emissive: this.defaultGlowColor,
         emissiveIntensity: 1.35,
         roughness: 0.15
       });
-      const visorGlassMat = new MeshPhysicalMaterial({
-        color: 988970,
-        roughness: 0.08,
-        metalness: 0.1,
-        clearcoat: 1,
-        transparent: true,
-        opacity: 0.28
-      });
+      this._ownedDisposables.push(neonMat);
       const faceMat = new MeshBasicMaterial({
         map: this.faceGen.texture,
         transparent: false
       });
+      this._ownedDisposables.push(faceMat);
       this.materials = {
-        main: mainMat,
-        dark: darkMat,
-        joint: jointMat,
-        chrome: chromeMat,
+        shell: shellMat,
         neon: neonMat,
-        face: faceMat,
-        visorGlass: visorGlassMat
+        face: faceMat
       };
-      const bodyGroup = new Group();
-      bodyGroup.position.y = 0.95;
-      this.group.add(bodyGroup);
-      this.nodes.body = bodyGroup;
-      const torsoGeo = createBeveledBox(0.92, 0.72, 1.35, 0.14, 3);
-      const torsoMesh = new Mesh(torsoGeo, mainMat);
-      torsoMesh.castShadow = true;
-      torsoMesh.receiveShadow = true;
-      bodyGroup.add(torsoMesh);
-      const bellyGeo = createBeveledBox(0.76, 0.24, 1.12, 0.08, 2);
-      const bellyMesh = new Mesh(bellyGeo, darkMat);
-      bellyMesh.position.set(0, -0.28, 0);
-      bodyGroup.add(bellyMesh);
-      const panelGeo = createBeveledBox(0.98, 0.46, 1.06, 0.08, 2);
-      const panelMesh = new Mesh(panelGeo, darkMat);
-      panelMesh.position.y = 0.04;
-      bodyGroup.add(panelMesh);
-      const stripeGeo = createBeveledBox(1.01, 0.08, 0.92, 0.02, 2);
-      const stripe = new Mesh(stripeGeo, neonMat);
-      stripe.position.y = 0.04;
-      bodyGroup.add(stripe);
-      const coreRimGeo = new CylinderGeometry(0.2, 0.22, 0.07, 24);
-      coreRimGeo.rotateX(Math.PI / 2);
-      const coreRim = new Mesh(coreRimGeo, chromeMat);
-      coreRim.position.set(0, 0.05, 0.67);
-      bodyGroup.add(coreRim);
-      const coreInnerGeo = new CylinderGeometry(0.14, 0.14, 0.09, 24);
-      coreInnerGeo.rotateX(Math.PI / 2);
-      const coreInner = new Mesh(coreInnerGeo, neonMat);
-      coreInner.position.set(0, 0.05, 0.68);
-      bodyGroup.add(coreInner);
-      this.nodes.powerCore = coreInner;
-      const collar = new Mesh(new TorusGeometry(0.38, 0.065, 16, 28), darkMat);
-      collar.position.set(0, 0.36, 0.56);
-      collar.rotation.x = Math.PI / 2 + 0.35;
-      bodyGroup.add(collar);
-      const collarGlowRing = new Mesh(new TorusGeometry(0.39, 0.02, 12, 28), neonMat);
-      collarGlowRing.position.copy(collar.position);
-      collarGlowRing.rotation.copy(collar.rotation);
-      bodyGroup.add(collarGlowRing);
-      const tagGeo = new CylinderGeometry(0.09, 0.09, 0.035, 20);
-      tagGeo.rotateX(Math.PI / 2);
-      const tag = new Mesh(tagGeo, neonMat);
-      tag.position.set(0, 0.26, 0.76);
-      bodyGroup.add(tag);
-      const packGroup = new Group();
-      packGroup.position.set(0, 0.45, -0.08);
-      bodyGroup.add(packGroup);
-      const pack = new Mesh(createBeveledBox(0.64, 0.32, 0.78, 0.08, 2), darkMat);
-      pack.castShadow = true;
-      packGroup.add(pack);
-      for (let b = -0.18; b <= 0.18; b += 0.12) {
-        const bar = new Mesh(new BoxGeometry(0.42, 0.03, 0.05), neonMat);
-        bar.position.set(0, 0.17, b);
-        packGroup.add(bar);
-      }
-      const thrusterGeo = new CylinderGeometry(0.09, 0.13, 0.26, 16);
-      thrusterGeo.rotateX(-Math.PI / 3);
-      [-0.22, 0.22].forEach((tx) => {
-        const thruster = new Mesh(thrusterGeo, chromeMat);
-        thruster.position.set(tx, 0.02, -0.44);
-        const nozzle = new Mesh(
-          new CylinderGeometry(0.065, 0.08, 0.08, 16).rotateX(-Math.PI / 3),
-          neonMat
-        );
-        nozzle.position.set(tx, -0.05, -0.52);
-        packGroup.add(thruster, nozzle);
-      });
-      const neckPivot = new Group();
-      neckPivot.position.set(0, 0.38, 0.65);
-      bodyGroup.add(neckPivot);
-      this.nodes.neck = neckPivot;
-      const neckJoint = new Mesh(new CylinderGeometry(0.18, 0.22, 0.22, 16), jointMat);
-      neckJoint.position.set(0, 0.08, 0.05);
-      neckPivot.add(neckJoint);
-      const collarMesh = new Mesh(new TorusGeometry(0.28, 0.045, 12, 24).rotateX(Math.PI / 2), darkMat);
-      collarMesh.position.set(0, 0.14, 0.08);
-      neckPivot.add(collarMesh);
-      const medalTag = new Mesh(new CylinderGeometry(0.085, 0.085, 0.02, 16).rotateX(Math.PI / 2), neonMat);
-      medalTag.position.set(0, 0.01, 0.36);
-      neckPivot.add(medalTag);
-      const headGroup = new Group();
-      neckPivot.add(headGroup);
-      this.nodes.head = headGroup;
-      const headGeo = createBeveledBox(1.14, 0.96, 1.04, 0.18, 3);
-      const headMesh = new Mesh(headGeo, mainMat);
-      headMesh.position.set(0, 0.48, 0.22);
-      headMesh.castShadow = true;
-      headGroup.add(headMesh);
-      const blushMat = new MeshStandardMaterial({
-        color: 16724889,
-        emissive: 16724889,
-        emissiveIntensity: 0.85,
-        transparent: true,
-        opacity: 0.85
-      });
-      [-0.34, 0.34].forEach((bx) => {
-        const blush = new Mesh(new CircleGeometry(0.065, 16), blushMat);
-        blush.position.set(bx, 0.32, 0.76);
-        headGroup.add(blush);
-      });
-      [-0.58, 0.58].forEach((cx) => {
-        const disc = new Mesh(new CylinderGeometry(0.22, 0.22, 0.06, 20).rotateZ(Math.PI / 2), darkMat);
-        disc.position.set(cx, 0.46, 0.22);
-        const ring = new Mesh(new TorusGeometry(0.16, 0.02, 12, 20).rotateY(Math.PI / 2), neonMat);
-        ring.position.set(cx + (cx > 0 ? 0.03 : -0.03), 0.46, 0.22);
-        headGroup.add(disc, ring);
-      });
-      const bezelGeo = createBeveledBox(0.98, 0.64, 0.08, 0.04, 2);
-      const bezelMesh = new Mesh(bezelGeo, darkMat);
-      bezelMesh.position.set(0, 0.48, 0.71);
-      headGroup.add(bezelMesh);
-      const faceMesh = new Mesh(new PlaneGeometry(0.92, 0.58), faceMat);
-      faceMesh.position.set(0, 0.48, 0.752);
-      headGroup.add(faceMesh);
-      this.nodes.faceMesh = faceMesh;
-      const glassVisor = new Mesh(new PlaneGeometry(0.93, 0.59), visorGlassMat);
-      glassVisor.position.set(0, 0.48, 0.758);
-      headGroup.add(glassVisor);
-      const browMesh = new Mesh(createBeveledBox(1.12, 0.13, 0.46, 0.04, 2), darkMat);
-      browMesh.position.set(0, 0.91, 0.49);
-      headGroup.add(browMesh);
-      const snoutGroup = new Group();
-      snoutGroup.position.set(0, 0.25, 0.76);
-      headGroup.add(snoutGroup);
-      const snout = new Mesh(createBeveledBox(0.48, 0.25, 0.34, 0.07, 2), darkMat);
-      snoutGroup.add(snout);
-      const nose = new Mesh(new SphereGeometry(0.095, 20, 20), neonMat);
-      nose.scale.set(1.15, 0.85, 0.95);
-      nose.position.set(0, 0.08, 0.18);
-      snoutGroup.add(nose);
-      this.nodes.nose = nose;
-      const mouthAnchor = new Group();
-      mouthAnchor.position.set(0, -0.08, 0.22);
-      snoutGroup.add(mouthAnchor);
-      this.nodes.mouthAnchor = mouthAnchor;
-      const earGeo = createBeveledBox(0.24, 0.58, 0.14, 0.05, 2);
-      earGeo.translate(0, -0.28, 0);
-      const buildEar = (isLeft) => {
-        const sign2 = isLeft ? -1 : 1;
-        const earPivot = new Group();
-        earPivot.position.set(sign2 * 0.56, 0.9, 0.18);
-        earPivot.rotation.z = sign2 * 0.25;
-        const earHinge = new Mesh(new CylinderGeometry(0.095, 0.095, 0.18, 16), chromeMat);
-        earHinge.rotation.x = Math.PI / 2;
-        earPivot.add(earHinge);
-        const earOuter = new Mesh(earGeo, darkMat);
-        earOuter.castShadow = true;
-        const earInner = new Mesh(new BoxGeometry(0.14, 0.42, 0.025), neonMat);
-        earInner.position.set(0, -0.28, 0.075);
-        earPivot.add(earOuter, earInner);
-        headGroup.add(earPivot);
-        return earPivot;
+      const bones = [];
+      const addBone = (parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
+        const b = new Bone();
+        b.position.set(x, y, z);
+        b.rotation.set(rx, ry, rz);
+        if (parent) parent.add(b);
+        const idx = bones.length;
+        bones.push(b);
+        return { bone: b, idx };
       };
-      this.nodes.earL = buildEar(true);
-      this.nodes.earR = buildEar(false);
-      const antBase = new Mesh(new ConeGeometry(0.09, 0.1, 16), darkMat);
-      antBase.position.set(0, 0.98, 0.05);
-      const antStemGeo = new CylinderGeometry(0.02, 0.03, 0.34, 12);
-      antStemGeo.translate(0, 0.17, 0);
-      const antennaStem = new Mesh(antStemGeo, chromeMat);
-      antennaStem.position.set(0, 0.98, 0.05);
-      const antRing = new Mesh(new TorusGeometry(0.09, 0.02, 10, 20).rotateX(Math.PI / 2), neonMat);
-      antRing.position.set(0, 1.26, 0.05);
-      const antBall = new Mesh(new SphereGeometry(0.085, 16, 16), neonMat);
-      antBall.position.set(0, 1.36, 0.05);
-      headGroup.add(antBase, antennaStem, antRing, antBall);
-      const tailPivot = new Group();
-      tailPivot.position.set(0, 0.24, -0.68);
-      tailPivot.rotation.x = 0.55;
-      bodyGroup.add(tailPivot);
-      this.nodes.tail = tailPivot;
-      const tailHinge = new Mesh(new SphereGeometry(0.115, 16, 16), jointMat);
-      tailPivot.add(tailHinge);
-      const seg1Geo = new CylinderGeometry(0.045, 0.068, 0.38, 12);
-      seg1Geo.translate(0, 0.19, 0);
-      const seg1 = new Mesh(seg1Geo, darkMat);
-      tailPivot.add(seg1);
-      [0.14, 0.28].forEach((ry) => {
-        const tRing = new Mesh(new TorusGeometry(0.062, 0.015, 8, 16).rotateX(Math.PI / 2), neonMat);
-        tRing.position.set(0, ry, 0);
-        tailPivot.add(tRing);
-      });
-      const tailTip = new Mesh(new SphereGeometry(0.125, 16, 16), neonMat);
-      tailTip.position.set(0, 0.48, 0);
-      tailPivot.add(tailTip);
-      this.nodes.legs = {};
-      const legConfigs = [
+      const root = addBone(null, 0, 0, 0);
+      const body = addBone(root.bone, 0, 0.95, 0);
+      const neck = addBone(body.bone, 0, 0.38, 0.65);
+      const head = addBone(neck.bone, 0, 0, 0);
+      const earL = addBone(head.bone, -0.56, 0.9, 0.18, 0, 0, -0.25);
+      const earR = addBone(head.bone, 0.56, 0.9, 0.18, 0, 0, 0.25);
+      const antenna = addBone(head.bone, 0, 0.98, 0.05);
+      const tail = addBone(body.bone, 0, 0.24, -0.68, 0.55, 0, 0);
+      const medal = addBone(body.bone, 0, 0.29, 0.74);
+      const battery = addBone(body.bone, 0, 0.62, -0.08);
+      const propeller = addBone(tail.bone, 0, 0.48, 0.06);
+      const legSpecs = [
         { id: "FL", x: -0.46, z: 0.46 },
         { id: "FR", x: 0.46, z: 0.46 },
         { id: "BL", x: -0.46, z: -0.46 },
         { id: "BR", x: 0.46, z: -0.46 }
       ];
-      legConfigs.forEach((cfg) => {
-        const isLeft = cfg.x < 0;
-        const hipGroup = new Group();
-        hipGroup.position.set(cfg.x, -0.18, cfg.z);
-        bodyGroup.add(hipGroup);
-        const servoBall = new Mesh(new SphereGeometry(0.155, 16, 16), jointMat);
-        hipGroup.add(servoBall);
-        const hipLedRing = new Mesh(new TorusGeometry(0.145, 0.016, 10, 20).rotateY(Math.PI / 2), neonMat);
-        hipLedRing.position.x = isLeft ? -0.05 : 0.05;
-        hipGroup.add(hipLedRing);
-        const upperGeo = new CylinderGeometry(0.115, 0.095, 0.44, 14);
-        upperGeo.translate(0, -0.22, 0);
-        const upperMesh = new Mesh(upperGeo, darkMat);
-        upperMesh.castShadow = true;
-        hipGroup.add(upperMesh);
-        const pistonRod = new Mesh(new CylinderGeometry(0.025, 0.025, 0.36, 8), chromeMat);
-        pistonRod.position.set(0, -0.22, -0.09);
-        hipGroup.add(pistonRod);
-        const kneeGroup = new Group();
-        kneeGroup.position.set(0, -0.44, 0);
-        hipGroup.add(kneeGroup);
-        const kneeRing = new Mesh(new CylinderGeometry(0.105, 0.105, 0.17, 14), chromeMat);
-        kneeRing.rotation.z = Math.PI / 2;
-        kneeGroup.add(kneeRing);
-        const lowerGeo = new CylinderGeometry(0.095, 0.115, 0.4, 14);
-        lowerGeo.translate(0, -0.2, 0);
-        const lowerMesh = new Mesh(lowerGeo, mainMat);
-        lowerMesh.castShadow = true;
-        kneeGroup.add(lowerMesh);
-        const pawGroup = new Group();
-        pawGroup.position.set(0, -0.4, 0.08);
-        kneeGroup.add(pawGroup);
-        const pawFoot = new Mesh(createBeveledBox(0.28, 0.16, 0.38, 0.05, 2), darkMat);
-        pawFoot.castShadow = true;
-        pawGroup.add(pawFoot);
-        const mainPadGeo = new CylinderGeometry(0.085, 0.085, 0.03, 14);
-        mainPadGeo.rotateX(Math.PI / 2);
-        const mainPad = new Mesh(mainPadGeo, neonMat);
-        mainPad.position.set(0, -0.075, -0.02);
-        pawGroup.add(mainPad);
-        for (let toe = -1; toe <= 1; toe++) {
-          const toeBeam = new Mesh(new SphereGeometry(0.045, 10, 10), mainMat);
-          toeBeam.position.set(toe * 0.085, -0.02, 0.17);
-          pawGroup.add(toeBeam);
-          const toePad = new Mesh(new CylinderGeometry(0.035, 0.035, 0.03, 10).rotateX(Math.PI / 2), neonMat);
-          toePad.position.set(toe * 0.085, -0.075, 0.14);
-          pawGroup.add(toePad);
+      const legBones = {};
+      for (let i = 0; i < legSpecs.length; i++) {
+        const s = legSpecs[i];
+        const hip = addBone(body.bone, s.x, -0.18, s.z);
+        const knee = addBone(hip.bone, 0, -0.44, 0);
+        const paw = addBone(knee.bone, 0, -0.4, 0.08);
+        legBones[s.id] = { hip, knee, paw, isLeft: s.x < 0 };
+      }
+      const wingL = addBone(body.bone, -0.52, 0.24, 0);
+      const wingR = addBone(body.bone, 0.52, 0.24, 0);
+      root.bone.updateMatrixWorld(true);
+      this.group.add(root.bone);
+      this.nodes.body = body.bone;
+      this.nodes.neck = neck.bone;
+      this.nodes.head = head.bone;
+      this.nodes.earL = earL.bone;
+      this.nodes.earR = earR.bone;
+      this.nodes.antenna = antenna.bone;
+      this.nodes.tail = tail.bone;
+      this.nodes.medalPivot = medal.bone;
+      this.nodes.batteryBar = battery.bone;
+      this.nodes.legs = {
+        FL: { hip: legBones.FL.hip.bone, knee: legBones.FL.knee.bone, paw: legBones.FL.paw.bone },
+        FR: { hip: legBones.FR.hip.bone, knee: legBones.FR.knee.bone, paw: legBones.FR.paw.bone },
+        BL: { hip: legBones.BL.hip.bone, knee: legBones.BL.knee.bone, paw: legBones.BL.paw.bone },
+        BR: { hip: legBones.BR.hip.bone, knee: legBones.BR.knee.bone, paw: legBones.BR.paw.bone }
+      };
+      const pri = this.primaryColor;
+      const sec = this.secondaryColor;
+      const jnt = this.accentMetalColor;
+      const chr = 15857145;
+      const shellGeo = this._getGeo(`robot_skinned_shell_${pKey}`, () => {
+        const parts = [];
+        const bBody = body.bone.matrixWorld;
+        const bNeck = neck.bone.matrixWorld;
+        const bHead = head.bone.matrixWorld;
+        const bAnt = antenna.bone.matrixWorld;
+        const bTail = tail.bone.matrixWorld;
+        const torso = createBeveledBox(0.92, 0.72, 1.35, 0.14, 2);
+        const belly = createBeveledBox(0.76, 0.24, 1.12, 0.08, 2);
+        const panel = createBeveledBox(0.98, 0.46, 1.06, 0.08, 2);
+        const rim = new CylinderGeometry(0.2, 0.22, 0.07, 16);
+        const collar = new TorusGeometry(0.38, 0.065, 10, 20);
+        const pack = createBeveledBox(0.64, 0.32, 0.78, 0.08, 2);
+        const thruster = new CylinderGeometry(0.09, 0.13, 0.26, 10);
+        parts.push(
+          bakeSkinnedPart(torso, pri, body.idx, bBody),
+          bakeSkinnedPart(belly, sec, body.idx, bBody, 0, -0.28, 0),
+          bakeSkinnedPart(panel, sec, body.idx, bBody, 0, 0.04, 0),
+          bakeSkinnedPart(rim, chr, body.idx, bBody, 0, 0.05, 0.67, Math.PI / 2, 0, 0),
+          bakeSkinnedPart(collar, sec, body.idx, bBody, 0, 0.36, 0.56, Math.PI / 2 + 0.35, 0, 0),
+          bakeSkinnedPart(pack, sec, body.idx, bBody, 0, 0.45, -0.08),
+          bakeSkinnedPart(thruster, chr, body.idx, bBody, -0.22, 0.47, -0.52, -Math.PI / 3, 0, 0),
+          bakeSkinnedPart(thruster, chr, body.idx, bBody, 0.22, 0.47, -0.52, -Math.PI / 3, 0, 0)
+        );
+        if (this.name === "Sparky") {
+          const compass = new CylinderGeometry(0.095, 0.095, 0.035, 14);
+          parts.push(bakeSkinnedPart(compass, chr, body.idx, bBody, 0, 0.19, 0.71, Math.PI / 2, 0, 0));
+          compass.dispose();
         }
-        this.nodes.legs[cfg.id] = {
-          hip: hipGroup,
-          knee: kneeGroup,
-          paw: pawGroup
-        };
+        torso.dispose();
+        belly.dispose();
+        panel.dispose();
+        rim.dispose();
+        collar.dispose();
+        pack.dispose();
+        thruster.dispose();
+        const neckJoint = new CylinderGeometry(0.18, 0.22, 0.22, 12);
+        const collarMesh = new TorusGeometry(0.28, 0.045, 8, 18);
+        parts.push(
+          bakeSkinnedPart(neckJoint, jnt, neck.idx, bNeck, 0, 0.08, 0.05),
+          bakeSkinnedPart(collarMesh, sec, neck.idx, bNeck, 0, 0.14, 0.08, Math.PI / 2, 0, 0)
+        );
+        neckJoint.dispose();
+        collarMesh.dispose();
+        const headBox = createBeveledBox(1.14, 0.96, 1.04, 0.18, 2);
+        const bezel = createBeveledBox(0.98, 0.64, 0.08, 0.04, 1);
+        const brow = createBeveledBox(1.12, 0.13, 0.46, 0.04, 1);
+        const snout = createBeveledBox(0.48, 0.25, 0.34, 0.07, 1);
+        const disc = new CylinderGeometry(0.22, 0.22, 0.06, 14);
+        parts.push(
+          bakeSkinnedPart(headBox, pri, head.idx, bHead, 0, 0.48, 0.22),
+          bakeSkinnedPart(bezel, sec, head.idx, bHead, 0, 0.48, 0.71),
+          bakeSkinnedPart(brow, sec, head.idx, bHead, 0, 0.91, 0.49),
+          bakeSkinnedPart(snout, sec, head.idx, bHead, 0, 0.25, 0.76),
+          bakeSkinnedPart(disc, sec, head.idx, bHead, -0.58, 0.46, 0.22, 0, 0, Math.PI / 2),
+          bakeSkinnedPart(disc, sec, head.idx, bHead, 0.58, 0.46, 0.22, 0, 0, Math.PI / 2)
+        );
+        if (this.name === "Sparky") {
+          const strap = createBeveledBox(1.18, 0.09, 0.98, 0.02, 1);
+          const rimG = new CylinderGeometry(0.19, 0.19, 0.09, 14);
+          parts.push(
+            bakeSkinnedPart(strap, sec, head.idx, bHead, 0, 0.88, 0.42),
+            bakeSkinnedPart(rimG, chr, head.idx, bHead, -0.26, 0.94, 0.64, Math.PI / 2, 0, 0),
+            bakeSkinnedPart(rimG, chr, head.idx, bHead, 0.26, 0.94, 0.64, Math.PI / 2, 0, 0)
+          );
+          strap.dispose();
+          rimG.dispose();
+        } else if (this.name === "Pixel") {
+          const satDish = new CylinderGeometry(0.09, 0.02, 0.045, 10);
+          parts.push(
+            bakeSkinnedPart(satDish, chr, head.idx, bHead, -0.32, 1.25, -0.05, 0.5, 0, 0),
+            bakeSkinnedPart(satDish, chr, head.idx, bHead, 0.32, 1.25, -0.05, 0.5, 0, 0)
+          );
+          satDish.dispose();
+        }
+        headBox.dispose();
+        bezel.dispose();
+        brow.dispose();
+        snout.dispose();
+        disc.dispose();
+        const earOuter = createBeveledBox(0.24, 0.58, 0.14, 0.05, 1);
+        const earHinge = new CylinderGeometry(0.095, 0.095, 0.18, 10);
+        const earInner = new BoxGeometry(0.14, 0.42, 0.025);
+        const earPair = [earL, earR];
+        for (let e = 0; e < earPair.length; e++) {
+          const eb = earPair[e];
+          parts.push(
+            bakeSkinnedPart(earOuter, sec, eb.idx, eb.bone.matrixWorld, 0, -0.28, 0),
+            bakeSkinnedPart(earHinge, chr, eb.idx, eb.bone.matrixWorld, 0, 0, 0, Math.PI / 2, 0, 0),
+            bakeSkinnedPart(earInner, this.defaultGlowColor, eb.idx, eb.bone.matrixWorld, 0, -0.28, 0.075)
+          );
+        }
+        earOuter.dispose();
+        earHinge.dispose();
+        earInner.dispose();
+        const antBase = new ConeGeometry(0.09, 0.1, 10);
+        const antStem = new CylinderGeometry(0.02, 0.03, 0.34, 8);
+        parts.push(
+          bakeSkinnedPart(antBase, 1976635, antenna.idx, bAnt),
+          bakeSkinnedPart(antStem, chr, antenna.idx, bAnt, 0, 0.17, 0)
+        );
+        antBase.dispose();
+        antStem.dispose();
+        const tailHinge = new SphereGeometry(0.115, 10, 10);
+        const tailSeg = new CylinderGeometry(0.045, 0.068, 0.38, 8);
+        parts.push(
+          bakeSkinnedPart(tailHinge, jnt, tail.idx, bTail),
+          bakeSkinnedPart(tailSeg, sec, tail.idx, bTail, 0, 0.19, 0)
+        );
+        tailHinge.dispose();
+        tailSeg.dispose();
+        const servo = new SphereGeometry(0.155, 10, 10);
+        const upper = new CylinderGeometry(0.115, 0.095, 0.44, 10);
+        const piston = new CylinderGeometry(0.025, 0.025, 0.36, 8);
+        const hipRing = new TorusGeometry(0.145, 0.016, 8, 14);
+        const kneeRing = new CylinderGeometry(0.105, 0.105, 0.17, 10);
+        const lower = new CylinderGeometry(0.095, 0.115, 0.4, 10);
+        const foot = createBeveledBox(0.28, 0.16, 0.38, 0.05, 1);
+        const pad = new CylinderGeometry(0.085, 0.085, 0.03, 8);
+        const toe = new SphereGeometry(0.045, 8, 8);
+        const toePad = new CylinderGeometry(0.035, 0.035, 0.03, 8);
+        const legIds = ["FL", "FR", "BL", "BR"];
+        for (let i = 0; i < legIds.length; i++) {
+          const l = legBones[legIds[i]];
+          const bHip = l.hip.bone.matrixWorld;
+          const bKnee = l.knee.bone.matrixWorld;
+          const bPaw = l.paw.bone.matrixWorld;
+          parts.push(
+            bakeSkinnedPart(servo, jnt, l.hip.idx, bHip),
+            bakeSkinnedPart(upper, sec, l.hip.idx, bHip, 0, -0.22, 0),
+            bakeSkinnedPart(piston, chr, l.hip.idx, bHip, 0, -0.22, -0.09),
+            bakeSkinnedPart(hipRing, this.defaultGlowColor, l.hip.idx, bHip, l.isLeft ? -0.05 : 0.05, 0, 0, 0, Math.PI / 2, 0),
+            bakeSkinnedPart(kneeRing, chr, l.knee.idx, bKnee, 0, 0, 0, 0, 0, Math.PI / 2),
+            bakeSkinnedPart(lower, pri, l.knee.idx, bKnee, 0, -0.2, 0),
+            bakeSkinnedPart(foot, sec, l.paw.idx, bPaw),
+            bakeSkinnedPart(pad, this.defaultGlowColor, l.paw.idx, bPaw, 0, -0.075, -0.02, Math.PI / 2, 0, 0)
+          );
+          for (let t = -1; t <= 1; t++) {
+            parts.push(
+              bakeSkinnedPart(toe, pri, l.paw.idx, bPaw, t * 0.085, -0.02, 0.17),
+              bakeSkinnedPart(toePad, this.defaultGlowColor, l.paw.idx, bPaw, t * 0.085, -0.075, 0.14, Math.PI / 2, 0, 0)
+            );
+          }
+        }
+        servo.dispose();
+        upper.dispose();
+        piston.dispose();
+        hipRing.dispose();
+        kneeRing.dispose();
+        lower.dispose();
+        foot.dispose();
+        pad.dispose();
+        toe.dispose();
+        toePad.dispose();
+        return safeMerge(parts);
       });
-      const haloGeo = new TorusGeometry(0.85, 0.038, 16, 36);
-      haloGeo.rotateX(Math.PI / 2);
+      this.skeleton = new Skeleton(bones);
+      const shellMesh = new SkinnedMesh(shellGeo, shellMat);
+      shellMesh.castShadow = true;
+      shellMesh.receiveShadow = true;
+      shellMesh.bind(this.skeleton);
+      this.group.add(shellMesh);
+      const neonGeo = this._getGeo(`robot_skinned_neon_${pKey}`, () => {
+        const parts = [];
+        const bBody = body.bone.matrixWorld;
+        const bHead = head.bone.matrixWorld;
+        const bAnt = antenna.bone.matrixWorld;
+        const bTail = tail.bone.matrixWorld;
+        const bMedal = medal.bone.matrixWorld;
+        const bBatt = battery.bone.matrixWorld;
+        const stripe = createBeveledBox(1.01, 0.08, 0.92, 0.02, 1);
+        const coreInner = new CylinderGeometry(0.14, 0.14, 0.09, 14);
+        const collarGlow = new TorusGeometry(0.39, 0.02, 8, 20);
+        const nozzle = new CylinderGeometry(0.065, 0.08, 0.08, 10);
+        const batBar = new BoxGeometry(0.42, 0.035, 0.34);
+        const medalDisk = new CylinderGeometry(0.085, 0.085, 0.03, 12);
+        parts.push(
+          bakeSkinnedPart(stripe, 16777215, body.idx, bBody, 0, 0.04, 0),
+          bakeSkinnedPart(coreInner, 16777215, body.idx, bBody, 0, 0.05, 0.68, Math.PI / 2, 0, 0),
+          bakeSkinnedPart(collarGlow, 16777215, body.idx, bBody, 0, 0.36, 0.56, Math.PI / 2 + 0.35, 0, 0),
+          bakeSkinnedPart(nozzle, 16777215, body.idx, bBody, -0.22, 0.4, -0.6, -Math.PI / 3, 0, 0),
+          bakeSkinnedPart(nozzle, 16777215, body.idx, bBody, 0.22, 0.4, -0.6, -Math.PI / 3, 0, 0),
+          bakeSkinnedPart(batBar, 16777215, battery.idx, bBatt),
+          bakeSkinnedPart(medalDisk, 16777215, medal.idx, bMedal, 0, -0.04, 0.02, Math.PI / 2, 0, 0)
+        );
+        if (this.name === "Bolt") {
+          const fin = createBeveledBox(0.07, 0.46, 0.68, 0.02, 1);
+          parts.push(bakeSkinnedPart(fin, 16777215, body.idx, bBody, 0, 0.72, -0.2, -0.38, 0, 0));
+          fin.dispose();
+        }
+        stripe.dispose();
+        coreInner.dispose();
+        collarGlow.dispose();
+        nozzle.dispose();
+        batBar.dispose();
+        medalDisk.dispose();
+        const nose = new SphereGeometry(0.095, 12, 12);
+        nose.scale(1.15, 0.85, 0.95);
+        const cheekRing = new TorusGeometry(0.16, 0.02, 8, 14);
+        parts.push(
+          bakeSkinnedPart(nose, 16777215, head.idx, bHead, 0, 0.33, 0.94),
+          bakeSkinnedPart(cheekRing, 16777215, head.idx, bHead, -0.61, 0.46, 0.22, 0, Math.PI / 2, 0),
+          bakeSkinnedPart(cheekRing, 16777215, head.idx, bHead, 0.61, 0.46, 0.22, 0, Math.PI / 2, 0)
+        );
+        if (this.name === "Rusty") {
+          const headband = createBeveledBox(1.18, 0.13, 1.08, 0.03, 1);
+          parts.push(bakeSkinnedPart(headband, 16777215, head.idx, bHead, 0, 0.79, 0.22));
+          headband.dispose();
+        }
+        nose.dispose();
+        cheekRing.dispose();
+        const antRing = new TorusGeometry(0.09, 0.02, 8, 14);
+        const antBall = new SphereGeometry(0.085, 10, 10);
+        parts.push(
+          bakeSkinnedPart(antRing, 16777215, antenna.idx, bAnt, 0, 0.28, 0, Math.PI / 2, 0, 0),
+          bakeSkinnedPart(antBall, 16777215, antenna.idx, bAnt, 0, 0.38, 0)
+        );
+        antRing.dispose();
+        antBall.dispose();
+        const tRing = new TorusGeometry(0.062, 0.015, 8, 12);
+        const tTip = new SphereGeometry(0.125, 10, 10);
+        parts.push(
+          bakeSkinnedPart(tRing, 16777215, tail.idx, bTail, 0, 0.14, 0, Math.PI / 2, 0, 0),
+          bakeSkinnedPart(tRing, 16777215, tail.idx, bTail, 0, 0.28, 0, Math.PI / 2, 0, 0),
+          bakeSkinnedPart(tTip, 16777215, tail.idx, bTail, 0, 0.48, 0)
+        );
+        tRing.dispose();
+        tTip.dispose();
+        if (this.name === "Rusty") {
+          const b1 = new BoxGeometry(0.42, 0.045, 0.02);
+          const b2 = new BoxGeometry(0.045, 0.42, 0.02);
+          parts.push(
+            bakeSkinnedPart(b1, 16777215, propeller.idx, propeller.bone.matrixWorld),
+            bakeSkinnedPart(b2, 16777215, propeller.idx, propeller.bone.matrixWorld)
+          );
+          b1.dispose();
+          b2.dispose();
+        }
+        return safeMerge(parts);
+      });
+      const neonMesh = new SkinnedMesh(neonGeo, neonMat);
+      neonMesh.castShadow = false;
+      neonMesh.receiveShadow = false;
+      neonMesh.bind(this.skeleton);
+      this.group.add(neonMesh);
+      this.nodes.powerCore = neonMesh;
+      if (this.name === "Rusty") {
+        this.nodes.tailPropeller = propeller.bone;
+      }
+      const faceGeo = this._getGeo("robot_face_plane", () => new PlaneGeometry(0.92, 0.58));
+      const faceMesh = new Mesh(faceGeo, faceMat);
+      faceMesh.position.set(0, 0.48, 0.756);
+      faceMesh.castShadow = false;
+      faceMesh.receiveShadow = false;
+      head.bone.add(faceMesh);
+      this.nodes.faceMesh = faceMesh;
+      const mouthAnchor = new Group();
+      mouthAnchor.position.set(0, 0.17, 0.98);
+      head.bone.add(mouthAnchor);
+      this.nodes.mouthAnchor = mouthAnchor;
+      const haloGeo = this._getGeo("robot_halo_ring", () => {
+        const g = new TorusGeometry(0.85, 0.038, 10, 28);
+        g.rotateX(Math.PI / 2);
+        return g;
+      });
       const halo = new Mesh(haloGeo, neonMat);
       halo.position.set(0, 2.3, 0);
       halo.visible = this.isPlayer;
+      halo.castShadow = false;
       this.group.add(halo);
       this.nodes.haloRing = halo;
       const overheadAnchor = new Group();
       overheadAnchor.position.set(0, 2.5, 0);
       this.group.add(overheadAnchor);
       this.nodes.overheadAnchor = overheadAnchor;
-      this.buildCharacterAccessories();
+      this.buildCharacterAccessories(head.bone, body.bone, wingL, wingR);
     }
-    buildCharacterAccessories() {
-      const { dark: darkMat, chrome: chromeMat, neon: neonMat } = this.materials;
-      const headGroup = this.nodes.head;
-      const bodyGroup = this.nodes.body;
+    buildCharacterAccessories(headBone, bodyBone, wingL, wingR) {
       if (this.name === "Sparky") {
-        const gogglesGroup = new Group();
-        gogglesGroup.position.set(0, 0.88, 0.42);
-        const strap = new Mesh(createBeveledBox(1.18, 0.09, 0.98, 0.02, 2), darkMat);
-        gogglesGroup.add(strap);
-        const lensMat = new MeshPhysicalMaterial({
+        const lensMat = this._getMat("sparky_goggle_lens_mat", () => new MeshPhysicalMaterial({
           color: 2293640,
           emissive: 2293640,
           emissiveIntensity: 0.75,
@@ -35091,115 +38562,101 @@ void main() {
           clearcoat: 1,
           transparent: true,
           opacity: 0.88
+        }));
+        const lensGeo = this._getGeo("sparky_goggle_lenses", () => {
+          const c = new CylinderGeometry(0.15, 0.15, 0.1, 14);
+          const g1 = c.clone();
+          g1.rotateX(Math.PI / 2);
+          g1.translate(-0.26, 0.94, 0.65);
+          const g2 = c.clone();
+          g2.rotateX(Math.PI / 2);
+          g2.translate(0.26, 0.94, 0.65);
+          c.dispose();
+          const merged = mergeGeometries([g1, g2], false);
+          g1.dispose();
+          g2.dispose();
+          return merged;
         });
-        [-0.26, 0.26].forEach((gx) => {
-          const rim = new Mesh(new CylinderGeometry(0.19, 0.19, 0.09, 24).rotateX(Math.PI / 2), chromeMat);
-          rim.position.set(gx, 0.06, 0.22);
-          const lens = new Mesh(new CylinderGeometry(0.15, 0.15, 0.1, 20).rotateX(Math.PI / 2), lensMat);
-          lens.position.set(gx, 0.06, 0.23);
-          gogglesGroup.add(rim, lens);
-        });
-        headGroup.add(gogglesGroup);
-        const compass = new Mesh(new CylinderGeometry(0.095, 0.095, 0.035, 20).rotateX(Math.PI / 2), chromeMat);
-        compass.position.set(0, 0.19, 0.71);
-        bodyGroup.add(compass);
+        const m = new Mesh(lensGeo, lensMat);
+        m.castShadow = false;
+        headBone.add(m);
       } else if (this.name === "Bolt") {
-        const finGroup = new Group();
-        finGroup.position.set(0, 0.72, -0.2);
-        const finMesh = new Mesh(createBeveledBox(0.07, 0.46, 0.68, 0.02, 2), neonMat);
-        finMesh.rotation.x = -0.38;
-        finGroup.add(finMesh);
-        bodyGroup.add(finGroup);
-        [-0.22, 0.22].forEach((tx) => {
-          const flameGeo = new ConeGeometry(0.075, 0.32, 14);
-          flameGeo.rotateX(-Math.PI / 2);
-          const flameMat = new MeshBasicMaterial({
-            color: 16771584,
-            transparent: true,
-            opacity: 0.88
-          });
-          const flame = new Mesh(flameGeo, flameMat);
-          flame.position.set(tx, 0.4, -0.69);
-          bodyGroup.add(flame);
-          if (!this.nodes.turboFlames) this.nodes.turboFlames = [];
-          this.nodes.turboFlames.push(flame);
+        const flameGeo = this._getGeo("bolt_turbo_flame", () => {
+          const g = new ConeGeometry(0.075, 0.32, 10);
+          g.rotateX(-Math.PI / 2);
+          return g;
         });
+        const flameMat = this._getMat("bolt_turbo_flame_mat", () => new MeshBasicMaterial({
+          color: 16771584,
+          transparent: true,
+          opacity: 0.88
+        }));
+        this.nodes.turboFlames = [];
+        const offsets = [-0.22, 0.22];
+        for (let i = 0; i < offsets.length; i++) {
+          const flame = new Mesh(flameGeo, flameMat);
+          flame.position.set(offsets[i], 0.4, -0.69);
+          flame.visible = false;
+          flame.castShadow = false;
+          bodyBone.add(flame);
+          this.nodes.turboFlames.push(flame);
+        }
       } else if (this.name === "Pixel") {
-        const visorMat = new MeshPhysicalMaterial({
+        const visorMat = this._getMat("pixel_scouter_mat", () => new MeshPhysicalMaterial({
           color: 58879,
           emissive: 58879,
           emissiveIntensity: 1.15,
           clearcoat: 1,
           transparent: true,
           opacity: 0.78
-        });
-        const pixelVisor = new Mesh(createBeveledBox(0.5, 0.28, 0.06, 0.02, 2), visorMat);
+        }));
+        const pixelVisorGeo = this._getGeo("pixel_scouter", () => createBeveledBox(0.5, 0.28, 0.06, 0.02, 1));
+        const pixelVisor = new Mesh(pixelVisorGeo, visorMat);
         pixelVisor.position.set(-0.24, 0.56, 0.79);
-        headGroup.add(pixelVisor);
-        [-0.32, 0.32].forEach((ax) => {
-          const satDish = new Mesh(new CylinderGeometry(0.09, 0.02, 0.045, 16), chromeMat);
-          satDish.rotation.x = 0.5;
-          satDish.position.set(ax, 1.25, -0.05);
-          headGroup.add(satDish);
-        });
+        pixelVisor.castShadow = false;
+        headBone.add(pixelVisor);
       } else if (this.name === "Luna") {
-        const wingMat = new MeshPhysicalMaterial({
+        const wingMat = this._getMat("luna_wing_mat", () => new MeshPhysicalMaterial({
           color: 16744619,
           emissive: 16728193,
           emissiveIntensity: 0.85,
           clearcoat: 1,
           transparent: true,
           opacity: 0.88
-        });
-        const buildWing = (isLeft) => {
-          const sign2 = isLeft ? -1 : 1;
-          const wingPivot = new Group();
-          wingPivot.position.set(sign2 * 0.52, 0.24, 0);
-          for (let f = 0; f < 3; f++) {
-            const feather = new Mesh(
-              createBeveledBox(0.04, 0.14 - f * 0.02, 0.62 - f * 0.12, 0.015, 2),
-              wingMat
-            );
-            feather.position.set(0, 0.1 - f * 0.11, -f * 0.06);
-            feather.rotation.y = sign2 * 0.26;
-            feather.rotation.x = 0.15;
-            wingPivot.add(feather);
+        }));
+        const wingsGeo = this._getGeo("luna_skinned_wings", () => {
+          const parts = [];
+          const pair = [
+            { b: wingL, sign: -1 },
+            { b: wingR, sign: 1 }
+          ];
+          for (let p = 0; p < pair.length; p++) {
+            const { b, sign: sign2 } = pair[p];
+            for (let f = 0; f < 3; f++) {
+              const feather = createBeveledBox(0.04, 0.14 - f * 0.02, 0.62 - f * 0.12, 0.015, 1);
+              parts.push(bakeSkinnedPart(feather, 16777215, b.idx, b.bone.matrixWorld, 0, 0.1 - f * 0.11, -f * 0.06, 0.15, sign2 * 0.26, 0));
+              feather.dispose();
+            }
           }
-          return wingPivot;
-        };
-        const wingL = buildWing(true);
-        const wingR = buildWing(false);
-        bodyGroup.add(wingL, wingR);
-        this.nodes.wingL = wingL;
-        this.nodes.wingR = wingR;
-        const heartMat = new MeshStandardMaterial({ color: 16724889, emissive: 16724889, emissiveIntensity: 1.2 });
-        const heart = new Mesh(new SphereGeometry(0.085, 16, 16), heartMat);
-        heart.position.set(0, 0.26, 0.78);
-        bodyGroup.add(heart);
-      } else if (this.name === "Rusty") {
-        const headband = new Mesh(createBeveledBox(1.18, 0.13, 1.08, 0.03, 2), neonMat);
-        headband.position.set(0, 0.79, 0.22);
-        headGroup.add(headband);
-        if (this.nodes.tail) {
-          const propHub = new Mesh(new SphereGeometry(0.065, 14, 14), chromeMat);
-          propHub.position.set(0, 0.48, 0.06);
-          const propBlade1 = new Mesh(new BoxGeometry(0.42, 0.045, 0.02), neonMat);
-          const propBlade2 = new Mesh(new BoxGeometry(0.045, 0.42, 0.02), neonMat);
-          propHub.add(propBlade1, propBlade2);
-          this.nodes.tail.add(propHub);
-          this.nodes.tailPropeller = propHub;
-        }
+          return safeMerge(parts);
+        });
+        const wingsMesh = new SkinnedMesh(wingsGeo, wingMat);
+        wingsMesh.castShadow = false;
+        wingsMesh.bind(this.skeleton);
+        this.group.add(wingsMesh);
+        this.nodes.wingL = wingL.bone;
+        this.nodes.wingR = wingR.bone;
       }
     }
-    setEmotion(emotion) {
-      if (!emotion) return;
+    setEmotion(emotion, silent = false) {
+      if (!emotion || this.disposed) return;
       this.currentEmotion = emotion;
       const hex = emotion.colorHex;
       this.materials.neon.color.setHex(hex);
       this.materials.neon.emissive.setHex(hex);
       this.faceGen.drawFace(emotion.faceExpression, emotion.glowColor, false);
-      const pitch = this.profile.voicePitch || 1;
-      if (this.isPlayer) {
+      if (!silent && this.isPlayer) {
+        const pitch = this.profile.voicePitch || 1;
         if (emotion.id === "HAPPY") roboAudio.playHappyJingle();
         else if (emotion.id === "CURIOUS") roboAudio.playCurious();
         else if (emotion.id === "EXCITED") roboAudio.playBark(1.3 * pitch);
@@ -35214,15 +38671,21 @@ void main() {
         else if (emotion.id === "CONFUSED") roboAudio.playConfused();
       }
     }
+    bark() {
+      const pitch = this.profile.voicePitch || 1;
+      roboAudio.playBark(pitch);
+      if (this.animController) {
+        this.animController.play("bark", 1);
+      }
+    }
     petRobot() {
       this.setEmotion(EMOTIONS.LOVING);
       this.curiosity = Math.min(100, this.curiosity + 15);
       this.energy = Math.min(100, this.energy + 25);
       this.affection = Math.min(100, (this.affection || 85) + 15);
-      const pitch = this.profile.voicePitch || 1;
-      roboAudio.playBoop(1.2 * pitch);
+      roboAudio.playBoop(1.2 * (this.profile.voicePitch || 1));
     }
-    praise(customMessage = null) {
+    praise() {
       this.setEmotion(EMOTIONS.LOVING);
       this.affection = Math.min(100, (this.affection || 85) + 25);
       this.curiosity = Math.min(100, this.curiosity + 10);
@@ -35260,3337 +38723,1164 @@ void main() {
       this.setEmotion(EMOTIONS.CURIOUS);
       roboAudio.playSplash();
     }
-    lookAt(targetPos) {
+    lookAt(targetPos, duration = 2.5) {
+      if (!targetPos) return;
       this.lookTarget.copy(targetPos);
       this.hasTarget = true;
+      this.lookTimeout = duration;
+    }
+    clearLookTarget() {
+      this.hasTarget = false;
+      this.lookTimeout = 0;
     }
     update(delta) {
-      this.faceGen.update(delta, this.currentEmotion.faceExpression, this.currentEmotion.glowColor);
-      const movedDist = this.group.position.distanceTo(this.lastPosition);
-      this.speedScalar = MathUtils.lerp(this.speedScalar, movedDist / Math.max(delta, 1e-3), delta * 8);
+      if (this.disposed) return;
+      const dt = Math.min(delta, 0.05);
+      this.faceGen.update(dt, this.currentEmotion.faceExpression, this.currentEmotion.glowColor);
+      TMP.v1.subVectors(this.group.position, this.lastPosition);
+      TMP.v1.y = 0;
+      const instantSpeed = TMP.v1.length() / Math.max(dt, 1e-3);
+      this.physics.speedScalar = damp2(this.physics.speedScalar, instantSpeed, 10, dt);
       this.lastPosition.copy(this.group.position);
+      const speed = this.physics.speedScalar;
+      const t = this.faceGen.animTime;
       if (this.nodes.haloRing && this.nodes.haloRing.visible) {
-        this.nodes.haloRing.rotation.z += delta * 1.5;
-        this.nodes.haloRing.position.y = 2.3 + Math.sin(this.faceGen.animTime * 4) * 0.08;
+        this.nodes.haloRing.rotation.z = (this.nodes.haloRing.rotation.z + dt * 1.5) % (Math.PI * 2);
+        this.nodes.haloRing.position.y = 2.3 + Math.sin(t * 4) * 0.08;
       }
-      if (this.nodes.powerCore && this.materials.neon) {
-        this.materials.neon.emissiveIntensity = 1.2 + Math.sin(this.faceGen.animTime * 3.5) * 0.25;
+      if (this.materials.neon) {
+        this.materials.neon.emissiveIntensity = 1.2 + Math.sin(t * 3.5) * 0.25;
       }
-      if (this.nodes.body) {
-        this.nodes.body.rotation.z = MathUtils.lerp(this.nodes.body.rotation.z, this.bankAngle, delta * 8);
+      if (this.nodes.batteryBar) {
+        const energyScale = MathUtils.clamp(this.energy / 100, 0.08, 1);
+        this.nodes.batteryBar.scale.x = damp2(this.nodes.batteryBar.scale.x, energyScale, 6, dt);
+      }
+      const isRollControlled = this.animController && this.animController.isBodyRollControlled();
+      if (this.nodes.body && !isRollControlled) {
+        this.nodes.body.rotation.z = damp2(this.nodes.body.rotation.z, this.bankAngle || 0, 9, dt);
+        const targetLean = MathUtils.clamp(speed * 0.014, 0, 0.12);
+        this.pitchLean = damp2(this.pitchLean, targetLean, 8, dt);
       }
       if (this.nodes.earL && this.nodes.earR) {
-        const earRestL = 0.25;
-        const earRestR = -0.25;
-        const earExcitement = this.speedScalar * 0.035 + (this.currentEmotion === EMOTIONS.EXCITED ? 0.2 : 0);
-        const earOsc = Math.sin(this.faceGen.animTime * 12) * earExcitement;
-        this.earSpringVelL += (earRestL + earOsc - this.nodes.earL.rotation.z) * 22 * delta;
-        this.earSpringVelL *= Math.exp(-9 * delta);
-        this.nodes.earL.rotation.z += this.earSpringVelL * delta;
-        this.earSpringVelR += (earRestR - earOsc - this.nodes.earR.rotation.z) * 22 * delta;
-        this.earSpringVelR *= Math.exp(-9 * delta);
-        this.nodes.earR.rotation.z += this.earSpringVelR * delta;
+        const anim = this.animController ? this.animController.currentAnim : "idle";
+        const earPoseControlled = anim === "wagTail" || anim === "headTilt" || anim === "shakeOff";
+        if (!earPoseControlled) {
+          const earRestL = 0.25;
+          const earRestR = -0.25;
+          const excitement = speed * 0.032 + (this.currentEmotion === EMOTIONS.EXCITED ? 0.18 : 0);
+          const earOsc = Math.sin(t * 11.5) * excitement;
+          this.earSpringVelL += (earRestL + earOsc - this.nodes.earL.rotation.z) * 24 * dt;
+          this.earSpringVelL *= Math.exp(-9 * dt);
+          this.nodes.earL.rotation.z += this.earSpringVelL * dt;
+          this.earSpringVelR += (earRestR - earOsc - this.nodes.earR.rotation.z) * 24 * dt;
+          this.earSpringVelR *= Math.exp(-9 * dt);
+          this.nodes.earR.rotation.z += this.earSpringVelR * dt;
+        }
+        const vy = this.physics.velocityY;
+        const targetEarX = MathUtils.clamp(-speed * 0.045 + vy * 0.03, -0.45, 0.38);
+        this.earSpringVelX += (targetEarX - this.earSpringX) * 28 * dt;
+        this.earSpringVelX *= Math.exp(-8 * dt);
+        this.earSpringX += this.earSpringVelX * dt;
+        if (anim !== "bark" && anim !== "idle") {
+          this.nodes.earL.rotation.x = damp2(this.nodes.earL.rotation.x, this.earSpringX, 12, dt);
+          this.nodes.earR.rotation.x = damp2(this.nodes.earR.rotation.x, this.earSpringX, 12, dt);
+        }
+      }
+      if (this.nodes.antenna) {
+        const vyDelta = this.physics.velocityY - this.lastVelocityY;
+        this.lastVelocityY = this.physics.velocityY;
+        const targetAntX = MathUtils.clamp(-speed * 0.05 + this.physics.velocityY * 0.035, -0.5, 0.45);
+        const targetAntZ = MathUtils.clamp((this.bankAngle || 0) * 1.6, -0.45, 0.45);
+        this.antennaSpringVelX += (targetAntX - this.antennaSpringX) * 38 * dt - vyDelta * 0.5;
+        this.antennaSpringVelX *= Math.exp(-6.5 * dt);
+        this.antennaSpringX += this.antennaSpringVelX * dt;
+        this.antennaSpringVelZ += (targetAntZ - this.antennaSpringZ) * 38 * dt;
+        this.antennaSpringVelZ *= Math.exp(-6.5 * dt);
+        this.antennaSpringZ += this.antennaSpringVelZ * dt;
+        this.nodes.antenna.rotation.x = this.antennaSpringX + Math.sin(t * 3.8) * 0.04;
+        this.nodes.antenna.rotation.z = this.antennaSpringZ;
+      }
+      if (this.nodes.medalPivot) {
+        const targetMedal = MathUtils.clamp(-speed * 0.055, -0.45, 0.2);
+        this.medalVel += (targetMedal - this.medalSwing) * 30 * dt;
+        this.medalVel *= Math.exp(-5 * dt);
+        this.medalSwing += this.medalVel * dt;
+        this.nodes.medalPivot.rotation.x = this.medalSwing + Math.sin(t * 7) * Math.min(0.12, speed * 0.02);
+      }
+      if (this.nodes.tail) {
+        const targetTailLag = MathUtils.clamp(speed * 0.035, 0, 0.28);
+        this.tailSpringVel += (targetTailLag - this.tailSpringAngle) * 26 * dt;
+        this.tailSpringVel *= Math.exp(-7 * dt);
+        this.tailSpringAngle += this.tailSpringVel * dt;
+        if (this.tailHelicopterTimer > 0) {
+          this.tailHelicopterTimer = Math.max(0, this.tailHelicopterTimer - dt);
+          this.nodes.tail.rotation.z = (this.nodes.tail.rotation.z + dt * 24) % (Math.PI * 2);
+        }
       }
       if (this.nodes.turboFlames) {
-        const isDashing = this.speedScalar > 5.2;
-        this.nodes.turboFlames.forEach((flame) => {
+        const isDashing = speed > 4.6;
+        for (let i = 0; i < this.nodes.turboFlames.length; i++) {
+          const flame = this.nodes.turboFlames[i];
           flame.visible = isDashing;
           if (isDashing) {
-            const s = 0.85 + Math.random() * 0.45;
-            flame.scale.set(s, s * (1.25 + Math.random() * 0.4), s);
+            const s = 0.85 + Math.sin(t * 38 + i) * 0.25;
+            flame.scale.set(s, s * (1.25 + Math.cos(t * 42) * 0.25), s);
           }
-        });
+        }
       }
       if (this.nodes.wingL && this.nodes.wingR) {
-        const wingFlap = Math.sin(this.faceGen.animTime * 6.5) * 0.28;
+        const flapFreq = 6.5 + speed * 0.6;
+        const wingFlap = Math.sin(t * flapFreq) * (0.26 + Math.min(0.18, speed * 0.03));
         this.nodes.wingL.rotation.y = 0.25 + wingFlap;
         this.nodes.wingR.rotation.y = -0.25 - wingFlap;
       }
       if (this.nodes.tailPropeller) {
-        this.nodes.tailPropeller.rotation.z += delta * (9 + this.speedScalar * 4);
-      }
-      if (this.tailHelicopterTimer > 0) {
-        this.tailHelicopterTimer -= delta;
-        if (this.nodes.tail) {
-          this.nodes.tail.rotation.z += delta * 28;
-        }
+        this.nodes.tailPropeller.rotation.z = (this.nodes.tailPropeller.rotation.z + dt * (9 + speed * 4)) % (Math.PI * 2);
       }
       if (this.hasTarget && this.nodes.neck) {
-        const localTarget = this.lookTarget.clone();
-        this.group.worldToLocal(localTarget);
-        const angleY = Math.atan2(localTarget.x, localTarget.z);
-        const clampedY = MathUtils.clamp(angleY, -0.85, 0.85);
-        this.nodes.neck.rotation.y = MathUtils.lerp(this.nodes.neck.rotation.y, clampedY, delta * 5);
-        const angleX = -Math.atan2(localTarget.y - 1.2, localTarget.z);
-        const clampedX = MathUtils.clamp(angleX, -0.4, 0.4);
-        this.nodes.neck.rotation.x = MathUtils.lerp(this.nodes.neck.rotation.x, clampedX, delta * 5);
-      }
-    }
-  };
-
-  // public/js/world.js
-  var WorldManager = class {
-    constructor(scene, onGoalCallback = null, onActivityCallback = null) {
-      this.scene = scene;
-      this.onGoal = onGoalCallback;
-      this.onActivity = onActivityCallback;
-      this.colliders = [];
-      this.interactiveObjects = [];
-      this.balls = [];
-      this.snacks = [];
-      this.pointsOfInterest = [];
-      this.waterTime = 0;
-      this.carouselAngle = 0;
-      this.discoPartyActive = false;
-      this.discoTimer = 0;
-      this.goalScore = 0;
-      this.targetScore = 0;
-      this.onTargetHit = null;
-      this.solidObstacles = [];
-      this.spatialGrid = /* @__PURE__ */ new Map();
-      this.gridCellSize = 20;
-      this.elevatedSurfaces = [];
-      this.ballPit = null;
-      this.ballPitBalls = [];
-      this.slide = null;
-      this.obstacleCourse = null;
-      this.targetBoard = null;
-      this.pinata = null;
-      this.clouds = [];
-      this.ambientParticles = null;
-      this.textures = {
-        grass: this.generateGrassTexture(),
-        soccer: this.generateSoccerTexture(),
-        wood: this.generateWoodTexture(),
-        tartan: this.generateTartanTexture(),
-        water: this.generateWaterTexture(),
-        cobblestone: this.generateCobblestoneTexture()
-      };
-      this.buildDetailedTerrain();
-      this.buildCobblestonePaths();
-      this.buildDetailedLake();
-      this.buildWoodenBridge(new Vector3(-46, 0, -48), 0.65);
-      this.buildDetailedPlayground();
-      this.buildWaterFountain(new Vector3(12, 0, 10));
-      this.buildCyberSeesaw(new Vector3(48, 0, 32));
-      this.buildCyberBallPit(new Vector3(-32, 0, 48));
-      this.buildAgilitySlide(new Vector3(-18, 0, -32));
-      this.buildAgilityObstacleCourse(new Vector3(22, 0, -50));
-      this.buildCyberTargetToss(new Vector3(76, 0, 18));
-      this.buildCyberPinata(new Vector3(-42, 0, 14));
-      this.buildSlalomRings(new Vector3(-6, 0, -18));
-      this.buildTreasureSpots();
-      this.buildLowPolyClouds();
-      this.buildAmbientParticles();
-      this.buildDetailedNature();
-      this.buildPointsOfInterest();
-    }
-    getGridKey(x, z) {
-      const cx = Math.floor(x / this.gridCellSize);
-      const cz = Math.floor(z / this.gridCellSize);
-      return `${cx}_${cz}`;
-    }
-    // Registers an obstacle across ALL overlapping spatial grid cells (supports Cylinder & Rotated OBB Box)
-    registerObstacle(obs) {
-      if (!obs) return;
-      obs.shape = obs.shape || "cylinder";
-      obs.rotY = obs.rotY || 0;
-      const baseTerrainY = this.getTerrainHeightOnly(obs.x || 0, obs.z || 0);
-      if (obs.yMin === void 0) {
-        obs.yMin = baseTerrainY - 1.5;
-      }
-      if (obs.yMax === void 0) {
-        obs.yMax = obs.yMin + (obs.height || 4) + 1.5;
-      }
-      this.solidObstacles.push(obs);
-      let extentX = obs.radius || 1;
-      let extentZ = obs.radius || 1;
-      if (obs.shape === "box") {
-        const cos = Math.abs(Math.cos(obs.rotY));
-        const sin = Math.abs(Math.sin(obs.rotY));
-        const hw = obs.halfW || 1;
-        const hd = obs.halfD || 1;
-        extentX = hw * cos + hd * sin;
-        extentZ = hw * sin + hd * cos;
-      }
-      const minCX = Math.floor(((obs.x || 0) - extentX) / this.gridCellSize);
-      const maxCX = Math.floor(((obs.x || 0) + extentX) / this.gridCellSize);
-      const minCZ = Math.floor(((obs.z || 0) - extentZ) / this.gridCellSize);
-      const maxCZ = Math.floor(((obs.z || 0) + extentZ) / this.gridCellSize);
-      for (let cx = minCX; cx <= maxCX; cx++) {
-        for (let cz = minCZ; cz <= maxCZ; cz++) {
-          const cellKey = `${cx}_${cz}`;
-          if (!this.spatialGrid.has(cellKey)) {
-            this.spatialGrid.set(cellKey, []);
-          }
-          this.spatialGrid.get(cellKey).push(obs);
-        }
-      }
-    }
-    getNearObstacles(x, z) {
-      const cx = Math.floor(x / this.gridCellSize);
-      const cz = Math.floor(z / this.gridCellSize);
-      const seen = /* @__PURE__ */ new Set();
-      const result = [];
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          const key = `${cx + dx}_${cz + dz}`;
-          const cell = this.spatialGrid.get(key);
-          if (cell) {
-            for (let i = 0; i < cell.length; i++) {
-              const obs = cell[i];
-              if (!seen.has(obs)) {
-                seen.add(obs);
-                result.push(obs);
-              }
-            }
+        if (this.lookTimeout > 0) {
+          this.lookTimeout -= dt;
+          if (this.lookTimeout <= 0) {
+            this.hasTarget = false;
           }
         }
-      }
-      return result.length > 0 ? result : this.solidObstacles;
-    }
-    logActivity(msg) {
-      if (this.onActivity) this.onActivity(msg);
-    }
-    // --- PROCEDURAL TEXTURES GENERATORS ---
-    generateGrassTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext("2d");
-      const grad = ctx.createLinearGradient(0, 0, 512, 512);
-      grad.addColorStop(0, "#388e3c");
-      grad.addColorStop(0.5, "#43a047");
-      grad.addColorStop(1, "#2e7d32");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 512, 512);
-      ctx.fillStyle = "rgba(102, 187, 106, 0.45)";
-      for (let i = 0; i < 4e3; i++) {
-        const x = Math.random() * 512;
-        const y = Math.random() * 512;
-        const len = 3 + Math.random() * 8;
-        ctx.fillRect(x, y, 1.5, len);
-      }
-      ctx.fillStyle = "rgba(27, 94, 32, 0.4)";
-      for (let i = 0; i < 2500; i++) {
-        const x = Math.random() * 512;
-        const y = Math.random() * 512;
-        ctx.fillRect(x, y, 2, 4);
-      }
-      const tex = new CanvasTexture(canvas);
-      tex.wrapS = RepeatWrapping;
-      tex.wrapT = RepeatWrapping;
-      tex.repeat.set(40, 40);
-      return tex;
-    }
-    generateSoccerTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#f8fafc";
-      ctx.fillRect(0, 0, 512, 512);
-      ctx.fillStyle = "#0f172a";
-      const pentagons = [
-        [256, 256],
-        [128, 128],
-        [384, 128],
-        [128, 384],
-        [384, 384],
-        [256, 60],
-        [256, 452],
-        [60, 256],
-        [452, 256]
-      ];
-      pentagons.forEach(([cx, cy]) => {
-        ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-          const a = i / 5 * Math.PI * 2 - Math.PI / 2;
-          const x = cx + Math.cos(a) * 44;
-          const y = cy + Math.sin(a) * 44;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = "#64748b";
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      });
-      return new CanvasTexture(canvas);
-    }
-    generateWoodTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#6d4c41";
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.strokeStyle = "#4e342e";
-      ctx.lineWidth = 2;
-      for (let y = 0; y < 256; y += 6) {
-        ctx.beginPath();
-        ctx.moveTo(0, y + (Math.random() - 0.5) * 4);
-        ctx.bezierCurveTo(
-          80,
-          y + (Math.random() - 0.5) * 8,
-          180,
-          y + (Math.random() - 0.5) * 8,
-          256,
-          y + (Math.random() - 0.5) * 4
-        );
-        ctx.stroke();
-      }
-      const tex = new CanvasTexture(canvas);
-      tex.wrapS = RepeatWrapping;
-      tex.wrapT = RepeatWrapping;
-      tex.repeat.set(2, 6);
-      return tex;
-    }
-    generateTartanTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.fillStyle = "#0f172a";
-      for (let x = 0; x < 256; x += 32) {
-        for (let y = 0; y < 256; y += 32) {
-          if ((x + y) % 64 === 0) {
-            ctx.fillRect(x, y, 32, 32);
-          }
+        if (this.hasTarget) {
+          TMP.v1.copy(this.lookTarget);
+          this.group.worldToLocal(TMP.v1);
+          const angleY = Math.atan2(TMP.v1.x, TMP.v1.z);
+          const clampedY = MathUtils.clamp(angleY, -0.85, 0.85);
+          this.nodes.neck.rotation.y = damp2(this.nodes.neck.rotation.y, clampedY, 6, dt);
+          const horizDist = Math.max(0.4, Math.hypot(TMP.v1.x, TMP.v1.z));
+          const angleX = -Math.atan2(TMP.v1.y - 1.33, horizDist);
+          const clampedX = MathUtils.clamp(angleX, -0.4, 0.4);
+          this.nodes.neck.rotation.x = damp2(this.nodes.neck.rotation.x, clampedX, 6, dt);
         }
       }
-      const tex = new CanvasTexture(canvas);
-      tex.wrapS = RepeatWrapping;
-      tex.wrapT = RepeatWrapping;
-      tex.repeat.set(12, 12);
-      return tex;
     }
-    generateWaterTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#0284c7";
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
-      ctx.lineWidth = 4;
-      for (let i = 0; i < 20; i++) {
-        ctx.beginPath();
-        ctx.arc(Math.random() * 256, Math.random() * 256, 15 + Math.random() * 35, 0, Math.PI * 2);
-        ctx.stroke();
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      if (this.faceGen) {
+        this.faceGen.dispose();
       }
-      const tex = new CanvasTexture(canvas);
-      tex.wrapS = RepeatWrapping;
-      tex.wrapT = RepeatWrapping;
-      tex.repeat.set(8, 8);
-      return tex;
-    }
-    generateCobblestoneTexture() {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(0, 0, 512, 512);
-      const stoneColors = ["#64748b", "#475569", "#57534e", "#78716c", "#6b7280", "#94a3b8", "#3f3f46"];
-      const rows = 14;
-      const cols = 14;
-      const stepX = 512 / cols;
-      const stepY = 512 / rows;
-      for (let r = 0; r < rows; r++) {
-        const offsetX = r % 2 * (stepX * 0.5);
-        for (let c = -1; c <= cols; c++) {
-          const x = c * stepX + offsetX + (Math.random() - 0.5) * 4;
-          const y = r * stepY + (Math.random() - 0.5) * 4;
-          const w = stepX - 5 + (Math.random() - 0.5) * 3;
-          const h = stepY - 5 + (Math.random() - 0.5) * 3;
-          ctx.fillStyle = stoneColors[Math.floor(Math.random() * stoneColors.length)];
-          ctx.beginPath();
-          if (ctx.roundRect) ctx.roundRect(x, y, w, h, 6);
-          else ctx.rect(x, y, w, h);
-          ctx.fill();
-          ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
-          ctx.fillRect(x + 2, y + 2, w - 4, 3);
-          ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
-          ctx.fillRect(x + 2, y + h - 5, w - 4, 3);
+      if (this.skeleton) {
+        this.skeleton.dispose();
+        this.skeleton = null;
+      }
+      for (let i = 0; i < this._ownedDisposables.length; i++) {
+        const res = this._ownedDisposables[i];
+        if (res && typeof res.dispose === "function") {
+          res.dispose();
         }
       }
-      const tex = new CanvasTexture(canvas);
-      tex.wrapS = RepeatWrapping;
-      tex.wrapT = RepeatWrapping;
-      tex.repeat.set(10, 10);
-      return tex;
-    }
-    // --- ENVIRONMENT BUILDING ---
-    buildDetailedTerrain() {
-      const terrainGeo = new PlaneGeometry(600, 600, 140, 140);
-      terrainGeo.rotateX(-Math.PI / 2);
-      const pos = terrainGeo.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const z = pos.getZ(i);
-        pos.setY(i, this.getTerrainHeightOnly(x, z));
-      }
-      terrainGeo.computeVertexNormals();
-      const grassMat = new MeshStandardMaterial({
-        map: this.textures.grass,
-        roughness: 0.75,
-        metalness: 0.05
-      });
-      const terrain = new Mesh(terrainGeo, grassMat);
-      terrain.receiveShadow = true;
-      this.scene.add(terrain);
-      this.terrainMesh = terrain;
-      const mtnGeo = new CylinderGeometry(340, 360, 48, 32, 1, true);
-      const mtnMat = new MeshStandardMaterial({
-        color: 1793568,
-        roughness: 0.9,
-        side: BackSide
-      });
-      const mountains = new Mesh(mtnGeo, mtnMat);
-      mountains.position.y = 18;
-      this.scene.add(mountains);
-    }
-    buildCobblestonePaths() {
-      const baseH = this.getTerrainHeightOnly(0, 0);
-      const plazaGeo = new CylinderGeometry(18, 18.2, 0.14, 32);
-      const plazaMat = new MeshStandardMaterial({
-        map: this.textures.cobblestone,
-        roughness: 0.72,
-        metalness: 0.08
-      });
-      const plaza = new Mesh(plazaGeo, plazaMat);
-      plaza.position.set(0, baseH + 0.07, 0);
-      plaza.receiveShadow = true;
-      this.scene.add(plaza);
-      const borderMat = new MeshStandardMaterial({ color: 4674921, roughness: 0.6 });
-      const border = new Mesh(new TorusGeometry(18.2, 0.25, 12, 32), borderMat);
-      border.rotation.x = Math.PI / 2;
-      border.position.set(0, baseH + 0.12, 0);
-      this.scene.add(border);
-      const starMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.85 });
-      const star = new Mesh(new CylinderGeometry(2.4, 2.4, 0.18, 8), starMat);
-      star.position.set(0, baseH + 0.1, 0);
-      this.scene.add(star);
-      this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(30, 0, 26), 4.2);
-      this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(-36, 0, -68), 4);
-      this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(56, 0, 44), 3.8);
-      this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(-44, 0, -46), 3.6);
-      this.createPathRibbon(new Vector3(0, 0, 0), new Vector3(12, 0, 10), 3.8);
-    }
-    createPathRibbon(start, end, width = 3.8, segments = 28) {
-      const geom = new BufferGeometry();
-      const positions = [];
-      const uvs = [];
-      const indices = [];
-      const dir = new Vector3().subVectors(end, start);
-      dir.y = 0;
-      const len = dir.length();
-      if (len < 0.1) return;
-      dir.normalize();
-      const normal = new Vector3(-dir.z, 0, dir.x).multiplyScalar(width * 0.5);
-      for (let i = 0; i <= segments; i++) {
-        const t = i / segments;
-        const center = new Vector3().lerpVectors(start, end, t);
-        const curveDev = Math.sin(t * Math.PI) * 1.8;
-        center.x += -dir.z * curveDev;
-        center.z += dir.x * curveDev;
-        const pL = new Vector3().addVectors(center, normal);
-        const pR = new Vector3().subVectors(center, normal);
-        pL.y = this.getTerrainHeightOnly(pL.x, pL.z) + 0.08;
-        pR.y = this.getTerrainHeightOnly(pR.x, pR.z) + 0.08;
-        positions.push(pL.x, pL.y, pL.z);
-        positions.push(pR.x, pR.y, pR.z);
-        const vCoord = t * (len / 3);
-        uvs.push(0, vCoord);
-        uvs.push(1, vCoord);
-        if (i < segments) {
-          const base = i * 2;
-          indices.push(base, base + 1, base + 2);
-          indices.push(base + 1, base + 3, base + 2);
-        }
-      }
-      geom.setAttribute("position", new Float32BufferAttribute(positions, 3));
-      geom.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-      geom.setIndex(indices);
-      geom.computeVertexNormals();
-      const mat = new MeshStandardMaterial({
-        map: this.textures.cobblestone,
-        roughness: 0.75,
-        metalness: 0.08,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
-      });
-      const mesh = new Mesh(geom, mat);
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-    }
-    // FIXED: Arched Wooden Bridge with curved handrails, side colliders & walkable surface height
-    buildWoodenBridge(pos, rotY = 0, span = 18, width = 4.4) {
-      const bridgeGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      bridgeGroup.position.set(pos.x, baseY, pos.z);
-      bridgeGroup.rotation.y = rotY;
-      const archSegments = 18;
-      const archPeak = 2.6;
-      const woodMat = new MeshStandardMaterial({ map: this.textures.wood, roughness: 0.75 });
-      const railMat = new MeshStandardMaterial({ color: 4073251, roughness: 0.8 });
-      const lanternMat = new MeshStandardMaterial({ color: 16771584, emissive: 16771584, emissiveIntensity: 1.2 });
-      const postHeights = [];
-      for (let i = 0; i < archSegments; i++) {
-        const t = i / (archSegments - 1);
-        const z = (t - 0.5) * span;
-        const archHeight = Math.sin(t * Math.PI) * archPeak;
-        const slopeAngle = -Math.cos(t * Math.PI) * (archPeak * Math.PI / span);
-        const plank = new Mesh(
-          new BoxGeometry(width, 0.22, span / archSegments * 1.05),
-          woodMat
-        );
-        plank.position.set(0, archHeight + 0.11, z);
-        plank.rotation.x = slopeAngle;
-        plank.castShadow = true;
-        plank.receiveShadow = true;
-        bridgeGroup.add(plank);
-        postHeights.push({ z, archHeight });
-        if (i % 2 === 0 || i === archSegments - 1) {
-          [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach((x) => {
-            const post = new Mesh(new CylinderGeometry(0.11, 0.12, 1.35, 8), railMat);
-            post.position.set(x, archHeight + 0.75, z);
-            post.castShadow = true;
-            bridgeGroup.add(post);
-          });
-        }
-      }
-      [-width * 0.5 + 0.18, width * 0.5 - 0.18].forEach((x) => {
-        for (let i = 0; i < postHeights.length - 1; i++) {
-          const p1 = postHeights[i];
-          const p2 = postHeights[i + 1];
-          const dz = p2.z - p1.z;
-          const dy = p2.archHeight - p1.archHeight;
-          const segLen = Math.hypot(dz, dy);
-          const angle = -Math.atan2(dy, dz);
-          const topRail = new Mesh(new BoxGeometry(0.16, 0.14, segLen + 0.08), railMat);
-          topRail.position.set(x, (p1.archHeight + p2.archHeight) * 0.5 + 1.38, (p1.z + p2.z) * 0.5);
-          topRail.rotation.x = angle;
-          topRail.castShadow = true;
-          bridgeGroup.add(topRail);
-          const midRail = new Mesh(new BoxGeometry(0.12, 0.1, segLen + 0.05), railMat);
-          midRail.position.set(x, (p1.archHeight + p2.archHeight) * 0.5 + 0.75, (p1.z + p2.z) * 0.5);
-          midRail.rotation.x = angle;
-          bridgeGroup.add(midRail);
-        }
-        [-span * 0.48, span * 0.48].forEach((z) => {
-          const lantern = new Mesh(new BoxGeometry(0.34, 0.44, 0.34), lanternMat);
-          lantern.position.set(x, 1.65, z);
-          bridgeGroup.add(lantern);
-        });
-        const railWorld = new Vector3(x, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), rotY).add(pos);
-        this.registerObstacle({
-          type: "bridge_rail",
-          shape: "box",
-          x: railWorld.x,
-          z: railWorld.z,
-          halfW: 0.22,
-          halfD: span * 0.48,
-          rotY,
-          yMin: baseY - 0.5,
-          yMax: baseY + archPeak + 2
-        });
-      });
-      this.scene.add(bridgeGroup);
-      this.woodenBridge = { position: pos, baseY, rotY, span, width, archPeak };
-      this.elevatedSurfaces.push({
-        type: "bridge",
-        x: pos.x,
-        z: pos.z,
-        rotY,
-        halfW: width * 0.5,
-        halfD: span * 0.5,
-        getHeight: (localX, localZ) => {
-          const t = localZ / span + 0.5;
-          if (t < 0 || t > 1) return null;
-          return baseY + Math.sin(t * Math.PI) * archPeak + 0.22;
-        }
-      });
-    }
-    buildWaterFountain(pos) {
-      const fGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      fGroup.position.set(pos.x, baseY, pos.z);
-      const bowlMat = new MeshStandardMaterial({
-        color: 9741240,
-        metalness: 0.85,
-        roughness: 0.2
-      });
-      const bowl = new Mesh(new CylinderGeometry(1.6, 1.3, 0.55, 32), bowlMat);
-      bowl.position.y = 0.28;
-      bowl.castShadow = true;
-      fGroup.add(bowl);
-      const rimMat = new MeshStandardMaterial({
-        color: 58879,
-        emissive: 58879,
-        emissiveIntensity: 0.95
-      });
-      const rim = new Mesh(new TorusGeometry(1.62, 0.1, 16, 32), rimMat);
-      rim.rotation.x = Math.PI / 2;
-      rim.position.y = 0.56;
-      fGroup.add(rim);
-      const waterMat = new MeshStandardMaterial({
-        color: 45311,
-        emissive: 165063,
-        emissiveIntensity: 0.4,
-        roughness: 0.05,
-        metalness: 0.9,
-        transparent: true,
-        opacity: 0.88
-      });
-      const water = new Mesh(new CircleGeometry(1.5, 32), waterMat);
-      water.rotation.x = -Math.PI / 2;
-      water.position.y = 0.5;
-      fGroup.add(water);
-      this.fountainWater = water;
-      const nozzleMat = new MeshStandardMaterial({ color: 58879, metalness: 0.7, roughness: 0.2 });
-      const nozzle = new Mesh(new CylinderGeometry(0.18, 0.24, 0.5, 16), nozzleMat);
-      nozzle.position.y = 0.65;
-      fGroup.add(nozzle);
-      const jetGeo = new ConeGeometry(0.4, 1.2, 16);
-      const jetMat = new MeshStandardMaterial({
-        color: 14743546,
-        emissive: 8445674,
-        emissiveIntensity: 0.6,
-        transparent: true,
-        opacity: 0.75
-      });
-      const jet = new Mesh(jetGeo, jetMat);
-      jet.position.y = 1.3;
-      fGroup.add(jet);
-      this.fountainJet = jet;
-      const signPost = new Mesh(new CylinderGeometry(0.05, 0.05, 0.45, 8), bowlMat);
-      signPost.position.set(0, 0.72, 1.52);
-      fGroup.add(signPost);
-      const signMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 1 });
-      const sign2 = new Mesh(new BoxGeometry(0.85, 0.26, 0.1), signMat);
-      sign2.position.set(0, 0.96, 1.52);
-      fGroup.add(sign2);
-      this.scene.add(fGroup);
-      this.waterFountain = { position: pos, radius: 1.6 };
-      this.registerObstacle({ type: "water_fountain", x: pos.x, z: pos.z, radius: 1.65, height: 2 });
-    }
-    buildCyberSeesaw(pos) {
-      const seeGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      seeGroup.position.set(pos.x, baseY, pos.z);
-      const baseMat = new MeshStandardMaterial({ color: 1976635, metalness: 0.75, roughness: 0.3 });
-      [-0.75, 0.75].forEach((zOff) => {
-        const stand = new Mesh(new ConeGeometry(0.85, 1.55, 4), baseMat);
-        stand.rotation.y = Math.PI / 4;
-        stand.position.set(0, 0.77, zOff);
-        stand.castShadow = true;
-        seeGroup.add(stand);
-      });
-      const axleMat = new MeshStandardMaterial({ color: 9741240, metalness: 0.9 });
-      const axle = new Mesh(new CylinderGeometry(0.14, 0.14, 2, 16), axleMat);
-      axle.rotation.x = Math.PI / 2;
-      axle.position.y = 1.5;
-      seeGroup.add(axle);
-      const plankPivot = new Group();
-      plankPivot.position.y = 1.5;
-      seeGroup.add(plankPivot);
-      const plankMat = new MeshStandardMaterial({
-        color: 3359061,
-        roughness: 0.4,
-        metalness: 0.3
-      });
-      const plank = new Mesh(new BoxGeometry(10, 0.18, 1.45), plankMat);
-      plank.castShadow = true;
-      plank.receiveShadow = true;
-      plankPivot.add(plank);
-      [-4.3, 4.3].forEach((hx, idx) => {
-        const handleColor = idx === 0 ? 58879 : 16728193;
-        const hMat = new MeshStandardMaterial({ color: handleColor, emissive: handleColor, emissiveIntensity: 0.85 });
-        const handle = new Mesh(new TorusGeometry(0.35, 0.06, 12, 24), hMat);
-        handle.rotation.y = Math.PI / 2;
-        handle.position.set(hx * 0.88, 0.38, 0);
-        plankPivot.add(handle);
-        const seatPad = new Mesh(new BoxGeometry(1.25, 0.08, 1.25), hMat);
-        seatPad.position.set(hx, 0.12, 0);
-        plankPivot.add(seatPad);
-      });
-      this.scene.add(seeGroup);
-      this.seesaw = {
-        group: seeGroup,
-        pivot: plankPivot,
-        position: pos,
-        currentTilt: 0,
-        targetTilt: 0
-      };
-      this.registerObstacle({ type: "seesaw_fulcrum", x: pos.x, z: pos.z, radius: 1, height: 1.8 });
-    }
-    buildDetailedLake() {
-      const lakeRadius = 60;
-      const waterGeo = new CircleGeometry(lakeRadius, 64);
-      waterGeo.rotateX(-Math.PI / 2);
-      const waterMat = new MeshStandardMaterial({
-        map: this.textures.water,
-        color: 165063,
-        roughness: 0.08,
-        metalness: 0.85,
-        transparent: true,
-        opacity: 0.86
-      });
-      const water = new Mesh(waterGeo, waterMat);
-      water.position.set(-80, -0.15, -80);
-      this.scene.add(water);
-      this.waterMesh = water;
-      const rimGeo = new RingGeometry(lakeRadius - 1.5, lakeRadius + 7, 64);
-      rimGeo.rotateX(-Math.PI / 2);
-      const rimMat = new MeshStandardMaterial({ color: 14142664, roughness: 0.85 });
-      const rim = new Mesh(rimGeo, rimMat);
-      rim.position.set(-80, 0.06, -80);
-      this.scene.add(rim);
-      const rockMat = new MeshStandardMaterial({ color: 6583435, roughness: 0.7 });
-      for (let i = 0; i < 35; i++) {
-        const angle = i / 35 * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
-        if (Math.abs(angle - 0) < 0.25) continue;
-        const rad = lakeRadius + (Math.random() - 0.5) * 5;
-        const rx = -80 + Math.cos(angle) * rad;
-        const rz = -80 + Math.sin(angle) * rad;
-        const rockGeo = new DodecahedronGeometry(0.7 + Math.random() * 0.8, 1);
-        const rock = new Mesh(rockGeo, rockMat);
-        rock.position.set(rx, this.getTerrainHeightOnly(rx, rz) + 0.3, rz);
-        rock.rotation.set(Math.random(), Math.random(), Math.random());
-        rock.castShadow = true;
-        this.scene.add(rock);
-        this.registerObstacle({ type: "rock", x: rx, z: rz, radius: 1.35, height: 1.8 });
-      }
-      const pierPos = new Vector3(-44, 0.35, -80);
-      const pierRotY = 0.28;
-      const pierGroup = new Group();
-      pierGroup.position.copy(pierPos);
-      pierGroup.rotation.y = pierRotY;
-      const deckGeo = new BoxGeometry(6, 0.35, 24);
-      const deckMat = new MeshStandardMaterial({ map: this.textures.wood, roughness: 0.7 });
-      const deck = new Mesh(deckGeo, deckMat);
-      deck.castShadow = true;
-      deck.receiveShadow = true;
-      pierGroup.add(deck);
-      const postMat = new MeshStandardMaterial({ color: 5125166, roughness: 0.8 });
-      const lanternMat = new MeshStandardMaterial({ color: 16771899, emissive: 16771899, emissiveIntensity: 1 });
-      [-2.8, 2.8].forEach((x) => {
-        [-10, -3.3, 3.3, 10].forEach((z) => {
-          const post = new Mesh(new CylinderGeometry(0.18, 0.18, 4.2, 8), postMat);
-          post.position.set(x, -0.3, z);
-          post.castShadow = true;
-          pierGroup.add(post);
-          const lantern = new Mesh(new BoxGeometry(0.3, 0.35, 0.3), lanternMat);
-          lantern.position.set(x, 1.95, z);
-          pierGroup.add(lantern);
-          const worldPost = new Vector3(x, 0, z).applyAxisAngle(new Vector3(0, 1, 0), pierRotY).add(pierPos);
-          this.registerObstacle({
-            type: "pier_post",
-            x: worldPost.x,
-            z: worldPost.z,
-            radius: 0.32,
-            yMin: -2,
-            yMax: 2.5
-          });
-        });
-      });
-      this.scene.add(pierGroup);
-      this.elevatedSurfaces.push({
-        type: "pier",
-        x: pierPos.x,
-        z: pierPos.z,
-        rotY: pierRotY,
-        halfW: 3.1,
-        halfD: 12.1,
-        getHeight: () => pierPos.y + 0.18
-      });
-      this.buildToyBoat(new Vector3(-80, 0, -65));
-    }
-    // IMPROVED: Detailed Cyber Speedboat with Bow, Cabin, Windshield & Motor
-    buildToyBoat(pos) {
-      const boatGroup = new Group();
-      boatGroup.position.copy(pos);
-      const hullMat = new MeshStandardMaterial({ color: 16717636, roughness: 0.25, metalness: 0.3 });
-      const deckMat = new MeshStandardMaterial({ color: 16317180, roughness: 0.25 });
-      const glassMat = new MeshStandardMaterial({
-        color: 58879,
-        emissive: 45311,
-        emissiveIntensity: 0.35,
-        roughness: 0.1,
-        metalness: 0.8,
-        transparent: true,
-        opacity: 0.78
-      });
-      const darkMat = new MeshStandardMaterial({ color: 1976635, metalness: 0.8, roughness: 0.3 });
-      const hull = new Mesh(new BoxGeometry(2.5, 0.75, 3.6), hullMat);
-      hull.position.set(0, 0.22, -0.3);
-      hull.castShadow = true;
-      boatGroup.add(hull);
-      const bowGeo = new ConeGeometry(1.77, 1.8, 4);
-      bowGeo.rotateX(Math.PI / 2);
-      bowGeo.rotateZ(Math.PI / 4);
-      const bow = new Mesh(bowGeo, hullMat);
-      bow.scale.set(1, 0.42, 1);
-      bow.position.set(0, 0.22, 2.4);
-      bow.castShadow = true;
-      boatGroup.add(bow);
-      const upperDeck = new Mesh(new BoxGeometry(2.3, 0.15, 3.4), deckMat);
-      upperDeck.position.set(0, 0.62, -0.3);
-      boatGroup.add(upperDeck);
-      const cabin = new Mesh(new BoxGeometry(1.75, 0.75, 1.8), deckMat);
-      cabin.position.set(0, 1, -0.4);
-      cabin.castShadow = true;
-      boatGroup.add(cabin);
-      const windshield = new Mesh(new BoxGeometry(1.68, 0.55, 0.85), glassMat);
-      windshield.position.set(0, 0.98, 0.6);
-      windshield.rotation.x = -0.45;
-      boatGroup.add(windshield);
-      const motor = new Mesh(new BoxGeometry(0.55, 0.75, 0.6), darkMat);
-      motor.position.set(0, 0.45, -2.25);
-      boatGroup.add(motor);
-      const antenna = new Mesh(
-        new CylinderGeometry(0.035, 0.035, 1.3, 8),
-        new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.9 })
-      );
-      antenna.position.set(0, 1.9, -0.6);
-      boatGroup.add(antenna);
-      this.scene.add(boatGroup);
-      this.toyBoat = boatGroup;
-      this.registerObstacle({
-        type: "toy_boat",
-        x: pos.x,
-        z: pos.z,
-        radius: 2.3,
-        yMin: -1.5,
-        yMax: 2.2
-      });
-    }
-    buildDetailedPlayground() {
-      const playCenter = new Vector3(50, 0, 40);
-      const floorGeo = new CylinderGeometry(42, 42, 0.12, 48);
-      const floorMat = new MeshStandardMaterial({ map: this.textures.tartan, roughness: 0.8 });
-      const floor = new Mesh(floorGeo, floorMat);
-      floor.position.copy(playCenter);
-      floor.position.y = this.getTerrainHeightOnly(50, 40) + 0.06;
-      floor.receiveShadow = true;
-      this.scene.add(floor);
-      this.buildCyberDoghouse(new Vector3(72, 0, 52));
-      this.buildTrampoline(new Vector3(38, 0, 22));
-      this.buildCarousel(new Vector3(62, 0, 26));
-      this.buildSoccerGoal(new Vector3(25, 0, 40));
-      this.buildDiscoPad(new Vector3(52, 0, 56));
-      const rampCenter = new Vector3(45, 0, 45);
-      const rampBaseY = this.getTerrainHeightOnly(rampCenter.x, rampCenter.z);
-      const rampLen = 12;
-      const rampWidth = 4.6;
-      const rampAngle = 0.22;
-      const rampMidY = Math.sin(rampAngle) * (rampLen * 0.5);
-      const rampTopY = Math.sin(rampAngle) * rampLen;
-      const rampGroup = new Group();
-      rampGroup.position.set(rampCenter.x, rampBaseY, rampCenter.z);
-      const rampSlope = new Group();
-      rampSlope.position.set(0, rampMidY, 0);
-      rampSlope.rotation.x = -rampAngle;
-      const rampMat = new MeshStandardMaterial({ color: 16750592, roughness: 0.45 });
-      const curbMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.6 });
-      const supportMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.8, roughness: 0.3 });
-      const rampMesh = new Mesh(new BoxGeometry(rampWidth, 0.28, rampLen), rampMat);
-      rampMesh.castShadow = true;
-      rampMesh.receiveShadow = true;
-      rampSlope.add(rampMesh);
-      [-rampWidth * 0.5 + 0.12, rampWidth * 0.5 - 0.12].forEach((cx) => {
-        const curb = new Mesh(new BoxGeometry(0.2, 0.28, rampLen), curbMat);
-        curb.position.set(cx, 0.2, 0);
-        rampSlope.add(curb);
-      });
-      for (let s = -5.2; s <= 5.2; s += 1.4) {
-        const strip = new Mesh(new BoxGeometry(rampWidth - 0.5, 0.08, 0.24), new MeshStandardMaterial({ color: 1976635 }));
-        strip.position.set(0, 0.16, s);
-        rampSlope.add(strip);
-      }
-      rampGroup.add(rampSlope);
-      [-rampWidth * 0.42, rampWidth * 0.42].forEach((px2) => {
-        [-rampLen * 0.42, 0].forEach((pz2) => {
-          const t = 0.5 - pz2 / rampLen;
-          const h = Math.max(0.3, t * rampTopY);
-          const pillar = new Mesh(new CylinderGeometry(0.14, 0.16, h, 10), supportMat);
-          pillar.position.set(px2, h * 0.5, pz2);
-          pillar.castShadow = true;
-          rampGroup.add(pillar);
-        });
-      });
-      this.scene.add(rampGroup);
-      this.elevatedSurfaces.push({
-        type: "ramp",
-        x: rampCenter.x,
-        z: rampCenter.z,
-        rotY: 0,
-        halfW: rampWidth * 0.5,
-        halfD: rampLen * 0.5,
-        getHeight: (localX, localZ) => {
-          const t = 0.5 - localZ / rampLen;
-          if (t < 0 || t > 1) return null;
-          return rampBaseY + t * rampTopY + 0.18;
-        }
-      });
-      this.agilityHoops = [];
-      const ringColors = [58879, 16728193, 7798531];
-      const standMat = new MeshStandardMaterial({ color: 3622735, metalness: 0.7, roughness: 0.3 });
-      [-10, 0, 10].forEach((offset, idx) => {
-        const hx = 36;
-        const hz = 26 + offset;
-        const groundY = this.getTerrainHeightOnly(hx, hz);
-        const hoopGroup = new Group();
-        hoopGroup.position.set(hx, groundY, hz);
-        hoopGroup.rotation.y = 0.3;
-        const color = ringColors[idx % ringColors.length];
-        const ringMat = new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.95 });
-        const hoopMesh = new Mesh(new TorusGeometry(1.75, 0.14, 16, 32), ringMat);
-        hoopMesh.position.y = 2.1;
-        hoopGroup.add(hoopMesh);
-        [-1.75, 1.75].forEach((lx) => {
-          const leg = new Mesh(new CylinderGeometry(0.09, 0.11, 2.1, 10), standMat);
-          leg.position.set(lx, 1.05, 0);
-          leg.castShadow = true;
-          hoopGroup.add(leg);
-        });
-        const baseBar = new Mesh(new BoxGeometry(3.8, 0.12, 0.45), standMat);
-        baseBar.position.y = 0.06;
-        hoopGroup.add(baseBar);
-        this.scene.add(hoopGroup);
-        this.agilityHoops.push({ mesh: hoopMesh, baseColor: color });
-      });
-      const tunnelPos = new Vector3(56, this.getTerrainHeightOnly(56, 24), 24);
-      const tunnelRotY = -0.55;
-      const tunnelGroup = new Group();
-      tunnelGroup.position.copy(tunnelPos);
-      tunnelGroup.rotation.y = tunnelRotY;
-      const tunnelGeo = new CylinderGeometry(2.2, 2.2, 10, 24, 1, true, 0, Math.PI);
-      tunnelGeo.rotateZ(Math.PI / 2);
-      tunnelGeo.rotateY(Math.PI / 2);
-      const tunnelMat = new MeshStandardMaterial({
-        color: 8146431,
-        roughness: 0.4,
-        metalness: 0.2,
-        side: DoubleSide
-      });
-      const tunnelMesh = new Mesh(tunnelGeo, tunnelMat);
-      tunnelMesh.castShadow = true;
-      tunnelMesh.receiveShadow = true;
-      tunnelGroup.add(tunnelMesh);
-      const archRibMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.85 });
-      [-4.9, 0, 4.9].forEach((tz) => {
-        const rib = new Mesh(new TorusGeometry(2.22, 0.1, 12, 24, Math.PI), archRibMat);
-        rib.position.set(0, 0, tz);
-        tunnelGroup.add(rib);
-      });
-      this.scene.add(tunnelGroup);
-      [-2.15, 2.15].forEach((wallX) => {
-        const worldWall = new Vector3(wallX, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), tunnelRotY).add(tunnelPos);
-        this.registerObstacle({
-          type: "playground_tunnel_wall",
-          shape: "box",
-          x: worldWall.x,
-          z: worldWall.z,
-          halfW: 0.25,
-          halfD: 5,
-          rotY: tunnelRotY,
-          height: 2.2
-        });
-      });
-      this.soccerBall = this.spawnSoccerBall(new Vector3(42, 1.2, 38), 1.2);
-      this.spawnBall(new Vector3(52, 1, 42), 0.95, 16771899, "neon");
-      this.spawnBall(new Vector3(58, 0.8, 38), 0.75, 16728193, "bouncy");
-      this.spawnBall(new Vector3(40, 0.8, 48), 0.75, 58879, "bouncy");
-      this.spawnBoneToy(new Vector3(48, 0.45, 46));
-      this.spawnBoneToy(new Vector3(63, 0.45, 34));
-      this.spawnBoneToy(new Vector3(34, 0.45, 38));
-    }
-    buildTrampoline(pos) {
-      const trampGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      trampGroup.position.set(pos.x, baseY, pos.z);
-      const frameMat = new MeshStandardMaterial({ color: 3622735, metalness: 0.8, roughness: 0.3 });
-      const frame = new Mesh(new TorusGeometry(3.6, 0.24, 16, 32), frameMat);
-      frame.rotation.x = Math.PI / 2;
-      frame.position.y = 1;
-      frame.castShadow = true;
-      trampGroup.add(frame);
-      const matGeo = new CylinderGeometry(3.4, 3.4, 0.12, 32);
-      const canvasMat = new MeshStandardMaterial({
-        color: 58879,
-        emissive: 58879,
-        emissiveIntensity: 0.55,
-        roughness: 0.4
-      });
-      const bouncer = new Mesh(matGeo, canvasMat);
-      bouncer.position.y = 0.96;
-      bouncer.receiveShadow = true;
-      trampGroup.add(bouncer);
-      for (let i = 0; i < 6; i++) {
-        const a = i / 6 * Math.PI * 2;
-        const leg = new Mesh(new CylinderGeometry(0.12, 0.14, 1, 10), frameMat);
-        leg.position.set(Math.cos(a) * 3.4, 0.5, Math.sin(a) * 3.4);
-        leg.castShadow = true;
-        trampGroup.add(leg);
-      }
-      this.scene.add(trampGroup);
-      this.trampoline = { group: trampGroup, position: pos, radius: 3.5 };
-    }
-    buildCarousel(pos) {
-      const carGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      carGroup.position.set(pos.x, baseY, pos.z);
-      const baseMat = new MeshStandardMaterial({ color: 2503224, metalness: 0.7 });
-      const base = new Mesh(new CylinderGeometry(4.2, 4.4, 0.25, 32), baseMat);
-      base.position.y = 0.12;
-      base.receiveShadow = true;
-      carGroup.add(base);
-      const rotorGroup = new Group();
-      rotorGroup.position.y = 0.32;
-      carGroup.add(rotorGroup);
-      const platformMat = new MeshStandardMaterial({
-        color: 16728193,
-        roughness: 0.35,
-        metalness: 0.2
-      });
-      const platform = new Mesh(new CylinderGeometry(3.8, 3.8, 0.16, 32), platformMat);
-      platform.receiveShadow = true;
-      rotorGroup.add(platform);
-      const centerPole = new Mesh(
-        new CylinderGeometry(0.22, 0.26, 2.8, 16),
-        new MeshStandardMaterial({ color: 16771899, metalness: 0.5, roughness: 0.3 })
-      );
-      centerPole.position.y = 1.4;
-      centerPole.castShadow = true;
-      rotorGroup.add(centerPole);
-      const topCap = new Mesh(
-        new ConeGeometry(1.2, 0.7, 16),
-        new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.6 })
-      );
-      topCap.position.y = 3;
-      rotorGroup.add(topCap);
-      const handleMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.7 });
-      for (let i = 0; i < 4; i++) {
-        const a = i / 4 * Math.PI * 2;
-        const hx = Math.cos(a) * 2.5;
-        const hz = Math.sin(a) * 2.5;
-        const bar = new Mesh(new TorusGeometry(0.55, 0.07, 12, 24), handleMat);
-        bar.position.set(hx, 0.95, hz);
-        bar.rotation.y = -a;
-        rotorGroup.add(bar);
-        const strut = new Mesh(new CylinderGeometry(0.06, 0.06, 0.9, 8), baseMat);
-        strut.position.set(hx, 0.45, hz);
-        rotorGroup.add(strut);
-      }
-      this.scene.add(carGroup);
-      this.carousel = { rotor: rotorGroup, position: pos, radius: 4 };
-      this.registerObstacle({ type: "carousel_mast", x: pos.x, z: pos.z, radius: 0.55, height: 3.2 });
-    }
-    // FIXED: Open-Front Soccer Goal with 4-sided Net & True 3-Wall Box Colliders
-    buildSoccerGoal(pos) {
-      const goalGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      goalGroup.position.set(pos.x, baseY, pos.z);
-      goalGroup.rotation.y = Math.PI / 2;
-      const frameMat = new MeshStandardMaterial({ color: 16777215, roughness: 0.2, metalness: 0.3 });
-      const netMat = new MeshBasicMaterial({
-        color: 14870768,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.55
-      });
-      const width = 7;
-      const height = 3.4;
-      const depth = 3;
-      const hw = width * 0.5;
-      const postL = new Mesh(new CylinderGeometry(0.12, 0.12, height, 12), frameMat);
-      postL.position.set(-hw, height * 0.5, 0);
-      postL.castShadow = true;
-      const postR = new Mesh(new CylinderGeometry(0.12, 0.12, height, 12), frameMat);
-      postR.position.set(hw, height * 0.5, 0);
-      postR.castShadow = true;
-      const crossbar = new Mesh(new CylinderGeometry(0.12, 0.12, width + 0.24, 12), frameMat);
-      crossbar.rotation.z = Math.PI / 2;
-      crossbar.position.set(0, height, 0);
-      crossbar.castShadow = true;
-      const backPostL = new Mesh(new CylinderGeometry(0.08, 0.08, height, 10), frameMat);
-      backPostL.position.set(-hw, height * 0.5, -depth);
-      const backPostR = new Mesh(new CylinderGeometry(0.08, 0.08, height, 10), frameMat);
-      backPostR.position.set(hw, height * 0.5, -depth);
-      const backTopBar = new Mesh(new CylinderGeometry(0.08, 0.08, width, 10), frameMat);
-      backTopBar.rotation.z = Math.PI / 2;
-      backTopBar.position.set(0, height, -depth);
-      [-hw, hw].forEach((sx) => {
-        const topSideBar = new Mesh(new CylinderGeometry(0.08, 0.08, depth, 10), frameMat);
-        topSideBar.rotation.x = Math.PI / 2;
-        topSideBar.position.set(sx, height, -depth * 0.5);
-        const bottomSideBar = new Mesh(new CylinderGeometry(0.08, 0.08, depth, 10), frameMat);
-        bottomSideBar.rotation.x = Math.PI / 2;
-        bottomSideBar.position.set(sx, 0.08, -depth * 0.5);
-        goalGroup.add(topSideBar, bottomSideBar);
-      });
-      const netBack = new Mesh(new PlaneGeometry(width, height, 14, 7), netMat);
-      netBack.position.set(0, height * 0.5, -depth);
-      const netTop = new Mesh(new PlaneGeometry(width, depth, 14, 6), netMat);
-      netTop.rotation.x = Math.PI / 2;
-      netTop.position.set(0, height, -depth * 0.5);
-      const netLeft = new Mesh(new PlaneGeometry(depth, height, 6, 7), netMat);
-      netLeft.rotation.y = Math.PI / 2;
-      netLeft.position.set(-hw, height * 0.5, -depth * 0.5);
-      const netRight = new Mesh(new PlaneGeometry(depth, height, 6, 7), netMat);
-      netRight.rotation.y = -Math.PI / 2;
-      netRight.position.set(hw, height * 0.5, -depth * 0.5);
-      goalGroup.add(postL, postR, crossbar, backPostL, backPostR, backTopBar, netBack, netTop, netLeft, netRight);
-      this.scene.add(goalGroup);
-      this.soccerGoal = {
-        position: pos,
-        width,
-        depth,
-        height
-      };
-      this.registerObstacle({ type: "goal_post_l", x: pos.x, z: pos.z - hw, radius: 0.25, height });
-      this.registerObstacle({ type: "goal_post_r", x: pos.x, z: pos.z + hw, radius: 0.25, height });
-      this.registerObstacle({ type: "goal_net_back", shape: "box", x: pos.x - depth, z: pos.z, halfW: 0.2, halfD: hw, height });
-      this.registerObstacle({ type: "goal_net_side_n", shape: "box", x: pos.x - depth * 0.5, z: pos.z - hw, halfW: depth * 0.5, halfD: 0.2, height });
-      this.registerObstacle({ type: "goal_net_side_s", shape: "box", x: pos.x - depth * 0.5, z: pos.z + hw, halfW: depth * 0.5, halfD: 0.2, height });
-    }
-    // FIXED: Disco Pad with Cyber Truss Arch holding the Mirror Ball (no longer floating in mid-air)
-    buildDiscoPad(pos) {
-      const padGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      padGroup.position.set(pos.x, baseY, pos.z);
-      this.discoTiles = [];
-      const tileColors = [16717636, 58879, 7798531, 16771584, 13959417, 16748800];
-      const frameBase = new Mesh(
-        new BoxGeometry(6.6, 0.1, 6.6),
-        new MeshStandardMaterial({ color: 988970, metalness: 0.8, roughness: 0.3 })
-      );
-      frameBase.position.y = 0.05;
-      padGroup.add(frameBase);
-      for (let x = -2; x <= 1; x++) {
-        for (let z = -2; z <= 1; z++) {
-          const col = tileColors[Math.floor(Math.random() * tileColors.length)];
-          const mat = new MeshStandardMaterial({
-            color: col,
-            emissive: col,
-            emissiveIntensity: 0.25,
-            roughness: 0.2
-          });
-          const tile = new Mesh(new BoxGeometry(1.4, 0.14, 1.4), mat);
-          tile.position.set(x * 1.5 + 0.75, 0.1, z * 1.5 + 0.75);
-          padGroup.add(tile);
-          this.discoTiles.push(tile);
-        }
-      }
-      const trussMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.85, roughness: 0.2 });
-      const cornerOffset = 3.15;
-      const trussHeight = 5;
-      [[-cornerOffset, -cornerOffset], [cornerOffset, -cornerOffset], [-cornerOffset, cornerOffset], [cornerOffset, cornerOffset]].forEach(([cx, cz]) => {
-        const pillar = new Mesh(new CylinderGeometry(0.12, 0.14, trussHeight, 10), trussMat);
-        pillar.position.set(cx, trussHeight * 0.5, cz);
-        pillar.castShadow = true;
-        padGroup.add(pillar);
-        this.registerObstacle({
-          type: "disco_pillar",
-          x: pos.x + cx,
-          z: pos.z + cz,
-          radius: 0.25,
-          height: trussHeight
-        });
-      });
-      const diagLen = cornerOffset * 2 * Math.SQRT2;
-      [Math.PI / 4, -Math.PI / 4].forEach((rot) => {
-        const beam = new Mesh(new BoxGeometry(diagLen, 0.14, 0.14), trussMat);
-        beam.position.set(0, trussHeight, 0);
-        beam.rotation.y = rot;
-        padGroup.add(beam);
-      });
-      const cable = new Mesh(new CylinderGeometry(0.03, 0.03, 0.8, 8), trussMat);
-      cable.position.set(0, trussHeight - 0.4, 0);
-      padGroup.add(cable);
-      const ballMat = new MeshStandardMaterial({ color: 16777215, metalness: 0.95, roughness: 0.08 });
-      const discoBall = new Mesh(new SphereGeometry(0.8, 20, 20), ballMat);
-      discoBall.position.set(0, trussHeight - 0.95, 0);
-      padGroup.add(discoBall);
-      this.discoBall = discoBall;
-      this.scene.add(padGroup);
-      this.discoPad = { position: pos, radius: 3.5 };
-    }
-    // FIXED: Hollow Cyber Doghouse with real walls, open doorway, and visible interior pad
-    buildCyberDoghouse(pos) {
-      const houseGroup = new Group();
-      const baseY = this.getTerrainHeightOnly(pos.x, pos.z);
-      houseGroup.position.set(pos.x, baseY, pos.z);
-      const wallMat = new MeshStandardMaterial({ color: 3359061, roughness: 0.35, metalness: 0.45 });
-      const interiorFloorMat = new MeshStandardMaterial({ color: 988970, roughness: 0.4, metalness: 0.3 });
-      const roofMat = new MeshStandardMaterial({ color: 165063, roughness: 0.2, metalness: 0.6 });
-      const neonTrimMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.85 });
-      const w = 6.4;
-      const h = 4.6;
-      const d = 6.4;
-      const wallT = 0.4;
-      const floorSlab = new Mesh(new BoxGeometry(w, 0.16, d), interiorFloorMat);
-      floorSlab.position.y = 0.08;
-      floorSlab.receiveShadow = true;
-      houseGroup.add(floorSlab);
-      const backWall = new Mesh(new BoxGeometry(w, h, wallT), wallMat);
-      backWall.position.set(0, h * 0.5, -d * 0.5 + wallT * 0.5);
-      backWall.castShadow = true;
-      backWall.receiveShadow = true;
-      houseGroup.add(backWall);
-      [-w * 0.5 + wallT * 0.5, w * 0.5 - wallT * 0.5].forEach((wx) => {
-        const sideWall = new Mesh(new BoxGeometry(wallT, h, d), wallMat);
-        sideWall.position.set(wx, h * 0.5, 0);
-        sideWall.castShadow = true;
-        sideWall.receiveShadow = true;
-        houseGroup.add(sideWall);
-      });
-      const doorWidth = 3;
-      const doorHeight = 3.4;
-      const pillarWidth = (w - doorWidth) * 0.5;
-      [-w * 0.5 + pillarWidth * 0.5, w * 0.5 - pillarWidth * 0.5].forEach((px2) => {
-        const frontPillar = new Mesh(new BoxGeometry(pillarWidth, h, wallT), wallMat);
-        frontPillar.position.set(px2, h * 0.5, d * 0.5 - wallT * 0.5);
-        frontPillar.castShadow = true;
-        houseGroup.add(frontPillar);
-      });
-      const lintelH = h - doorHeight;
-      const lintel = new Mesh(new BoxGeometry(doorWidth, lintelH, wallT), wallMat);
-      lintel.position.set(0, doorHeight + lintelH * 0.5, d * 0.5 - wallT * 0.5);
-      lintel.castShadow = true;
-      houseGroup.add(lintel);
-      const frameTop = new Mesh(new BoxGeometry(doorWidth + 0.2, 0.12, wallT + 0.08), neonTrimMat);
-      frameTop.position.set(0, doorHeight, d * 0.5 - wallT * 0.5);
-      houseGroup.add(frameTop);
-      [-doorWidth * 0.5, doorWidth * 0.5].forEach((dx) => {
-        const frameSide = new Mesh(new BoxGeometry(0.12, doorHeight, wallT + 0.08), neonTrimMat);
-        frameSide.position.set(dx, doorHeight * 0.5, d * 0.5 - wallT * 0.5);
-        houseGroup.add(frameSide);
-      });
-      const padMat = new MeshStandardMaterial({ color: 2293640, emissive: 2293640, emissiveIntensity: 0.9 });
-      const pad = new Mesh(new CylinderGeometry(1.85, 1.95, 0.14, 28), padMat);
-      pad.position.set(0, 0.2, 0);
-      houseGroup.add(pad);
-      const roof = new Mesh(new ConeGeometry(5.4, 2.4, 4), roofMat);
-      roof.rotateY(Math.PI / 4);
-      roof.position.y = h + 1.2;
-      roof.castShadow = true;
-      houseGroup.add(roof);
-      const sign2 = new Mesh(new BoxGeometry(3.4, 0.7, 0.18), neonTrimMat);
-      sign2.position.set(0, h - 0.55, d * 0.5 + 0.05);
-      houseGroup.add(sign2);
-      this.scene.add(houseGroup);
-      this.registerObstacle({ type: "doghouse_wall_back", shape: "box", x: pos.x, z: pos.z - d * 0.5 + wallT * 0.5, halfW: w * 0.5, halfD: wallT * 0.5, height: h });
-      this.registerObstacle({ type: "doghouse_wall_left", shape: "box", x: pos.x - w * 0.5 + wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
-      this.registerObstacle({ type: "doghouse_wall_right", shape: "box", x: pos.x + w * 0.5 - wallT * 0.5, z: pos.z, halfW: wallT * 0.5, halfD: d * 0.5, height: h });
-      this.registerObstacle({ type: "doghouse_pillar_l", shape: "box", x: pos.x - w * 0.5 + pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
-      this.registerObstacle({ type: "doghouse_pillar_r", shape: "box", x: pos.x + w * 0.5 - pillarWidth * 0.5, z: pos.z + d * 0.5 - wallT * 0.5, halfW: pillarWidth * 0.5, halfD: wallT * 0.5, height: h });
-    }
-    // --- HIGH-TECH ATTRACTIONS ---
-    buildCyberBallPit(pos) {
-      const pitGroup = new Group();
-      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
-      pitGroup.position.set(pos.x, groundY, pos.z);
-      const padMat = new MeshStandardMaterial({
-        color: 988970,
-        roughness: 0.5,
-        metalness: 0.2
-      });
-      const rimMat = new MeshStandardMaterial({
-        color: 58879,
-        emissive: 58879,
-        emissiveIntensity: 0.6,
-        roughness: 0.2
-      });
-      const floor = new Mesh(new BoxGeometry(7.2, 0.2, 7.2), padMat);
-      floor.position.y = 0.1;
-      floor.receiveShadow = true;
-      pitGroup.add(floor);
-      const wallGeoX = new BoxGeometry(7.4, 0.65, 0.35);
-      const wallGeoZ = new BoxGeometry(0.35, 0.65, 7.4);
-      const wallN = new Mesh(wallGeoX, rimMat);
-      wallN.position.set(0, 0.35, -3.5);
-      const wallS = new Mesh(wallGeoX, rimMat);
-      wallS.position.set(0, 0.35, 3.5);
-      const wallW = new Mesh(wallGeoZ, rimMat);
-      wallW.position.set(-3.5, 0.35, 0);
-      const wallE = new Mesh(wallGeoZ, rimMat);
-      wallE.position.set(3.5, 0.35, 0);
-      pitGroup.add(wallN, wallS, wallW, wallE);
-      const ballColors = [58879, 16724889, 16771584, 2293640, 11032055, 16748800];
-      const miniBallGeo = new SphereGeometry(0.24, 12, 12);
-      for (let i = 0; i < 45; i++) {
-        const col = ballColors[i % ballColors.length];
-        const mat = new MeshStandardMaterial({
-          color: col,
-          emissive: col,
-          emissiveIntensity: 0.35,
-          roughness: 0.3
-        });
-        const bMesh = new Mesh(miniBallGeo, mat);
-        const rx = (Math.random() - 0.5) * 6;
-        const rz = (Math.random() - 0.5) * 6;
-        const ry = 0.28 + Math.random() * 0.28;
-        bMesh.position.set(rx, ry, rz);
-        pitGroup.add(bMesh);
-        this.ballPitBalls.push({
-          mesh: bMesh,
-          localOrigin: new Vector3(rx, ry, rz),
-          velocity: new Vector3(),
-          springVel: 0
-        });
-      }
-      this.scene.add(pitGroup);
-      this.ballPit = { position: pos, radius: 3.6 };
-      this.registerObstacle({ type: "ballpit_wall_n", shape: "box", x: pos.x, z: pos.z - 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
-      this.registerObstacle({ type: "ballpit_wall_s", shape: "box", x: pos.x, z: pos.z + 3.5, halfW: 3.6, halfD: 0.25, yMin: groundY, yMax: groundY + 0.55 });
-      this.registerObstacle({ type: "ballpit_wall_w", shape: "box", x: pos.x - 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
-      this.registerObstacle({ type: "ballpit_wall_e", shape: "box", x: pos.x + 3.5, z: pos.z, halfW: 0.25, halfD: 3.6, yMin: groundY, yMax: groundY + 0.55 });
-    }
-    // FIXED: Agility Slide with accurate downward slope (+0.52 rad), ladder rails & safety handrails
-    buildAgilitySlide(pos) {
-      const slideGroup = new Group();
-      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
-      slideGroup.position.set(pos.x, groundY, pos.z);
-      const metalMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.85, roughness: 0.2 });
-      const neonCyan = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.75 });
-      const chuteMat = new MeshStandardMaterial({ color: 165063, roughness: 0.15, metalness: 0.4 });
-      const platformH = 4;
-      [-1.2, 1.2].forEach((px2) => {
-        [-1.2, 1.2].forEach((pz2) => {
-          const pillar = new Mesh(new CylinderGeometry(0.1, 0.12, platformH + 0.8, 12), metalMat);
-          pillar.position.set(px2, (platformH + 0.8) * 0.5, pz2);
-          pillar.castShadow = true;
-          slideGroup.add(pillar);
-        });
-      });
-      const topFloor = new Mesh(new BoxGeometry(2.6, 0.2, 2.6), metalMat);
-      topFloor.position.set(0, platformH, 0);
-      topFloor.castShadow = true;
-      slideGroup.add(topFloor);
-      [-1.2, 1.2].forEach((rx) => {
-        const topRail = new Mesh(new BoxGeometry(0.1, 0.1, 2.5), neonCyan);
-        topRail.position.set(rx, platformH + 0.8, 0);
-        slideGroup.add(topRail);
-      });
-      [-0.85, 0.85].forEach((lx) => {
-        const stringer = new Mesh(new CylinderGeometry(0.055, 0.055, platformH + 0.4, 10), metalMat);
-        stringer.position.set(lx, (platformH + 0.4) * 0.5, -1.25);
-        slideGroup.add(stringer);
-      });
-      for (let s = 0.45; s < platformH; s += 0.52) {
-        const step = new Mesh(new CylinderGeometry(0.04, 0.04, 1.7, 10), neonCyan);
-        step.rotation.z = Math.PI / 2;
-        step.position.set(0, s, -1.25);
-        slideGroup.add(step);
-      }
-      const startY = platformH;
-      const endY = 0.22;
-      const startZ = 1.2;
-      const endZ = 7.8;
-      const dy = startY - endY;
-      const dz = endZ - startZ;
-      const chuteLength = Math.hypot(dy, dz);
-      const chuteAngle = Math.atan2(dy, dz);
-      const chutePivot = new Group();
-      chutePivot.position.set(0, (startY + endY) * 0.5, (startZ + endZ) * 0.5);
-      chutePivot.rotation.x = chuteAngle;
-      const chuteBed = new Mesh(new BoxGeometry(1.6, 0.14, chuteLength), chuteMat);
-      chuteBed.castShadow = true;
-      chutePivot.add(chuteBed);
-      [-0.82, 0.82].forEach((rx) => {
-        const sideWall = new Mesh(new BoxGeometry(0.12, 0.36, chuteLength), chuteMat);
-        sideWall.position.set(rx, 0.18, 0);
-        chutePivot.add(sideWall);
-        const rail = new Mesh(new CylinderGeometry(0.05, 0.05, chuteLength, 10), neonCyan);
-        rail.rotation.x = Math.PI / 2;
-        rail.position.set(rx, 0.38, 0);
-        chutePivot.add(rail);
-      });
-      slideGroup.add(chutePivot);
-      const cushion = new Mesh(
-        new BoxGeometry(2.4, 0.24, 2.6),
-        new MeshStandardMaterial({ color: 16771584, roughness: 0.6 })
-      );
-      cushion.position.set(0, 0.12, 8.2);
-      cushion.receiveShadow = true;
-      slideGroup.add(cushion);
-      this.scene.add(slideGroup);
-      this.slide = {
-        position: pos,
-        topPos: new Vector3(pos.x, groundY + platformH + 0.2, pos.z),
-        endPos: new Vector3(pos.x, groundY + 0.25, pos.z + 8.2),
-        platformH
-      };
-      this.registerObstacle({ type: "slide_tower", shape: "box", x: pos.x, z: pos.z, halfW: 1.35, halfD: 1.35, height: platformH });
-      this.registerObstacle({ type: "slide_chute", shape: "box", x: pos.x, z: pos.z + 4.5, halfW: 0.95, halfD: 3.2, height: 2.2 });
-    }
-    buildAgilityObstacleCourse(pos) {
-      const courseGroup = new Group();
-      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
-      courseGroup.position.set(pos.x, groundY, pos.z);
-      const neonYellow = new MeshStandardMaterial({ color: 16771584, emissive: 16771584, emissiveIntensity: 0.8 });
-      const metalMat = new MeshStandardMaterial({ color: 4674921, metalness: 0.7 });
-      const tunnelGroup = new Group();
-      tunnelGroup.position.set(0, 1.05, 0);
-      const ribGeo = new TorusGeometry(1.08, 0.07, 12, 24);
-      for (let tz = -3; tz <= 3; tz += 1) {
-        const rib = new Mesh(ribGeo, neonYellow);
-        rib.position.set(0, 0, tz);
-        tunnelGroup.add(rib);
-      }
-      const tubeGeo = new CylinderGeometry(1.04, 1.04, 6.2, 24, 1, true);
-      tubeGeo.rotateX(Math.PI / 2);
-      const tubeMat = new MeshStandardMaterial({
-        color: 165063,
-        transparent: true,
-        opacity: 0.65,
-        side: DoubleSide
-      });
-      const tube = new Mesh(tubeGeo, tubeMat);
-      tunnelGroup.add(tube);
-      courseGroup.add(tunnelGroup);
-      [-1.1, 1.1].forEach((wx) => {
-        this.registerObstacle({
-          type: "agility_tunnel_side",
-          shape: "box",
-          x: pos.x + wx,
-          z: pos.z,
-          halfW: 0.18,
-          halfD: 3.1,
-          height: 2.1
-        });
-      });
-      this.hurdles = [];
-      [6, 10, 14].forEach((hz) => {
-        const hurdleGroup = new Group();
-        hurdleGroup.position.set(0, 0, hz);
-        [-1.3, 1.3].forEach((hx) => {
-          const post = new Mesh(new CylinderGeometry(0.07, 0.08, 1.1, 10), metalMat);
-          post.position.set(hx, 0.55, 0);
-          post.castShadow = true;
-          hurdleGroup.add(post);
-          this.registerObstacle({
-            type: "hurdle_post",
-            x: pos.x + hx,
-            z: pos.z + hz,
-            radius: 0.18,
-            height: 1.1
-          });
-        });
-        const bar = new Mesh(new CylinderGeometry(0.05, 0.05, 2.6, 12), neonYellow);
-        bar.rotation.z = Math.PI / 2;
-        bar.position.set(0, 0.65, 0);
-        hurdleGroup.add(bar);
-        courseGroup.add(hurdleGroup);
-        this.hurdles.push({
-          position: new Vector3(pos.x, groundY, pos.z + hz),
-          cleared: false
-        });
-      });
-      this.scene.add(courseGroup);
-      this.obstacleCourse = {
-        position: pos,
-        tunnel: {
-          start: new Vector3(pos.x, groundY, pos.z - 3.2),
-          end: new Vector3(pos.x, groundY, pos.z + 3.2),
-          radius: 1.1
-        }
-      };
-    }
-    // FIXED: Cyber Target Toss with stepped ring thicknesses (zero Z-fighting) & full frame up to Scoreboard
-    buildCyberTargetToss(pos) {
-      const targetGroup = new Group();
-      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
-      targetGroup.position.set(pos.x, groundY, pos.z);
-      const chromeMat = new MeshStandardMaterial({ color: 14870768, metalness: 0.9, roughness: 0.15 });
-      const neonFrameMat = new MeshStandardMaterial({ color: 58879, emissive: 58879, emissiveIntensity: 0.8 });
-      [-2.2, 2.2].forEach((sx) => {
-        const leg = new Mesh(new CylinderGeometry(0.11, 0.13, 5.9, 12), chromeMat);
-        leg.position.set(sx, 2.95, 0);
-        leg.castShadow = true;
-        targetGroup.add(leg);
-      });
-      const midBar = new Mesh(new CylinderGeometry(0.08, 0.08, 4.5, 12), chromeMat);
-      midBar.rotation.z = Math.PI / 2;
-      midBar.position.set(0, 3.2, 0);
-      targetGroup.add(midBar);
-      const topBar = new Mesh(new CylinderGeometry(0.09, 0.09, 4.6, 12), chromeMat);
-      topBar.rotation.z = Math.PI / 2;
-      topBar.position.set(0, 5.8, 0);
-      targetGroup.add(topBar);
-      const targetRotor = new Group();
-      targetRotor.position.set(0, 3.2, 0);
-      const ringConfigs = [
-        { r: 2.1, thickness: 0.12, col: 58879, pts: 10 },
-        { r: 1.35, thickness: 0.18, col: 16771584, pts: 25 },
-        { r: 0.65, thickness: 0.24, col: 16717636, pts: 50 }
-      ];
-      ringConfigs.forEach((rc) => {
-        const ringMat = new MeshStandardMaterial({
-          color: rc.col,
-          emissive: rc.col,
-          emissiveIntensity: 0.75,
-          roughness: 0.2
-        });
-        const ringMesh = new Mesh(new CylinderGeometry(rc.r, rc.r, rc.thickness, 32), ringMat);
-        ringMesh.rotateX(Math.PI / 2);
-        targetRotor.add(ringMesh);
-      });
-      targetGroup.add(targetRotor);
-      const boardMesh = new Mesh(
-        new BoxGeometry(2.8, 0.85, 0.24),
-        new MeshStandardMaterial({ color: 593174, roughness: 0.3 })
-      );
-      boardMesh.position.set(0, 5.8, 0);
-      targetGroup.add(boardMesh);
-      const boardRim = new Mesh(new BoxGeometry(2.9, 0.95, 0.18), neonFrameMat);
-      boardRim.position.set(0, 5.8, 0);
-      targetGroup.add(boardRim);
-      this.scene.add(targetGroup);
-      this.targetBoard = {
-        position: new Vector3(pos.x, groundY + 3.2, pos.z),
-        rotor: targetRotor,
-        radius: 2.1
-      };
-      this.registerObstacle({ type: "target_post_l", x: pos.x - 2.2, z: pos.z, radius: 0.28, height: 5.9 });
-      this.registerObstacle({ type: "target_post_r", x: pos.x + 2.2, z: pos.z, radius: 0.28, height: 5.9 });
-    }
-    buildCyberPinata(pos) {
-      const pinGroup = new Group();
-      const groundY = this.getTerrainHeightOnly(pos.x, pos.z);
-      pinGroup.position.set(pos.x, groundY, pos.z);
-      const metalMat = new MeshStandardMaterial({ color: 4674921, metalness: 0.8 });
-      const archTop = new Mesh(new CylinderGeometry(0.09, 0.09, 3.6, 12), metalMat);
-      archTop.rotation.z = Math.PI / 2;
-      archTop.position.set(0, 4.2, 0);
-      [-1.7, 1.7].forEach((ax) => {
-        const post = new Mesh(new CylinderGeometry(0.1, 0.12, 4.2, 12), metalMat);
-        post.position.set(ax, 2.1, 0);
-        post.castShadow = true;
-        pinGroup.add(post);
-      });
-      pinGroup.add(archTop);
-      const pinataPivot = new Group();
-      pinataPivot.position.set(0, 4.2, 0);
-      const rope = new Mesh(new CylinderGeometry(0.025, 0.025, 1.8, 8), metalMat);
-      rope.position.set(0, -0.9, 0);
-      pinataPivot.add(rope);
-      const pinataBody = new Group();
-      pinataBody.position.set(0, -1.8, 0);
-      const pinataMat = new MeshStandardMaterial({
-        color: 16724889,
-        emissive: 16724889,
-        emissiveIntensity: 0.85,
-        roughness: 0.25
-      });
-      const shaft = new Mesh(new CylinderGeometry(0.2, 0.2, 1.1, 12), pinataMat);
-      shaft.rotation.z = Math.PI / 2;
-      pinataBody.add(shaft);
-      [-0.55, 0.55].forEach((bx) => {
-        [-0.18, 0.18].forEach((by) => {
-          const knob = new Mesh(new SphereGeometry(0.22, 12, 12), pinataMat);
-          knob.position.set(bx, by, 0);
-          pinataBody.add(knob);
-        });
-      });
-      pinataPivot.add(pinataBody);
-      pinGroup.add(pinataPivot);
-      this.scene.add(pinGroup);
-      this.pinata = {
-        position: new Vector3(pos.x, groundY + 2.4, pos.z),
-        pivot: pinataPivot,
-        hits: 0,
-        maxHits: 4,
-        swingAngle: 0,
-        swingVel: 0
-      };
-      this.registerObstacle({ type: "pinata_post_l", x: pos.x - 1.7, z: pos.z, radius: 0.25, height: 4.2 });
-      this.registerObstacle({ type: "pinata_post_r", x: pos.x + 1.7, z: pos.z, radius: 0.25, height: 4.2 });
-    }
-    buildSlalomRings(pos = new Vector3(-6, 0, -18)) {
-      this.slalomRings = [];
-      const ringGroup = new Group();
-      ringGroup.position.copy(pos);
-      const offsets = [
-        { x: -8, z: -10, col: 58879, rotY: 0.2 },
-        { x: -3, z: -4, col: 16771584, rotY: -0.15 },
-        { x: 3, z: 3, col: 16711807, rotY: 0.3 },
-        { x: -2, z: 10, col: 2293640, rotY: -0.2 },
-        { x: 6, z: 16, col: 16748800, rotY: 0.25 }
-      ];
-      offsets.forEach((cfg, idx) => {
-        const arch = new Group();
-        const wx = pos.x + cfg.x;
-        const wz = pos.z + cfg.z;
-        const groundY = this.getTerrainHeightOnly(wx, wz);
-        arch.position.set(cfg.x, groundY, cfg.z);
-        arch.rotation.y = cfg.rotY;
-        const postMat = new MeshStandardMaterial({ color: 3359061, metalness: 0.85, roughness: 0.2 });
-        [-1.3, 1.3].forEach((px2) => {
-          const p = new Mesh(new CylinderGeometry(0.08, 0.09, 1.8, 12), postMat);
-          p.position.set(px2, 0.9, 0);
-          p.castShadow = true;
-          arch.add(p);
-          const worldPost = new Vector3(px2, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), cfg.rotY).add(new Vector3(wx, groundY, wz));
-          this.registerObstacle({
-            type: "slalom_post",
-            x: worldPost.x,
-            z: worldPost.z,
-            radius: 0.2,
-            height: 1.8
-          });
-        });
-        const ringMat = new MeshStandardMaterial({
-          color: cfg.col,
-          emissive: cfg.col,
-          emissiveIntensity: 0.85,
-          roughness: 0.2
-        });
-        const torus = new Mesh(new TorusGeometry(1.3, 0.1, 16, 32), ringMat);
-        torus.position.set(0, 1.6, 0);
-        torus.castShadow = true;
-        arch.add(torus);
-        ringGroup.add(arch);
-        const worldPos = new Vector3(wx, groundY + 1.6, wz);
-        this.slalomRings.push({
-          index: idx,
-          position: worldPos,
-          entryPos: new Vector3(wx - Math.sin(cfg.rotY) * 2.5, groundY, wz - Math.cos(cfg.rotY) * 2.5),
-          centerPos: worldPos,
-          exitPos: new Vector3(wx + Math.sin(cfg.rotY) * 2.5, groundY, wz + Math.cos(cfg.rotY) * 2.5),
-          radius: 1.3
-        });
-      });
-      this.scene.add(ringGroup);
-    }
-    buildTreasureSpots() {
-      this.treasureSpots = [
-        { x: -28, z: 12, dug: false, type: "bone", name: "Hueso Dorado Ancestral" },
-        { x: 18, z: -24, dug: false, type: "gear", name: "Micro-Engranaje de Titanio" },
-        { x: 68, z: 28, dug: false, type: "gem", name: "Cristal Cu\xE1ntico Resplandeciente" },
-        { x: -16, z: -46, dug: false, type: "ball", name: "Mini-Pelota Ne\xF3n Secreta" }
-      ];
-      const dirtMat = new MeshStandardMaterial({ color: 6111287, roughness: 0.9 });
-      const sparkleMat = new MeshStandardMaterial({ color: 16771584, emissive: 16771584, emissiveIntensity: 0.8 });
-      this.treasureSpots.forEach((spot) => {
-        const g = new Group();
-        const gy = this.getTerrainHeightOnly(spot.x, spot.z);
-        g.position.set(spot.x, gy + 0.04, spot.z);
-        const mound = new Mesh(new CylinderGeometry(1.2, 1.4, 0.12, 16), dirtMat);
-        g.add(mound);
-        const sparkle = new Mesh(new SphereGeometry(0.12, 8, 8), sparkleMat);
-        sparkle.position.set(0, 0.25, 0);
-        g.add(sparkle);
-        this.scene.add(g);
-        spot.group = g;
-        spot.sparkle = sparkle;
-      });
-    }
-    revealDugTreasure(robot, spot) {
-      if (!spot || spot.dug) return null;
-      spot.dug = true;
-      if (spot.sparkle) spot.sparkle.visible = false;
-      const gy = this.getHeightAt(spot.x, spot.z);
-      const itemGroup = new Group();
-      itemGroup.position.set(spot.x, gy + 0.6, spot.z);
-      if (spot.type === "bone") {
-        const goldMat = new MeshStandardMaterial({ color: 16766720, metalness: 0.9, roughness: 0.2, emissive: 16758528, emissiveIntensity: 0.5 });
-        const bShaft = new Mesh(new CylinderGeometry(0.08, 0.08, 0.9, 12), goldMat);
-        bShaft.rotation.z = Math.PI / 2;
-        itemGroup.add(bShaft);
-      } else if (spot.type === "gear") {
-        const gearMat = new MeshStandardMaterial({ color: 58879, metalness: 0.95, roughness: 0.1, emissive: 58879, emissiveIntensity: 0.6 });
-        const gear = new Mesh(new TorusGeometry(0.28, 0.08, 12, 24), gearMat);
-        itemGroup.add(gear);
-      } else {
-        const gemMat = new MeshStandardMaterial({ color: 16007006, metalness: 0.3, roughness: 0.1, emissive: 16007006, emissiveIntensity: 0.8 });
-        const gem = new Mesh(new OctahedronGeometry(0.32, 0), gemMat);
-        itemGroup.add(gem);
-      }
-      this.scene.add(itemGroup);
-      roboAudio.playTrickSuccess();
-      this.logActivity(`\u{1F48E} \xA1${robot.name} desenterr\xF3 un tesoro oculto: ${spot.name}!`);
-      return spot.name;
-    }
-    buildLowPolyClouds() {
-      const cloudMat = new MeshStandardMaterial({
-        color: 16777215,
-        roughness: 0.95,
-        metalness: 0.02,
-        transparent: true,
-        opacity: 0.88
-      });
-      for (let c = 0; c < 12; c++) {
-        const cloudGroup = new Group();
-        const puffCount = 4 + Math.floor(Math.random() * 4);
-        for (let p = 0; p < puffCount; p++) {
-          const rad = 3.5 + Math.random() * 4.2;
-          const puff = new Mesh(new DodecahedronGeometry(rad, 1), cloudMat);
-          puff.position.set(
-            (p - puffCount / 2) * 4.5 + (Math.random() - 0.5) * 2,
-            (Math.random() - 0.5) * 1.5,
-            (Math.random() - 0.5) * 3
-          );
-          cloudGroup.add(puff);
-        }
-        const angle = c / 12 * Math.PI * 2;
-        const dist = 60 + Math.random() * 120;
-        cloudGroup.position.set(
-          Math.cos(angle) * dist,
-          52 + Math.random() * 18,
-          Math.sin(angle) * dist
-        );
-        this.scene.add(cloudGroup);
-        this.clouds.push({
-          group: cloudGroup,
-          speed: 0.35 + Math.random() * 0.45
-        });
-      }
-    }
-    buildAmbientParticles() {
-      const count = 120;
-      const geom = new BufferGeometry();
-      const positions = new Float32Array(count * 3);
-      for (let i = 0; i < count; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 240;
-        positions[i * 3 + 1] = 1 + Math.random() * 12;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 240;
-      }
-      geom.setAttribute("position", new BufferAttribute(positions, 3));
-      const pMat = new PointsMaterial({
-        color: 2293640,
-        size: 0.45,
-        transparent: true,
-        opacity: 0.75,
-        blending: AdditiveBlending
-      });
-      const pSystem = new Points(geom, pMat);
-      this.scene.add(pSystem);
-      this.ambientParticles = pSystem;
-    }
-    spawnSoccerBall(pos, radius) {
-      const ballGeo = new SphereGeometry(radius, 32, 32);
-      const ballMat = new MeshStandardMaterial({
-        map: this.textures.soccer,
-        roughness: 0.35,
-        metalness: 0.1
-      });
-      const mesh = new Mesh(ballGeo, ballMat);
-      mesh.position.copy(pos);
-      mesh.castShadow = true;
-      this.scene.add(mesh);
-      const ball = {
-        mesh,
-        radius,
-        type: "soccer",
-        velocity: new Vector3(),
-        mass: radius * 1.8,
-        bounciness: 0.8,
-        friction: 0.975
-      };
-      this.balls.push(ball);
-      this.interactiveObjects.push({
-        type: "ball",
-        object: mesh,
-        ballData: ball,
-        name: "Pelota de F\xFAtbol",
-        radius
-      });
-      return ball;
-    }
-    throwBall(originPos, direction, force = 24) {
-      if (!this.soccerBall) return null;
-      const ball = this.soccerBall;
-      if (ball.carriedBy) {
-        ball.carriedBy.dropObject();
-        ball.carriedBy = null;
-      }
-      const throwDir = direction.clone();
-      throwDir.y = 0;
-      throwDir.normalize();
-      ball.mesh.position.set(
-        originPos.x + throwDir.x * 2.2,
-        originPos.y + 1.2,
-        originPos.z + throwDir.z * 2.2
-      );
-      ball.velocity.set(
-        throwDir.x * force,
-        8.5,
-        throwDir.z * force
-      );
-      roboAudio.playWhine(1.2);
-      this.logActivity(`\u{1F3BE} \xA1Lanzaste la pelota de f\xFAtbol! \xA1A buscarla!`);
-      return ball;
-    }
-    spawnBall(pos, radius, colorHex, type = "ball") {
-      const ballGeo = new SphereGeometry(radius, 24, 24);
-      const ballMat = new MeshStandardMaterial({
-        color: colorHex,
-        emissive: type === "neon" ? colorHex : 0,
-        emissiveIntensity: type === "neon" ? 0.7 : 0,
-        roughness: 0.35
-      });
-      const mesh = new Mesh(ballGeo, ballMat);
-      mesh.position.copy(pos);
-      mesh.castShadow = true;
-      this.scene.add(mesh);
-      const ball = {
-        mesh,
-        radius,
-        type,
-        velocity: new Vector3(),
-        mass: radius * 1.4,
-        bounciness: 0.82,
-        friction: 0.97
-      };
-      this.balls.push(ball);
-      this.interactiveObjects.push({
-        type: "ball",
-        object: mesh,
-        ballData: ball,
-        name: `Pelota ${type === "neon" ? "Ne\xF3n" : "Saltarina"}`,
-        radius
-      });
-      return ball;
-    }
-    spawnBoneToy(pos) {
-      const boneGroup = new Group();
-      boneGroup.position.copy(pos);
-      const boneMat = new MeshStandardMaterial({
-        color: 58879,
-        emissive: 58879,
-        emissiveIntensity: 0.8,
-        roughness: 0.2
-      });
-      const shaft = new Mesh(new CylinderGeometry(0.12, 0.12, 1.25, 12), boneMat);
-      shaft.rotation.z = Math.PI / 2;
-      boneGroup.add(shaft);
-      [-0.65, 0.65].forEach((x) => {
-        [-0.15, 0.15].forEach((y) => {
-          const knob = new Mesh(new SphereGeometry(0.22, 14, 14), boneMat);
-          knob.position.set(x, y, 0);
-          boneGroup.add(knob);
-        });
-      });
-      this.scene.add(boneGroup);
-      this.interactiveObjects.push({
-        type: "bone",
-        object: boneGroup,
-        name: "Hueso de Energ\xEDa",
-        radius: 1.1
-      });
-    }
-    spawnCyberSnack(pos) {
-      const snackGroup = new Group();
-      snackGroup.position.copy(pos);
-      snackGroup.position.y = this.getHeightAt(pos.x, pos.z) + 0.4;
-      const biscuitMat = new MeshStandardMaterial({
-        color: 16771584,
-        emissive: 16771584,
-        emissiveIntensity: 0.7,
-        roughness: 0.3
-      });
-      const biscuit = new Mesh(new CylinderGeometry(0.25, 0.25, 0.08, 16), biscuitMat);
-      snackGroup.add(biscuit);
-      this.scene.add(snackGroup);
-      this.snacks.push({
-        group: snackGroup,
-        age: 0
-      });
-      this.logActivity(`\u{1F36A} \xA1Apareci\xF3 una galleta energ\xE9tica en el parque!`);
-      roboAudio.playBoop(1.4);
-    }
-    triggerDiscoParty() {
-      this.discoPartyActive = true;
-      this.discoTimer = 12;
-      this.logActivity(`\u{1FAA9} \xA1FIESTA DISCO ACTIVADA! \xA1A bailar todos!`);
-      roboAudio.playTrickSuccess();
-    }
-    buildDetailedNature() {
-      const trunkMat = new MeshStandardMaterial({ map: this.textures.wood, roughness: 0.85 });
-      const leafMats = [
-        new MeshStandardMaterial({ color: 3706428, roughness: 0.6 }),
-        new MeshStandardMaterial({ color: 3046706, roughness: 0.6 }),
-        new MeshStandardMaterial({ color: 5025616, roughness: 0.6 })
-      ];
-      for (let i = 0; i < 95; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 32 + Math.random() * 210;
-        const x = Math.cos(angle) * dist;
-        const z = Math.sin(angle) * dist;
-        if (Math.hypot(x - -80, z - -80) < 70) continue;
-        if (Math.hypot(x - 50, z - 40) < 46) continue;
-        if (Math.hypot(x - -46, z - -48) < 14) continue;
-        if (Math.hypot(x - -32, z - 48) < 10) continue;
-        if (Math.hypot(x - -18, z - -32) < 12) continue;
-        if (Math.hypot(x - 22, z - -50) < 16) continue;
-        const treeGroup = new Group();
-        treeGroup.position.set(x, this.getTerrainHeightOnly(x, z), z);
-        const height = 4.2 + Math.random() * 3.5;
-        const trunk = new Mesh(new CylinderGeometry(0.38, 0.55, height, 8), trunkMat);
-        trunk.position.y = height / 2;
-        trunk.castShadow = true;
-        treeGroup.add(trunk);
-        const leafMat = leafMats[Math.floor(Math.random() * leafMats.length)];
-        for (let l = 0; l < 3; l++) {
-          const foliage = new Mesh(new ConeGeometry(3.4 - l * 0.8, 3.2, 8), leafMat);
-          foliage.position.y = height + l * 1.9;
-          foliage.castShadow = true;
-          treeGroup.add(foliage);
-        }
-        this.scene.add(treeGroup);
-        this.registerObstacle({ type: "tree", x, z, radius: 0.85, height: 7 });
-      }
-      const outerLeafMats = [
-        new MeshStandardMaterial({ color: 1793568, roughness: 0.7 }),
-        new MeshStandardMaterial({ color: 3046706, roughness: 0.65 }),
-        new MeshStandardMaterial({ color: 1984032, roughness: 0.75 }),
-        new MeshStandardMaterial({ color: 2582345, roughness: 0.6 })
-      ];
-      const cyberGlowMat = new MeshStandardMaterial({
-        color: 62206,
-        emissive: 62206,
-        emissiveIntensity: 0.85,
-        roughness: 0.2
-      });
-      for (let i = 0; i < 185; i++) {
-        const angle = i / 185 * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
-        const dist = 102 + Math.random() * 155;
-        const x = Math.cos(angle) * dist;
-        const z = Math.sin(angle) * dist;
-        const outerTree = new Group();
-        const terrainY = this.getTerrainHeightOnly(x, z);
-        outerTree.position.set(x, terrainY, z);
-        const height = 6.5 + Math.random() * 7.5;
-        const trunk = new Mesh(new CylinderGeometry(0.5, 0.85, height, 8), trunkMat);
-        trunk.position.y = height / 2;
-        trunk.castShadow = true;
-        outerTree.add(trunk);
-        if (i % 5 === 0) {
-          const ringGeo = new TorusGeometry(0.7, 0.08, 8, 16);
-          ringGeo.rotateX(Math.PI / 2);
-          const glowRing = new Mesh(ringGeo, cyberGlowMat);
-          glowRing.position.y = height * 0.42;
-          outerTree.add(glowRing);
-        }
-        const leafMat = outerLeafMats[Math.floor(Math.random() * outerLeafMats.length)];
-        const numTiers = 3 + Math.floor(Math.random() * 2);
-        for (let l = 0; l < numTiers; l++) {
-          const baseRadius = 4.6 - l * 0.75;
-          const foliage = new Mesh(new ConeGeometry(baseRadius, 3.8, 8), leafMat);
-          foliage.position.y = height + l * 2.1;
-          foliage.castShadow = true;
-          outerTree.add(foliage);
-        }
-        this.scene.add(outerTree);
-      }
-      const flowerGeo = new SphereGeometry(0.2, 8, 8);
-      const flwMat = new MeshStandardMaterial({ roughness: 0.4, emissive: 16777215, emissiveIntensity: 0.25 });
-      const flowerInst = new InstancedMesh(flowerGeo, flwMat, 240);
-      const dummy = new Object3D();
-      const colorObj = new Color();
-      const flowerColors = [16771899, 16728193, 58879, 11225020, 16740419, 7798531];
-      for (let i = 0; i < 240; i++) {
-        const x = (Math.random() - 0.5) * 360;
-        const z = (Math.random() - 0.5) * 360;
-        if (Math.hypot(x - -80, z - -80) < 65) continue;
-        const y = this.getTerrainHeightOnly(x, z) + 0.16;
-        dummy.position.set(x, y, z);
-        dummy.scale.setScalar(0.7 + Math.random() * 0.6);
-        dummy.updateMatrix();
-        flowerInst.setMatrixAt(i, dummy.matrix);
-        colorObj.setHex(flowerColors[i % flowerColors.length]);
-        flowerInst.setColorAt(i, colorObj);
-      }
-      flowerInst.instanceMatrix.needsUpdate = true;
-      if (flowerInst.instanceColor) flowerInst.instanceColor.needsUpdate = true;
-      this.scene.add(flowerInst);
-      this.butterflies = [];
-      const bflyCanvas = document.createElement("canvas");
-      bflyCanvas.width = 32;
-      bflyCanvas.height = 32;
-      const bctx = bflyCanvas.getContext("2d");
-      bctx.fillStyle = "#00e5ff";
-      bctx.beginPath();
-      bctx.arc(10, 16, 8, 0, Math.PI * 2);
-      bctx.arc(22, 16, 8, 0, Math.PI * 2);
-      bctx.fill();
-      const bflyTex = new CanvasTexture(bflyCanvas);
-      for (let i = 0; i < 24; i++) {
-        const mat = new SpriteMaterial({ map: bflyTex, transparent: true, opacity: 0.88 });
-        const sp = new Sprite(mat);
-        sp.scale.set(0.65, 0.65, 0.65);
-        const bx = (Math.random() - 0.5) * 220;
-        const bz = (Math.random() - 0.5) * 220;
-        const by = this.getTerrainHeightOnly(bx, bz) + 1.5 + Math.random() * 2.5;
-        sp.position.set(bx, by, bz);
-        this.scene.add(sp);
-        this.butterflies.push({
-          sprite: sp,
-          basePos: sp.position.clone(),
-          phase: Math.random() * Math.PI * 2,
-          speed: 1.6 + Math.random()
-        });
-      }
-    }
-    buildPointsOfInterest() {
-      this.pointsOfInterest = [
-        { name: "Lago de Cristal", position: new Vector3(-80, 0, -80), radius: 65, type: "lake" },
-        { name: "Parque de Juegos", position: new Vector3(50, 0, 40), radius: 36, type: "playground" },
-        { name: "Trampol\xEDn de Salto", position: new Vector3(38, 0, 22), radius: 5, type: "trampoline" },
-        { name: "Carrusel Giratorio", position: new Vector3(62, 0, 26), radius: 6, type: "carousel" },
-        { name: "Pista de Baile Disco", position: new Vector3(52, 0, 56), radius: 5, type: "disco" },
-        { name: "Estaci\xF3n de Recarga", position: new Vector3(72, 0, 52), radius: 9, type: "recharge" },
-        { name: "Muelle de Madera", position: new Vector3(-44, 0, -80), radius: 14, type: "pier" },
-        { name: "Prado Esmeralda", position: new Vector3(0, 0, 0), radius: 28, type: "meadow" },
-        { name: "Fuente de Agua Canina", position: new Vector3(12, 0, 10), radius: 6, type: "fountain" },
-        { name: "Puente de Madera", position: new Vector3(-46, 0, -48), radius: 8, type: "bridge" },
-        { name: "Balanc\xEDn Cibern\xE9tico", position: new Vector3(48, 0, 32), radius: 6, type: "seesaw" },
-        { name: "Piscina de Pelotas", position: new Vector3(-32, 0, 48), radius: 6, type: "ballpit" },
-        { name: "Tobog\xE1n de Agilidad", position: new Vector3(-18, 0, -32), radius: 8, type: "slide" },
-        { name: "T\xFAnel de Agilidad", position: new Vector3(22, 0, -50), radius: 7, type: "tunnel" },
-        { name: "Diana de Tiro", position: new Vector3(76, 0, 18), radius: 6, type: "target" },
-        { name: "Pi\xF1ata Canina", position: new Vector3(-42, 0, 14), radius: 6, type: "pinata" }
-      ];
-    }
-    // Raw terrain height without elevated structures
-    getTerrainHeightOnly(x, z) {
-      const distToLake = Math.hypot(x - -80, z - -80);
-      if (distToLake < 65) {
-        const lakeFactor = Math.cos(distToLake / 65 * (Math.PI / 2));
-        return -4.5 * lakeFactor;
-      }
-      const distToPlayground = Math.hypot(x - 50, z - 40);
-      let y = Math.sin(x * 0.02) * 2.2 + Math.cos(z * 0.025) * 1.8 + Math.sin((x + z) * 0.015) * 1.5;
-      if (distToPlayground < 55) {
-        const blend = distToPlayground / 55;
-        y *= blend * blend;
-      }
-      return y;
-    }
-    // Unified height query including walkable Bridge, Pier, and Ramp surfaces!
-    getHeightAt(x, z) {
-      let y = this.getTerrainHeightOnly(x, z);
-      for (let i = 0; i < this.elevatedSurfaces.length; i++) {
-        const surf = this.elevatedSurfaces[i];
-        const dx = x - surf.x;
-        const dz = z - surf.z;
-        const cos = Math.cos(-surf.rotY);
-        const sin = Math.sin(-surf.rotY);
-        const localX = dx * cos - dz * sin;
-        const localZ = dx * sin + dz * cos;
-        if (Math.abs(localX) <= surf.halfW && Math.abs(localZ) <= surf.halfD) {
-          const surfY = surf.getHeight(localX, localZ);
-          if (surfY !== null && surfY > y) {
-            y = surfY;
-          }
-        }
-      }
-      return y;
-    }
-    // Full 3D Volumetric Collision Resolution (Supports Cylinder + Rotated OBB Box + Surface Normals)
-    resolveObstacleCollisions(pos, radius = 0.75, height = 1, outNormal = null) {
-      let collided = false;
-      const obstacles = this.getNearObstacles(pos.x, pos.z);
-      const posY = pos.y;
-      for (let i = 0; i < obstacles.length; i++) {
-        const obs = obstacles[i];
-        if (obs.yMin !== void 0 && obs.yMax !== void 0) {
-          if (posY + height < obs.yMin || posY > obs.yMax) {
-            continue;
-          }
-        }
-        if (obs.shape === "box") {
-          const dx = pos.x - obs.x;
-          const dz = pos.z - obs.z;
-          const rotY = obs.rotY || 0;
-          const cos = Math.cos(-rotY);
-          const sin = Math.sin(-rotY);
-          const localX = dx * cos - dz * sin;
-          const localZ = dx * sin + dz * cos;
-          const clampedX = MathUtils.clamp(localX, -obs.halfW, obs.halfW);
-          const clampedZ = MathUtils.clamp(localZ, -obs.halfD, obs.halfD);
-          const diffX = localX - clampedX;
-          const diffZ = localZ - clampedZ;
-          const distSq = diffX * diffX + diffZ * diffZ;
-          if (distSq < radius * radius) {
-            collided = true;
-            let pushLocalX = 0;
-            let pushLocalZ = 0;
-            let nxLocal = 0;
-            let nzLocal = 0;
-            if (distSq > 1e-5) {
-              const dist = Math.sqrt(distSq);
-              const overlap = radius - dist;
-              nxLocal = diffX / dist;
-              nzLocal = diffZ / dist;
-              pushLocalX = nxLocal * overlap;
-              pushLocalZ = nzLocal * overlap;
-            } else {
-              const penX = obs.halfW - Math.abs(localX) + radius;
-              const penZ = obs.halfD - Math.abs(localZ) + radius;
-              if (penX < penZ) {
-                nxLocal = localX >= 0 ? 1 : -1;
-                pushLocalX = nxLocal * penX;
-              } else {
-                nzLocal = localZ >= 0 ? 1 : -1;
-                pushLocalZ = nzLocal * penZ;
-              }
-            }
-            const cosW = Math.cos(rotY);
-            const sinW = Math.sin(rotY);
-            pos.x += pushLocalX * cosW - pushLocalZ * sinW;
-            pos.z += pushLocalX * sinW + pushLocalZ * cosW;
-            if (outNormal) {
-              outNormal.set(
-                nxLocal * cosW - nzLocal * sinW,
-                0,
-                nxLocal * sinW + nzLocal * cosW
-              ).normalize();
-            }
-          }
-        } else {
-          const dx = pos.x - obs.x;
-          const dz = pos.z - obs.z;
-          const dist = Math.hypot(dx, dz);
-          const minDist = (obs.radius || 0.8) + radius;
-          if (dist < minDist && dist > 1e-4) {
-            collided = true;
-            const overlap = minDist - dist;
-            const nx = dx / dist;
-            const nz = dz / dist;
-            pos.x += nx * overlap;
-            pos.z += nz * overlap;
-            if (outNormal) outNormal.set(nx, 0, nz);
-          }
-        }
-      }
-      const distFromOrigin = Math.hypot(pos.x, pos.z);
-      const maxWorldRadius = 238;
-      if (distFromOrigin > maxWorldRadius) {
-        collided = true;
-        const factor = maxWorldRadius / distFromOrigin;
-        pos.x *= factor;
-        pos.z *= factor;
-        if (outNormal) {
-          outNormal.set(-pos.x / distFromOrigin, 0, -pos.z / distFromOrigin);
-        }
-      }
-      return collided;
-    }
-    handleTargetHit(pts, ball) {
-      if (ball.lastTargetHit && Date.now() - ball.lastTargetHit < 800) return;
-      ball.lastTargetHit = Date.now();
-      this.targetScore += pts;
-      this.logActivity(`\u{1F3AF} \xA1DIANA ACERTADA! +${pts} PUNTOS | Total: ${this.targetScore}`);
-      roboAudio.playTrickSuccess();
-      if (this.onTargetHit) this.onTargetHit(this.targetScore);
-      ball.velocity.x *= -1.1;
-      ball.velocity.z *= -1.1;
-      ball.velocity.y = 4.5;
-    }
-    update(delta) {
-      this.waterTime += delta;
-      if (this.waterMesh) {
-        this.waterMesh.material.opacity = 0.86 + Math.sin(this.waterTime * 2.2) * 0.04;
-      }
-      this.clouds.forEach((c) => {
-        c.group.rotation.y += delta * 0.012 * c.speed;
-      });
-      if (this.ambientParticles) {
-        this.ambientParticles.rotation.y += delta * 0.02;
-      }
-      if (this.targetBoard && this.targetBoard.rotor) {
-        this.targetBoard.rotor.rotation.z += delta * 0.85;
-      }
-      if (this.pinata) {
-        this.pinata.swingVel += -this.pinata.swingAngle * 14 * delta;
-        this.pinata.swingVel *= Math.exp(-2.2 * delta);
-        this.pinata.swingAngle += this.pinata.swingVel * delta;
-        this.pinata.pivot.rotation.z = this.pinata.swingAngle;
-      }
-      this.ballPitBalls.forEach((b) => {
-        b.mesh.position.y = b.localOrigin.y + Math.sin(this.waterTime * 3 + b.localOrigin.x) * 0.035;
-        b.mesh.position.x = MathUtils.lerp(b.mesh.position.x, b.localOrigin.x, delta * 1.5);
-        b.mesh.position.z = MathUtils.lerp(b.mesh.position.z, b.localOrigin.z, delta * 1.5);
-      });
-      if (this.toyBoat) {
-        this.toyBoat.position.y = Math.sin(this.waterTime * 1.8) * 0.12;
-        this.toyBoat.rotation.z = Math.sin(this.waterTime * 1.4) * 0.06;
-        this.toyBoat.rotation.y += delta * 0.15;
-      }
-      if (this.carousel) {
-        this.carouselAngle += delta * 1.2;
-        this.carousel.rotor.rotation.y = this.carouselAngle;
-      }
-      if (this.discoPartyActive) {
-        this.discoTimer -= delta;
-        if (this.discoBall) this.discoBall.rotation.y += delta * 4;
-        if (Math.floor(this.waterTime * 6) % 2 === 0) {
-          roboAudio.playDanceBeat();
-        }
-        if (this.discoTiles) {
-          this.discoTiles.forEach((tile, idx) => {
-            tile.material.emissiveIntensity = 0.4 + Math.sin(this.waterTime * 10 + idx) * 0.6;
-          });
-        }
-        if (this.discoTimer <= 0) {
-          this.discoPartyActive = false;
-          if (this.discoTiles) {
-            this.discoTiles.forEach((tile) => tile.material.emissiveIntensity = 0.25);
-          }
-        }
-      }
-      this.interactiveObjects.forEach((item) => {
-        if (item.type === "bone") {
-          item.object.rotation.y += delta * 1.2;
-        }
-      });
-      this.butterflies.forEach((b) => {
-        b.phase += delta * b.speed;
-        b.sprite.position.x = b.basePos.x + Math.sin(b.phase) * 3;
-        b.sprite.position.z = b.basePos.z + Math.cos(b.phase * 0.7) * 3;
-        b.sprite.position.y = b.basePos.y + Math.sin(b.phase * 2.5) * 0.6;
-      });
-      if (this.fountainWater) {
-        this.fountainWater.rotation.z += delta * 0.75;
-      }
-      if (this.fountainJet) {
-        this.fountainJet.scale.y = 1 + Math.sin(this.waterTime * 6) * 0.22;
-      }
-      if (this.seesaw) {
-        this.seesaw.pivot.rotation.z = MathUtils.lerp(
-          this.seesaw.pivot.rotation.z,
-          this.seesaw.targetTilt,
-          delta * 3.5
-        );
-      }
-      const hitNormal = new Vector3();
-      this.balls.forEach((ball) => {
-        if (ball.carriedBy) return;
-        const subSteps = 2;
-        const subDelta = delta / subSteps;
-        for (let step = 0; step < subSteps; step++) {
-          ball.velocity.y -= 9.8 * subDelta;
-          ball.mesh.position.addScaledVector(ball.velocity, subDelta);
-          const hitObstacle = this.resolveObstacleCollisions(ball.mesh.position, ball.radius, ball.radius * 2, hitNormal);
-          if (hitObstacle) {
-            const velDot = ball.velocity.x * hitNormal.x + ball.velocity.z * hitNormal.z;
-            if (velDot < 0) {
-              ball.velocity.x -= (1 + ball.bounciness) * velDot * hitNormal.x;
-              ball.velocity.z -= (1 + ball.bounciness) * velDot * hitNormal.z;
-            } else {
-              ball.velocity.x *= -0.75;
-              ball.velocity.z *= -0.75;
-            }
-          }
-          const groundY = this.getHeightAt(ball.mesh.position.x, ball.mesh.position.z) + ball.radius;
-          if (ball.mesh.position.y <= groundY) {
-            ball.mesh.position.y = groundY;
-            if (Math.abs(ball.velocity.y) > 0.5) {
-              ball.velocity.y = -ball.velocity.y * ball.bounciness;
-            } else {
-              ball.velocity.y = 0;
-            }
-          }
-        }
-        ball.velocity.x *= ball.friction;
-        ball.velocity.z *= ball.friction;
-        const rollSpeed = Math.hypot(ball.velocity.x, ball.velocity.z);
-        if (rollSpeed > 0.05) {
-          ball.mesh.rotation.x += ball.velocity.z * delta * (1 / ball.radius);
-          ball.mesh.rotation.z -= ball.velocity.x * delta * (1 / ball.radius);
-        }
-        if (ball.type === "soccer" && this.soccerGoal) {
-          const gx = this.soccerGoal.position.x;
-          const gz = this.soccerGoal.position.z;
-          const bx = ball.mesh.position.x;
-          const bz = ball.mesh.position.z;
-          if (bx < gx + 0.3 && bx > gx - this.soccerGoal.depth && Math.abs(bz - gz) < this.soccerGoal.width * 0.46 && ball.mesh.position.y < this.soccerGoal.height) {
-            this.handleGoalScored(ball);
-          }
-        }
-        if (this.targetBoard) {
-          const tx = this.targetBoard.position.x;
-          const tz = this.targetBoard.position.z;
-          const ty = this.targetBoard.position.y;
-          const distXZ = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.z - tz);
-          const distY = Math.abs(ball.mesh.position.y - ty);
-          if (distXZ < this.targetBoard.radius && distY < 2.2) {
-            const hitRadius = Math.hypot(ball.mesh.position.x - tx, ball.mesh.position.y - ty);
-            let pts = 10;
-            if (hitRadius < 0.65) pts = 50;
-            else if (hitRadius < 1.35) pts = 25;
-            this.handleTargetHit(pts, ball);
-          }
-        }
-      });
-      for (let i = 0; i < this.balls.length; i++) {
-        for (let j = i + 1; j < this.balls.length; j++) {
-          const b1 = this.balls[i];
-          const b2 = this.balls[j];
-          if (b1.carriedBy || b2.carriedBy) continue;
-          const diff = new Vector3().subVectors(b2.mesh.position, b1.mesh.position);
-          const dist = diff.length();
-          const minDist = b1.radius + b2.radius;
-          if (dist < minDist && dist > 1e-3) {
-            const normal = diff.divideScalar(dist);
-            const overlap = minDist - dist;
-            b1.mesh.position.addScaledVector(normal, -overlap * 0.5);
-            b2.mesh.position.addScaledVector(normal, overlap * 0.5);
-            const relVel = new Vector3().subVectors(b2.velocity, b1.velocity);
-            const sepVel = relVel.dot(normal);
-            if (sepVel < 0) {
-              const impulse = -(1 + 0.8) * sepVel / (1 / b1.mass + 1 / b2.mass);
-              b1.velocity.addScaledVector(normal, -impulse / b1.mass);
-              b2.velocity.addScaledVector(normal, impulse / b2.mass);
-            }
-          }
-        }
-      }
-      for (let i = this.snacks.length - 1; i >= 0; i--) {
-        const snack = this.snacks[i];
-        snack.age += delta;
-        snack.group.rotation.y += delta * 2;
-        snack.group.position.y = this.getHeightAt(snack.group.position.x, snack.group.position.z) + 0.35 + Math.sin(snack.age * 3) * 0.1;
-      }
-    }
-    handleGoalScored(ball) {
-      this.goalScore++;
-      this.logActivity(`\u26BD \xA1\xA1\xA1GOOOOOOLAZO!!! Marcador: ${this.goalScore}`);
-      roboAudio.playGoalFanfare();
-      if (this.onGoal) {
-        this.onGoal(this.goalScore);
-      }
-      ball.mesh.position.set(45, 1.5, 40);
-      ball.velocity.set(0, 2, 0);
-    }
-    launchTrampoline(robot) {
-      if (!robot) return;
-      const rPos = robot.group.position;
-      if (this.trampoline) {
-        rPos.x = this.trampoline.position.x;
-        rPos.z = this.trampoline.position.z;
-      }
-      roboAudio.playTrampoline();
-      if (robot.animController) robot.animController.play("backflip", 1.8);
-      rPos.y += 2.5;
-      robot.energy = Math.min(100, robot.energy + 20);
-      this.logActivity(`\u{1F938} \xA1${robot.name} ejecut\xF3 una gran pirueta a\xE9rea en el trampol\xEDn!`);
-    }
-    handleRobotInteractions(robot) {
-      const rPos = robot.group.position;
-      this.resolveObstacleCollisions(rPos, 0.75, 1.2);
-      const lakeDx = rPos.x - -80;
-      const lakeDz = rPos.z - -80;
-      const distToLake = Math.hypot(lakeDx, lakeDz);
-      const surfaceY = this.getHeightAt(rPos.x, rPos.z);
-      if (distToLake < 58 && surfaceY < -0.1) {
-        robot.isInWater = true;
-        rPos.y = -0.52;
-        if (!robot.wasInWater) {
-          robot.wasInWater = true;
-          roboAudio.playSplash();
-          this.logActivity(`\u{1F3CA} \xA1${robot.name} se zambull\xF3 en el Lago de Cristal y est\xE1 nadando!`);
-          if (robot.animController && robot.animController.currentAnim !== "swimming") {
-            robot.animController.play("swimming");
-          }
-        }
-      } else {
-        if (robot.wasInWater) {
-          robot.wasInWater = false;
-          robot.isInWater = false;
-          roboAudio.playSplash();
-          this.logActivity(`\u{1F415} \xA1${robot.name} sali\xF3 del lago a tierra firme y se sacude para secarse!`);
-          if (robot.animController) {
-            robot.animController.play("shakeOff", 2);
-          }
-        }
-      }
-      if (this.slalomRings) {
-        this.slalomRings.forEach((ring) => {
-          const d = rPos.distanceTo(ring.position);
-          if (d < ring.radius + 0.4 && (!ring.lastCleared || Date.now() - ring.lastCleared > 3e3)) {
-            ring.lastCleared = Date.now();
-            roboAudio.playBoop(1.4 + ring.index * 0.12);
-            this.logActivity(`\u2B55 \xA1${robot.name} atraves\xF3 con precisi\xF3n el aro #${ring.index + 1}!`);
-          }
-        });
-      }
-      if (this.waterFountain) {
-        const fDist = Math.hypot(rPos.x - this.waterFountain.position.x, rPos.z - this.waterFountain.position.z);
-        if (fDist < 2.9) {
-          if (!robot.lastDrinkTime || Date.now() - robot.lastDrinkTime > 7e3) {
-            robot.lastDrinkTime = Date.now();
-            if (robot.quenchThirst) robot.quenchThirst(35);
-            roboAudio.playSplash();
-            this.logActivity(`\u{1F4A7} \xA1${robot.name} tom\xF3 agua fresca en la cibercuenca y calm\xF3 su sed!`);
-          }
-        }
-      }
-      if (this.seesaw) {
-        const sDist = Math.hypot(rPos.x - this.seesaw.position.x, rPos.z - this.seesaw.position.z);
-        if (sDist < 5.4) {
-          const relX = rPos.x - this.seesaw.position.x;
-          this.seesaw.targetTilt = MathUtils.clamp(-relX * 0.055, -0.25, 0.25);
-        } else {
-          this.seesaw.targetTilt = MathUtils.lerp(this.seesaw.targetTilt, 0, 0.05);
-        }
-      }
-      if (this.trampoline) {
-        const dist = Math.hypot(rPos.x - this.trampoline.position.x, rPos.z - this.trampoline.position.z);
-        if (dist < 2.8 && (!robot.lastTrampTime || Date.now() - robot.lastTrampTime > 1200)) {
-          robot.lastTrampTime = Date.now();
-          robot.trampConsecutiveHits = (robot.trampConsecutiveHits || 0) % 4 + 1;
-          const bounceForce = 2 + robot.trampConsecutiveHits * 0.7;
-          roboAudio.playTrampoline();
-          if (robot.animController) robot.animController.play("backflip", 1.8);
-          rPos.y += bounceForce;
-          robot.energy = Math.min(100, robot.energy + 10);
-          this.logActivity(`\u{1F938} \xA1${robot.name} dio su rebote #${robot.trampConsecutiveHits} en el trampol\xEDn (+${Math.round(bounceForce * 10)}% de impulso)!`);
-        }
-      }
-      if (this.carousel) {
-        const dist = Math.hypot(rPos.x - this.carousel.position.x, rPos.z - this.carousel.position.z);
-        if (dist < 3.6 && dist > 0.6) {
-          const a = Math.atan2(rPos.z - this.carousel.position.z, rPos.x - this.carousel.position.x);
-          const newA = a + 0.02;
-          rPos.x = this.carousel.position.x + Math.cos(newA) * dist;
-          rPos.z = this.carousel.position.z + Math.sin(newA) * dist;
-          robot.group.rotation.y += 0.02;
-        }
-      }
-      if (this.ballPit) {
-        const bDist = Math.hypot(rPos.x - this.ballPit.position.x, rPos.z - this.ballPit.position.z);
-        if (bDist < 3.2) {
-          const relX = rPos.x - this.ballPit.position.x;
-          const relZ = rPos.z - this.ballPit.position.z;
-          this.ballPitBalls.forEach((b) => {
-            const dx = b.mesh.position.x - relX;
-            const dz = b.mesh.position.z - relZ;
-            const d = Math.hypot(dx, dz);
-            if (d < 1.4 && d > 0.01) {
-              b.mesh.position.x = MathUtils.clamp(b.mesh.position.x + dx / d * 0.18, -3.1, 3.1);
-              b.mesh.position.z = MathUtils.clamp(b.mesh.position.z + dz / d * 0.18, -3.1, 3.1);
-            }
-          });
-          if (!robot.lastBallPitTime || Date.now() - robot.lastBallPitTime > 3500) {
-            robot.lastBallPitTime = Date.now();
-            roboAudio.playBoop(1.4);
-            this.logActivity(`\u{1F3CA} \xA1${robot.name} se zambull\xF3 en la piscina de pelotas de colores!`);
-            robot.playfulness = 100;
-            robot.energy = Math.min(100, robot.energy + 8);
-          }
-        }
-      }
-      if (this.slide) {
-        const distToTop = Math.hypot(rPos.x - this.slide.topPos.x, rPos.z - this.slide.topPos.z);
-        if (distToTop < 2 && !robot.isSliding) {
-          robot.isSliding = true;
-          this.logActivity(`\u{1F3A2} \xA1${robot.name} se subi\xF3 al tobog\xE1n y se desliza a toda velocidad!`);
-          roboAudio.playYip(1.3);
-          if (robot.animController) robot.animController.play("roll", 2);
-          let progress = 0;
-          const slideInterval = setInterval(() => {
-            progress += 0.08;
-            rPos.lerpVectors(this.slide.topPos, this.slide.endPos, progress);
-            rPos.y = MathUtils.lerp(this.slide.topPos.y, this.slide.endPos.y, progress);
-            if (progress >= 1) {
-              clearInterval(slideInterval);
-              robot.isSliding = false;
-              rPos.copy(this.slide.endPos);
-              if (robot.animController) robot.animController.play("backflip", 1.5);
-              roboAudio.playBoop(1.6);
-              this.logActivity(`\u{1F938} \xA1${robot.name} aterriz\xF3 en la colchoneta del tobog\xE1n con estilo!`);
-            }
-          }, 40);
-        }
-      }
-      if (this.obstacleCourse && this.obstacleCourse.tunnel) {
-        const tStart = this.obstacleCourse.tunnel.start;
-        const tDist = Math.hypot(rPos.x - tStart.x, rPos.z - tStart.z);
-        if (tDist < 1.5 && !robot.inTunnel) {
-          robot.inTunnel = true;
-          this.logActivity(`\u{1F300} \xA1${robot.name} se agach\xF3 y pas\xF3 velozmente por el t\xFAnel de agilidad!`);
-          if (robot.animController) robot.animController.play("sneak", 2);
-          roboAudio.playBoop(1.2);
-          setTimeout(() => {
-            robot.inTunnel = false;
-            if (robot.animController) robot.animController.play("howl", 1.5);
-          }, 1600);
-        }
-      }
-      if (this.pinata) {
-        const pDist = Math.hypot(rPos.x - this.pinata.position.x, rPos.z - this.pinata.position.z);
-        const groundY = this.getHeightAt(rPos.x, rPos.z);
-        if (pDist < 2 && rPos.y > groundY + 0.3) {
-          if (!this.pinata.lastHit || Date.now() - this.pinata.lastHit > 1e3) {
-            this.pinata.lastHit = Date.now();
-            this.pinata.hits++;
-            this.pinata.swingVel = 4.2;
-            roboAudio.playBoop(1.4);
-            this.logActivity(`\u{1FA85} \xA1${robot.name} golpe\xF3 la pi\xF1ata! (Golpe ${this.pinata.hits}/${this.pinata.maxHits})`);
-            if (this.pinata.hits >= this.pinata.maxHits) {
-              this.pinata.hits = 0;
-              this.logActivity(`\u{1F38A} \xA1\xA1\xA1LA PI\xD1ATA EXPLOT\xD3 EN GALLETAS PARA TODA LA MANADA!!! \u{1F36A}`);
-              roboAudio.playTrickSuccess();
-              for (let k = 0; k < 5; k++) {
-                const a = k / 5 * Math.PI * 2;
-                const sp = new Vector3(
-                  this.pinata.position.x + Math.cos(a) * (2 + Math.random() * 2),
-                  0,
-                  this.pinata.position.z + Math.sin(a) * (2 + Math.random() * 2)
-                );
-                this.spawnCyberSnack(sp);
-              }
-            }
-          }
-        }
-      }
-      if (this.discoPad && !this.discoPartyActive) {
-        const dist = Math.hypot(rPos.x - this.discoPad.position.x, rPos.z - this.discoPad.position.z);
-        if (dist < 2.8) {
-          this.triggerDiscoParty();
-        }
-      }
-      for (let i = this.snacks.length - 1; i >= 0; i--) {
-        const snack = this.snacks[i];
-        const dist = Math.hypot(rPos.x - snack.group.position.x, rPos.z - snack.group.position.z);
-        if (dist < 1.4) {
-          this.scene.remove(snack.group);
-          this.snacks.splice(i, 1);
-          robot.energy = 100;
-          roboAudio.playSnackMunch();
-          this.logActivity(`\u{1F60B} \xA1${robot.name} se comi\xF3 una galleta y recuper\xF3 100% de energ\xEDa!`);
-        }
-      }
-      this.balls.forEach((ball) => {
-        const dist = Math.hypot(rPos.x - ball.mesh.position.x, rPos.z - ball.mesh.position.z);
-        const minDist = 0.95 + ball.radius;
-        if (dist < minDist) {
-          const overlap = minDist - dist;
-          const pushDir = new Vector3(
-            ball.mesh.position.x - rPos.x,
-            0,
-            ball.mesh.position.z - rPos.z
-          ).normalize();
-          ball.mesh.position.x += pushDir.x * overlap;
-          ball.mesh.position.z += pushDir.z * overlap;
-          const kickStrength = 6.2;
-          ball.velocity.x += pushDir.x * kickStrength;
-          ball.velocity.z += pushDir.z * kickStrength;
-          ball.velocity.y += 2.2;
-          roboAudio.playBoop(robot.profile ? robot.profile.voicePitch : 1);
-        }
-      });
+      this._ownedDisposables.length = 0;
+      this.nodes = {};
+      this.materials = {};
     }
   };
 
   // public/js/animations.js
+  var CLIP_DURATIONS = {
+    idle: 1,
+    walk: 1.5,
+    run: 1.5,
+    sit: 2,
+    lieDown: 2.5,
+    jump: 1.2,
+    wagTail: 1.5,
+    bark: 1,
+    sniff: 2,
+    scratch: 2.2,
+    backflip: 1.6,
+    spin: 1.5,
+    roll: 1.8,
+    wave: 2,
+    recharge: 3,
+    dig: 2.2,
+    howl: 2.4,
+    dance: 2.5,
+    sneak: 2,
+    playBow: 2.2,
+    headTilt: 2.2,
+    bellyRub: 3,
+    beg: 2.5,
+    shakeOff: 1.8,
+    nuzzle: 2
+  };
+  var ROLL_CONTROLLED_CLIPS = /* @__PURE__ */ new Set([
+    "roll",
+    "bellyRub",
+    "scratch",
+    "shakeOff",
+    "dance",
+    "backflip",
+    "spin",
+    "chaseTail"
+  ]);
   var AnimationController = class {
-    constructor(robot) {
+    constructor(robot, eventBus2 = null) {
       this.robot = robot;
       this.nodes = robot.nodes;
+      this.eventBus = eventBus2;
       this.currentAnim = "idle";
       this.animTime = 0;
+      this.gaitPhase = 0;
       this.animSpeed = 1;
+      this.locomotionSpeed = 0;
+      this.isMoving = false;
       this.actionQueue = [];
-      this.currentAction = null;
+      this.onSequenceComplete = null;
+      this.onClipComplete = null;
       this.actionTimer = 0;
       this.actionDuration = 0;
+      this._sfxTriggered = false;
+      this._flipSoundPlayed = false;
       this.baseBodyY = 0.95;
-      this.stepTimer = 0;
+      this.disposed = false;
     }
-    // Frame-rate independent smooth damping helper
-    damp(current, target, lambda, delta) {
-      return MathUtils.damp(current, target, lambda, delta);
+    isBodyRollControlled() {
+      return ROLL_CONTROLLED_CLIPS.has(this.currentAnim);
     }
-    // Ensures unused axes smoothly return to neutral between different animations
-    dampPoseToNeutral(delta, speed = 8, options = {}) {
-      const { body, neck, tail, earL, earR, legs } = this.nodes;
-      if (!options.keepBodyPos) {
-        body.position.y = this.damp(body.position.y, this.baseBodyY, speed, delta);
-      }
-      if (!options.keepBodyRot) {
-        body.rotation.x = this.damp(body.rotation.x, 0, speed, delta);
-        body.rotation.y = this.damp(body.rotation.y, 0, speed, delta);
-        body.rotation.z = this.damp(body.rotation.z, this.robot.bankAngle || 0, speed, delta);
-      }
-      if (!options.keepBodyScale) {
-        body.scale.x = this.damp(body.scale.x, 1, speed, delta);
-        body.scale.y = this.damp(body.scale.y, 1, speed, delta);
-        body.scale.z = this.damp(body.scale.z, 1, speed, delta);
-      }
-      if (!options.keepNeck && neck && !this.robot.hasTarget) {
-        neck.rotation.x = this.damp(neck.rotation.x, 0, speed, delta);
-        neck.rotation.y = this.damp(neck.rotation.y, 0, speed, delta);
-        neck.rotation.z = this.damp(neck.rotation.z, 0, speed, delta);
-      }
-      if (!options.keepTail && tail) {
-        tail.rotation.x = this.damp(tail.rotation.x, 0.55, speed, delta);
-        tail.rotation.y = this.damp(tail.rotation.y, 0, speed, delta);
-        tail.rotation.z = this.damp(tail.rotation.z, 0, speed, delta);
-      }
-      if (!options.keepEars && earL && earR) {
-        earL.rotation.x = this.damp(earL.rotation.x, 0, speed, delta);
-        earR.rotation.x = this.damp(earR.rotation.x, 0, speed, delta);
-      }
-      if (!options.keepLegs && legs) {
-        Object.values(legs).forEach((leg) => {
-          leg.hip.rotation.x = this.damp(leg.hip.rotation.x, 0, speed, delta);
-          leg.hip.rotation.y = this.damp(leg.hip.rotation.y, 0, speed, delta);
-          leg.hip.rotation.z = this.damp(leg.hip.rotation.z, 0, speed, delta);
-          leg.knee.rotation.x = this.damp(leg.knee.rotation.x, 0, speed, delta);
-          if (leg.paw) leg.paw.rotation.x = this.damp(leg.paw.rotation.x, 0, speed, delta);
-        });
-      }
+    syncLocomotion(speedScalar, isMoving = true) {
+      this.locomotionSpeed = Math.max(0, speedScalar || 0);
+      this.isMoving = Boolean(isMoving);
     }
-    play(animName, duration = 0) {
-      if (this.currentAnim === animName && !duration) return;
-      if (this.nodes.body) {
-        this.nodes.body.rotation.x = this.nodes.body.rotation.x % (Math.PI * 2);
-        this.nodes.body.rotation.z = this.nodes.body.rotation.z % (Math.PI * 2);
+    _normalizeTransforms() {
+      const { body, neck, tail, earL, earR } = this.nodes;
+      if (body) {
+        body.rotation.x = wrapAngle(body.rotation.x);
+        body.rotation.y = wrapAngle(body.rotation.y);
+        body.rotation.z = wrapAngle(body.rotation.z);
       }
+      if (neck) {
+        neck.rotation.x = wrapAngle(neck.rotation.x);
+        neck.rotation.y = wrapAngle(neck.rotation.y);
+        neck.rotation.z = wrapAngle(neck.rotation.z);
+      }
+      if (tail) {
+        tail.rotation.x = wrapAngle(tail.rotation.x);
+        tail.rotation.y = wrapAngle(tail.rotation.y);
+        tail.rotation.z = wrapAngle(tail.rotation.z);
+      }
+      if (earL) earL.rotation.z = wrapAngle(earL.rotation.z);
+      if (earR) earR.rotation.z = wrapAngle(earR.rotation.z);
+    }
+    play(animName, duration = 0, onComplete = null) {
+      if (this.disposed) return;
+      if (!duration && this.actionQueue.length > 0 && animName !== this.currentAnim) {
+        this.actionQueue.length = 0;
+        this.onSequenceComplete = null;
+      }
+      if (this.currentAnim === animName) {
+        if (!duration) return;
+        if (this.actionDuration > 0 && this.actionTimer < Math.min(0.25, this.actionDuration * 0.45)) {
+          return;
+        }
+      }
+      this._normalizeTransforms();
       this.currentAnim = animName;
       this.animTime = 0;
+      this._sfxTriggered = false;
+      this._flipSoundPlayed = false;
+      this.onClipComplete = onComplete;
       if (duration > 0) {
         this.actionDuration = duration;
         this.actionTimer = 0;
       } else {
         this.actionDuration = 0;
+        this.actionTimer = 0;
       }
     }
-    playSequence(actionNames, onComplete = null) {
-      this.actionQueue = [...actionNames];
+    queueSequence(actionNames, onComplete = null) {
+      if (this.disposed || !Array.isArray(actionNames)) return;
+      this.actionQueue.length = 0;
+      for (let i = 0; i < actionNames.length; i++) {
+        this.actionQueue.push(actionNames[i]);
+      }
       this.onSequenceComplete = onComplete;
-      this.advanceSequence();
+      this._advanceSequence();
     }
-    advanceSequence() {
+    // Legacy alias
+    playSequence(actionNames, onComplete = null) {
+      this.queueSequence(actionNames, onComplete);
+    }
+    interruptSequence() {
+      this.actionQueue.length = 0;
+      this.actionDuration = 0;
+      this.actionTimer = 0;
+      this.onClipComplete = null;
+      this.onSequenceComplete = null;
+      this._normalizeTransforms();
+      this.play("idle");
+    }
+    _advanceSequence() {
+      const prevClip = this.currentAnim;
+      const clipCb = this.onClipComplete;
+      this.onClipComplete = null;
+      if (clipCb) clipCb(prevClip);
+      if (this.eventBus) {
+        this.eventBus.emit("anim:complete", { robot: this.robot, anim: prevClip });
+      }
       if (this.actionQueue.length === 0) {
         this.play("idle");
         if (this.onSequenceComplete) {
-          this.onSequenceComplete();
+          const seqCb = this.onSequenceComplete;
           this.onSequenceComplete = null;
+          seqCb();
         }
         return;
       }
       const nextAction = this.actionQueue.shift();
-      const durations = {
-        idle: 1,
-        walk: 1.5,
-        run: 1.5,
-        sit: 2,
-        lieDown: 2.5,
-        jump: 1.2,
-        wagTail: 1.5,
-        bark: 1,
-        sniff: 2,
-        scratch: 2.2,
-        backflip: 1.6,
-        spin: 1.5,
-        roll: 1.8,
-        wave: 2,
-        recharge: 3,
-        dig: 2.2,
-        howl: 2.4,
-        dance: 2.5,
-        sneak: 2,
-        playBow: 2.2,
-        headTilt: 2.2,
-        bellyRub: 3,
-        beg: 2.5,
-        shakeOff: 1.8,
-        nuzzle: 2
-      };
-      const dur = durations[nextAction] || 1.5;
+      const dur = CLIP_DURATIONS[nextAction] || 1.5;
       this.play(nextAction, dur);
     }
+    _dampLegNeutral(leg, speed, dt) {
+      if (!leg) return;
+      leg.hip.rotation.x = damp2(leg.hip.rotation.x, 0, speed, dt);
+      leg.hip.rotation.y = damp2(leg.hip.rotation.y, 0, speed, dt);
+      leg.hip.rotation.z = damp2(leg.hip.rotation.z, 0, speed, dt);
+      leg.knee.rotation.x = damp2(leg.knee.rotation.x, 0, speed, dt);
+      if (leg.paw) leg.paw.rotation.x = damp2(leg.paw.rotation.x, 0, speed, dt);
+    }
+    dampPoseToNeutral(dt, speed = 8, keepFlags = 0) {
+      const { body, neck, tail, earL, earR, legs } = this.nodes;
+      if (!(keepFlags & 1) && body) {
+        body.position.y = damp2(body.position.y, this.baseBodyY, speed, dt);
+      }
+      if (!(keepFlags & 2) && body) {
+        body.rotation.x = damp2(body.rotation.x, this.robot.pitchLean || 0, speed, dt);
+        body.rotation.y = damp2(body.rotation.y, 0, speed, dt);
+        body.rotation.z = damp2(body.rotation.z, this.robot.bankAngle || 0, speed, dt);
+      }
+      if (!(keepFlags & 4) && body) {
+        body.scale.x = damp2(body.scale.x, 1, speed, dt);
+        body.scale.y = damp2(body.scale.y, 1, speed, dt);
+        body.scale.z = damp2(body.scale.z, 1, speed, dt);
+      }
+      if (!(keepFlags & 8) && neck && !this.robot.hasTarget) {
+        neck.rotation.x = damp2(neck.rotation.x, 0, speed, dt);
+        neck.rotation.y = damp2(neck.rotation.y, 0, speed, dt);
+        neck.rotation.z = damp2(neck.rotation.z, 0, speed, dt);
+      }
+      if (!(keepFlags & 16) && tail) {
+        tail.rotation.x = damp2(tail.rotation.x, 0.55 + (this.robot.tailSpringAngle || 0), speed, dt);
+        tail.rotation.y = damp2(tail.rotation.y, 0, speed, dt);
+        if ((this.robot.tailHelicopterTimer || 0) <= 0) {
+          tail.rotation.z = damp2(tail.rotation.z, 0, speed, dt);
+        }
+      }
+      if (!(keepFlags & 32) && earL && earR) {
+        earL.rotation.x = damp2(earL.rotation.x, this.robot.earSpringX || 0, speed, dt);
+        earR.rotation.x = damp2(earR.rotation.x, this.robot.earSpringX || 0, speed, dt);
+      }
+      if (!(keepFlags & 64) && legs) {
+        this._dampLegNeutral(legs.FL, speed, dt);
+        this._dampLegNeutral(legs.FR, speed, dt);
+        this._dampLegNeutral(legs.BL, speed, dt);
+        this._dampLegNeutral(legs.BR, speed, dt);
+      }
+    }
     update(delta) {
-      this.animTime += delta * this.animSpeed;
+      if (this.disposed) return;
+      const dt = Math.min(delta, 0.05);
+      this.animTime += dt * this.animSpeed;
       if (this.actionDuration > 0) {
-        this.actionTimer += delta;
+        this.actionTimer += dt;
         if (this.actionTimer >= this.actionDuration) {
-          this.advanceSequence();
-          return;
+          this._advanceSequence();
         }
       }
       switch (this.currentAnim) {
         case "idle":
-          this.animateIdle(delta);
+          this.animateIdle(dt);
           break;
         case "walk":
-          this.animateWalk(delta, 1);
+          this.animateWalk(dt, 1);
           break;
         case "run":
-          this.animateWalk(delta, 2.1);
+          this.animateWalk(dt, 2.1);
           break;
         case "sit":
-          this.animateSit(delta);
+          this.animateSit(dt);
           break;
         case "lieDown":
-          this.animateLieDown(delta);
+          this.animateLieDown(dt);
           break;
         case "jump":
-          this.animateJump(delta);
+          this.animateJump(dt);
           break;
         case "wagTail":
-          this.animateWagTail(delta);
+          this.animateWagTail(dt);
           break;
         case "bark":
-          this.animateBark(delta);
+          this.animateBark(dt);
           break;
         case "sniff":
-          this.animateSniff(delta);
+          this.animateSniff(dt);
           break;
         case "scratch":
-          this.animateScratch(delta);
+          this.animateScratch(dt);
           break;
         case "backflip":
-          this.animateBackflip(delta);
+          this.animateBackflip(dt);
           break;
         case "spin":
-          this.animateSpin(delta);
+          this.animateSpin(dt);
           break;
         case "roll":
-          this.animateRoll(delta);
+          this.animateRoll(dt);
           break;
         case "wave":
-          this.animateWave(delta);
+          this.animateWave(dt);
           break;
         case "recharge":
-          this.animateRecharge(delta);
+          this.animateRecharge(dt);
           break;
         case "dig":
-          this.animateDig(delta);
+          this.animateDig(dt);
           break;
         case "howl":
-          this.animateHowl(delta);
+          this.animateHowl(dt);
           break;
         case "dance":
-          this.animateDance(delta);
+          this.animateDance(dt);
           break;
         case "sneak":
-          this.animateSneak(delta);
+          this.animateSneak(dt);
           break;
         case "playBow":
-          this.animatePlayBow(delta);
+          this.animatePlayBow(dt);
           break;
         case "headTilt":
-          this.animateHeadTilt(delta);
+          this.animateHeadTilt(dt);
           break;
         case "bellyRub":
-          this.animateBellyRub(delta);
+          this.animateBellyRub(dt);
           break;
         case "beg":
-          this.animateBeg(delta);
+          this.animateBeg(dt);
           break;
         case "shakeOff":
-          this.animateShakeOff(delta);
+          this.animateShakeOff(dt);
           break;
         case "nuzzle":
-          this.animateNuzzle(delta);
+          this.animateNuzzle(dt);
           break;
         case "pickedUp":
-          this.animatePickedUp(delta);
+          this.animatePickedUp(dt);
           break;
         case "chaseTail":
-          this.animateChaseTail(delta);
+          this.animateChaseTail(dt);
           break;
         case "dizzy":
-          this.animateDizzy(delta);
+          this.animateDizzy(dt);
           break;
         case "swimming":
-          this.animateSwimming(delta);
+          this.animateSwimming(dt);
           break;
         case "patrolLook":
-          this.animatePatrolLook(delta);
+          this.animatePatrolLook(dt);
           break;
         case "scentTrack":
-          this.animateScentTrack(delta);
+          this.animateScentTrack(dt);
           break;
         default:
-          this.animateIdle(delta);
+          this.animateIdle(dt);
           break;
       }
     }
-    animateIdle(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepTail: true, keepEars: true });
+    animateIdle(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 16 | 32);
       const t = this.animTime;
       const { body, neck, tail, earL, earR } = this.nodes;
       const breath = Math.sin(t * 2.4);
-      body.position.y = this.damp(body.position.y, this.baseBodyY + breath * 0.028, 8, delta);
-      body.rotation.x = this.damp(body.rotation.x, breath * 0.018, 6, delta);
+      body.position.y = damp2(body.position.y, this.baseBodyY + breath * 0.028, 8, dt);
+      body.rotation.x = damp2(body.rotation.x, breath * 0.018, 6, dt);
       if (!this.robot.hasTarget && neck) {
-        neck.rotation.x = this.damp(neck.rotation.x, -breath * 0.03 + Math.sin(t * 1.1) * 0.04, 6, delta);
-        neck.rotation.y = this.damp(neck.rotation.y, Math.sin(t * 0.7) * 0.06, 5, delta);
+        neck.rotation.x = damp2(neck.rotation.x, -breath * 0.03 + Math.sin(t * 1.1) * 0.04, 6, dt);
+        neck.rotation.y = damp2(neck.rotation.y, Math.sin(t * 0.7) * 0.06, 5, dt);
       }
       const earTwitch = Math.pow(Math.max(0, Math.sin(t * 1.7)), 6) * 0.22;
-      earL.rotation.x = this.damp(earL.rotation.x, Math.sin(t * 1.5) * 0.06 + earTwitch, 10, delta);
-      earR.rotation.x = this.damp(earR.rotation.x, Math.sin(t * 1.5 + 0.8) * 0.06, 10, delta);
-      tail.rotation.x = this.damp(tail.rotation.x, 0.55 + Math.cos(t * 2.2) * 0.08, 8, delta);
-      tail.rotation.y = this.damp(tail.rotation.y, Math.sin(t * 3.6) * 0.38, 10, delta);
-      tail.rotation.z = this.damp(tail.rotation.z, Math.cos(t * 1.8) * 0.12, 8, delta);
+      earL.rotation.x = damp2(earL.rotation.x, Math.sin(t * 1.5) * 0.06 + earTwitch, 10, dt);
+      earR.rotation.x = damp2(earR.rotation.x, Math.sin(t * 1.5 + 0.8) * 0.06, 10, dt);
+      tail.rotation.x = damp2(tail.rotation.x, 0.55 + Math.cos(t * 2.2) * 0.08, 8, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(t * 3.6) * 0.38, 10, dt);
+      if ((this.robot.tailHelicopterTimer || 0) <= 0) {
+        tail.rotation.z = damp2(tail.rotation.z, Math.cos(t * 1.8) * 0.12, 8, dt);
+      }
     }
-    animateWalk(delta, speedMultiplier = 1) {
-      this.dampPoseToNeutral(delta, 10, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepTail: true });
+    _applyLegGait(leg, cycle, strideAmp, kneeLiftAmp, isFront, dt) {
+      const hipTarget = Math.sin(cycle) * strideAmp;
+      const swingLift = Math.max(0, Math.cos(cycle));
+      const kneeTarget = isFront ? swingLift * kneeLiftAmp : -swingLift * kneeLiftAmp * 0.85;
+      const pawTarget = -swingLift * 0.35 + Math.sin(cycle) * 0.15;
+      leg.hip.rotation.x = damp2(leg.hip.rotation.x, hipTarget, 18, dt);
+      leg.hip.rotation.z = damp2(leg.hip.rotation.z, 0, 12, dt);
+      leg.knee.rotation.x = damp2(leg.knee.rotation.x, kneeTarget, 18, dt);
+      if (leg.paw) {
+        leg.paw.rotation.x = damp2(leg.paw.rotation.x, pawTarget, 18, dt);
+      }
+    }
+    animateWalk(dt, speedMultiplier = 1) {
+      this.dampPoseToNeutral(dt, 10, 1 | 2 | 16 | 64);
       const isRun = speedMultiplier > 1.5;
-      const freq = isRun ? 10.5 : 6.8;
-      const t = this.animTime * freq;
+      const nominalSpeed = isRun ? 7.2 : 3.8;
+      const actualSpeed = this.locomotionSpeed > 0.01 ? this.locomotionSpeed : this.robot.physics ? this.robot.physics.speedScalar : nominalSpeed;
+      const speedRatio = MathUtils.clamp(actualSpeed / nominalSpeed, 0, 1.45);
+      const baseFreq = isRun ? 10.2 : 6.6;
+      const freqScale = speedRatio < 0.08 ? 0 : MathUtils.clamp(0.45 + speedRatio * 0.65, 0.35, 1.45);
+      const prevHalfStep = Math.floor(this.gaitPhase / Math.PI);
+      this.gaitPhase += dt * baseFreq * freqScale;
+      const nextHalfStep = Math.floor(this.gaitPhase / Math.PI);
+      const t = this.gaitPhase;
+      const strideAmp = (isRun ? 0.78 : 0.48) * MathUtils.clamp(speedRatio * 1.05, 0.05, 1.2);
+      const kneeLiftAmp = (isRun ? 0.85 : 0.55) * MathUtils.clamp(speedRatio * 1.05, 0.1, 1.2);
       const { body, neck, tail, legs } = this.nodes;
-      const phaseFL = 0;
       const phaseBR = isRun ? 0.35 : 0.15;
-      const phaseFR = Math.PI;
       const phaseBL = isRun ? Math.PI + 0.35 : Math.PI + 0.15;
-      const strideAmp = isRun ? 0.78 : 0.48;
-      const kneeLiftAmp = isRun ? 0.85 : 0.55;
-      const applyLegKinematics = (leg, phase, isFront) => {
-        const cycle = t + phase;
-        const hipTarget = Math.sin(cycle) * strideAmp;
-        const swingLift = Math.max(0, Math.cos(cycle));
-        const kneeTarget = isFront ? swingLift * kneeLiftAmp : -swingLift * kneeLiftAmp * 0.85;
-        const pawTarget = -swingLift * 0.35 + Math.sin(cycle) * 0.15;
-        leg.hip.rotation.x = this.damp(leg.hip.rotation.x, hipTarget, 18, delta);
-        leg.hip.rotation.z = this.damp(leg.hip.rotation.z, 0, 12, delta);
-        leg.knee.rotation.x = this.damp(leg.knee.rotation.x, kneeTarget, 18, delta);
-        if (leg.paw) {
-          leg.paw.rotation.x = this.damp(leg.paw.rotation.x, pawTarget, 18, delta);
-        }
-      };
-      applyLegKinematics(legs.FL, phaseFL, true);
-      applyLegKinematics(legs.BR, phaseBR, false);
-      applyLegKinematics(legs.FR, phaseFR, true);
-      applyLegKinematics(legs.BL, phaseBL, false);
-      const bob = Math.abs(Math.sin(t)) * (isRun ? 0.13 : 0.065);
-      body.position.y = this.damp(body.position.y, this.baseBodyY + bob, 16, delta);
-      body.rotation.x = this.damp(body.rotation.x, isRun ? Math.cos(t) * 0.09 : Math.cos(t * 2) * 0.025, 14, delta);
-      body.rotation.z = this.damp(body.rotation.z, (this.robot.bankAngle || 0) + Math.sin(t) * 0.035, 12, delta);
-      body.rotation.y = this.damp(body.rotation.y, Math.cos(t) * 0.025, 12, delta);
+      this._applyLegGait(legs.FL, t, strideAmp, kneeLiftAmp, true, dt);
+      this._applyLegGait(legs.BR, t + phaseBR, strideAmp, kneeLiftAmp, false, dt);
+      this._applyLegGait(legs.FR, t + Math.PI, strideAmp, kneeLiftAmp, true, dt);
+      this._applyLegGait(legs.BL, t + phaseBL, strideAmp, kneeLiftAmp, false, dt);
+      const ampBlend = MathUtils.clamp(speedRatio, 0, 1);
+      const bob = Math.abs(Math.sin(t)) * (isRun ? 0.13 : 0.065) * ampBlend;
+      body.position.y = damp2(body.position.y, this.baseBodyY + bob, 16, dt);
+      body.rotation.x = damp2(body.rotation.x, (isRun ? Math.cos(t) * 0.09 : Math.cos(t * 2) * 0.025) * ampBlend + (this.robot.pitchLean || 0), 14, dt);
+      body.rotation.z = damp2(body.rotation.z, (this.robot.bankAngle || 0) + Math.sin(t) * 0.035 * ampBlend, 12, dt);
+      body.rotation.y = damp2(body.rotation.y, Math.cos(t) * 0.025 * ampBlend, 12, dt);
       if (!this.robot.hasTarget && neck) {
-        neck.rotation.x = this.damp(neck.rotation.x, -Math.sin(t * 2) * 0.06 + (isRun ? 0.12 : 0), 14, delta);
+        neck.rotation.x = damp2(neck.rotation.x, -Math.sin(t * 2) * 0.06 * ampBlend + (isRun ? 0.12 : 0), 14, dt);
       }
-      tail.rotation.x = this.damp(tail.rotation.x, isRun ? 0.25 : 0.65, 10, delta);
-      tail.rotation.y = Math.sin(t * 1.5) * (isRun ? 0.55 : 0.75);
-      this.stepTimer += delta * freq;
-      if (this.stepTimer >= Math.PI) {
-        this.stepTimer -= Math.PI;
-        if (this.robot.isPlayer) roboAudio.playStep();
+      tail.rotation.x = damp2(tail.rotation.x, (isRun ? 0.25 : 0.65) + (this.robot.tailSpringAngle || 0), 10, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(t * 1.5) * (isRun ? 0.55 : 0.75), 14, dt);
+      if (nextHalfStep > prevHalfStep && actualSpeed > 0.35) {
+        if (this.robot.isPlayer) {
+          if (typeof roboAudio.playFootstep === "function") roboAudio.playFootstep();
+          else if (typeof roboAudio.playStep === "function") roboAudio.playStep();
+        }
+        if (this.eventBus) {
+          this.eventBus.emit("anim:footstep", {
+            robot: this.robot,
+            speed: actualSpeed,
+            isRun
+          });
+        }
       }
     }
-    animateSit(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateSit(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.58, 7, delta);
-      body.rotation.x = this.damp(body.rotation.x, -0.44, 7, delta);
-      body.rotation.z = this.damp(body.rotation.z, 0, 7, delta);
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.42, 7, delta);
-      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.42, 7, delta);
-      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0, 7, delta);
-      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0, 7, delta);
-      if (legs.FL.paw) legs.FL.paw.rotation.x = this.damp(legs.FL.paw.rotation.x, 0.05, 7, delta);
-      if (legs.FR.paw) legs.FR.paw.rotation.x = this.damp(legs.FR.paw.rotation.x, 0.05, 7, delta);
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.22, 7, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.22, 7, delta);
-      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.45, 7, delta);
-      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.45, 7, delta);
-      if (legs.BL.paw) legs.BL.paw.rotation.x = this.damp(legs.BL.paw.rotation.x, 0.2, 7, delta);
-      if (legs.BR.paw) legs.BR.paw.rotation.x = this.damp(legs.BR.paw.rotation.x, 0.2, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.42 + Math.sin(this.animTime * 2.2) * 0.04, 7, delta);
-      neck.rotation.z = this.damp(neck.rotation.z, Math.sin(this.animTime * 1.5) * 0.05, 6, delta);
-      tail.rotation.y = Math.sin(this.animTime * 5.5) * 0.55;
+      body.position.y = damp2(body.position.y, 0.58, 7, dt);
+      body.rotation.x = damp2(body.rotation.x, -0.44, 7, dt);
+      body.rotation.z = damp2(body.rotation.z, 0, 7, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.42, 7, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.42, 7, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0, 7, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0, 7, dt);
+      if (legs.FL.paw) legs.FL.paw.rotation.x = damp2(legs.FL.paw.rotation.x, 0.05, 7, dt);
+      if (legs.FR.paw) legs.FR.paw.rotation.x = damp2(legs.FR.paw.rotation.x, 0.05, 7, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.22, 7, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.22, 7, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 1.45, 7, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 1.45, 7, dt);
+      if (legs.BL.paw) legs.BL.paw.rotation.x = damp2(legs.BL.paw.rotation.x, 0.2, 7, dt);
+      if (legs.BR.paw) legs.BR.paw.rotation.x = damp2(legs.BR.paw.rotation.x, 0.2, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.42 + Math.sin(this.animTime * 2.2) * 0.04, 7, dt);
+      neck.rotation.z = damp2(neck.rotation.z, Math.sin(this.animTime * 1.5) * 0.05, 6, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 5.5) * 0.55, 14, dt);
     }
-    animateLieDown(delta) {
-      this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateLieDown(dt) {
+      this.dampPoseToNeutral(dt, 6, 1 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.32 + Math.sin(this.animTime * 1.8) * 0.015, 6, delta);
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, -1.15, 6, delta);
-      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, -1.15, 6, delta);
-      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0.25, 6, delta);
-      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0.25, 6, delta);
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.25, 6, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.25, 6, delta);
-      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.4, 6, delta);
-      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.4, 6, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.15 + Math.sin(this.animTime * 1.8) * 0.03, 5, delta);
-      tail.rotation.y = Math.sin(this.animTime * 2) * 0.25;
+      body.position.y = damp2(body.position.y, 0.32 + Math.sin(this.animTime * 1.8) * 0.015, 6, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, -1.15, 6, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -1.15, 6, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0.25, 6, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.25, 6, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.25, 6, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.25, 6, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 1.4, 6, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 1.4, 6, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.15 + Math.sin(this.animTime * 1.8) * 0.03, 5, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 2) * 0.25, 10, dt);
     }
-    animateJump(delta) {
+    animateJump(dt) {
       const { body, legs, tail, neck } = this.nodes;
       const progress = Math.min(1, this.actionTimer / (this.actionDuration || 1.2));
-      if (this.actionTimer < 0.05 && this.robot.isPlayer) {
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playJump(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
       if (progress < 0.18) {
-        body.position.y = this.damp(body.position.y, this.baseBodyY - 0.22, 18, delta);
-        body.scale.set(1.06, 0.92, 1.04);
-        body.rotation.x = this.damp(body.rotation.x, 0.22, 15, delta);
-        legs.FL.hip.rotation.x = 0.65;
-        legs.FR.hip.rotation.x = 0.65;
-        legs.BL.hip.rotation.x = -0.65;
-        legs.BR.hip.rotation.x = -0.65;
+        body.position.y = damp2(body.position.y, this.baseBodyY - 0.22, 18, dt);
+        body.scale.x = damp2(body.scale.x, 1.06, 18, dt);
+        body.scale.y = damp2(body.scale.y, 0.92, 18, dt);
+        body.scale.z = damp2(body.scale.z, 1.04, 18, dt);
+        body.rotation.x = damp2(body.rotation.x, 0.22, 15, dt);
+        legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.65, 16, dt);
+        legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.65, 16, dt);
+        legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -0.65, 16, dt);
+        legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -0.65, 16, dt);
       } else if (progress < 0.82) {
         const airP = (progress - 0.18) / 0.64;
         const jumpHeight = Math.sin(airP * Math.PI) * 1.85;
-        body.position.y = this.baseBodyY + jumpHeight;
-        body.scale.set(0.96, 1.06, 1.02);
-        body.rotation.x = MathUtils.lerp(-0.38, 0.28, airP);
-        neck.rotation.x = -0.2;
-        legs.FL.hip.rotation.x = -0.55;
-        legs.FR.hip.rotation.x = -0.55;
-        legs.FL.knee.rotation.x = 0.45;
-        legs.FR.knee.rotation.x = 0.45;
-        legs.BL.hip.rotation.x = 0.7;
-        legs.BR.hip.rotation.x = 0.7;
+        body.position.y = damp2(body.position.y, this.baseBodyY + jumpHeight, 22, dt);
+        body.scale.x = damp2(body.scale.x, 0.96, 16, dt);
+        body.scale.y = damp2(body.scale.y, 1.06, 16, dt);
+        body.scale.z = damp2(body.scale.z, 1.02, 16, dt);
+        body.rotation.x = damp2(body.rotation.x, MathUtils.lerp(-0.38, 0.28, airP), 16, dt);
+        neck.rotation.x = damp2(neck.rotation.x, -0.2, 14, dt);
+        legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, -0.55, 16, dt);
+        legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -0.55, 16, dt);
+        legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0.45, 16, dt);
+        legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.45, 16, dt);
+        legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, 0.7, 16, dt);
+        legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, 0.7, 16, dt);
+        legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 0.25, 14, dt);
+        legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 0.25, 14, dt);
       } else {
-        body.position.y = this.damp(body.position.y, this.baseBodyY - 0.08, 16, delta);
-        body.scale.set(1.04, 0.95, 1.02);
-        body.rotation.x = this.damp(body.rotation.x, 0, 12, delta);
-        this.dampPoseToNeutral(delta, 12, { keepBodyPos: true, keepBodyScale: true });
+        body.position.y = damp2(body.position.y, this.baseBodyY - 0.08, 16, dt);
+        body.scale.x = damp2(body.scale.x, 1.04, 16, dt);
+        body.scale.y = damp2(body.scale.y, 0.95, 16, dt);
+        body.scale.z = damp2(body.scale.z, 1.02, 16, dt);
+        this.dampPoseToNeutral(dt, 12, 1 | 4);
       }
-      tail.rotation.y = Math.sin(this.animTime * 14) * 0.9;
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 14) * 0.9, 16, dt);
     }
-    animateWagTail(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepTail: true, keepEars: true });
+    animateWagTail(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 16 | 32);
       const { tail, body, earL, earR } = this.nodes;
-      body.position.y = this.baseBodyY + Math.abs(Math.sin(this.animTime * 9)) * 0.045;
-      body.rotation.y = Math.sin(this.animTime * 16) * 0.06;
-      tail.rotation.y = Math.sin(this.animTime * 18) * 1.15;
-      tail.rotation.x = 0.75;
-      earL.rotation.z = 0.35 + Math.sin(this.animTime * 9) * 0.12;
-      earR.rotation.z = -0.35 - Math.sin(this.animTime * 9) * 0.12;
+      body.position.y = damp2(body.position.y, this.baseBodyY + Math.abs(Math.sin(this.animTime * 9)) * 0.045, 14, dt);
+      body.rotation.y = damp2(body.rotation.y, Math.sin(this.animTime * 16) * 0.06, 14, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 18) * 1.15, 20, dt);
+      tail.rotation.x = damp2(tail.rotation.x, 0.75, 12, dt);
+      earL.rotation.z = damp2(earL.rotation.z, 0.35 + Math.sin(this.animTime * 9) * 0.12, 14, dt);
+      earR.rotation.z = damp2(earR.rotation.z, -0.35 - Math.sin(this.animTime * 9) * 0.12, 14, dt);
     }
-    animateBark(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepNeck: true, keepBodyRot: true });
+    animateBark(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 32);
       const { neck, body, earL, earR } = this.nodes;
       const progress = this.actionTimer % 0.45 / 0.45;
       const pulse = Math.sin(progress * Math.PI);
-      neck.rotation.x = pulse * 0.38;
-      body.position.y = this.baseBodyY + pulse * 0.09;
-      body.rotation.x = -pulse * 0.12;
-      earL.rotation.x = -pulse * 0.25;
-      earR.rotation.x = -pulse * 0.25;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      neck.rotation.x = damp2(neck.rotation.x, pulse * 0.38, 22, dt);
+      body.position.y = damp2(body.position.y, this.baseBodyY + pulse * 0.09, 20, dt);
+      body.rotation.x = damp2(body.rotation.x, -pulse * 0.12, 20, dt);
+      earL.rotation.x = damp2(earL.rotation.x, -pulse * 0.25, 18, dt);
+      earR.rotation.x = damp2(earR.rotation.x, -pulse * 0.25, 18, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playBark(this.robot.profile ? this.robot.profile.voicePitch : 1.1);
       }
     }
-    animateSniff(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true });
+    animateSniff(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 2 | 8 | 16);
       const { neck, body, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.14, 7, delta);
-      body.rotation.x = this.damp(body.rotation.x, 0.18, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.42 + Math.sin(this.animTime * 14) * 0.04, 8, delta);
-      neck.rotation.y = Math.sin(this.animTime * 4.2) * 0.45;
-      tail.rotation.y = Math.sin(this.animTime * 6) * 0.35;
+      body.position.y = damp2(body.position.y, this.baseBodyY - 0.14, 7, dt);
+      body.rotation.x = damp2(body.rotation.x, 0.18, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.42 + Math.sin(this.animTime * 14) * 0.04, 10, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.sin(this.animTime * 4.2) * 0.45, 12, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 6) * 0.35, 12, dt);
     }
-    animateScratch(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true });
+    animateScratch(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 2 | 8 | 64);
       const { body, legs, neck } = this.nodes;
-      body.rotation.z = this.damp(body.rotation.z, -0.32, 7, delta);
-      body.position.y = this.damp(body.position.y, 0.66, 7, delta);
-      neck.rotation.z = this.damp(neck.rotation.z, 0.28, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.2, 7, delta);
+      body.rotation.z = damp2(body.rotation.z, -0.32, 7, dt);
+      body.position.y = damp2(body.position.y, 0.66, 7, dt);
+      neck.rotation.z = damp2(neck.rotation.z, 0.28, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.2, 7, dt);
       const scratchFreq = Math.sin(this.animTime * 20) * 0.55;
-      legs.BL.hip.rotation.x = 1.05 + scratchFreq;
-      legs.BL.hip.rotation.z = 0.45;
-      legs.BL.knee.rotation.x = -0.75 + scratchFreq * 0.4;
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, 1.05 + scratchFreq, 20, dt);
+      legs.BL.hip.rotation.z = damp2(legs.BL.hip.rotation.z, 0.45, 12, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, -0.75 + scratchFreq * 0.4, 20, dt);
+      this._dampLegNeutral(legs.FL, 8, dt);
+      this._dampLegNeutral(legs.FR, 8, dt);
+      this._dampLegNeutral(legs.BR, 8, dt);
     }
-    animateBackflip(delta) {
+    animateBackflip(dt) {
       const { body, legs } = this.nodes;
       const progress = Math.min(1, this.actionTimer / (this.actionDuration || 1.6));
       const jumpHeight = Math.sin(progress * Math.PI) * 2.35;
-      body.position.y = this.baseBodyY + jumpHeight;
+      body.position.y = damp2(body.position.y, this.baseBodyY + jumpHeight, 22, dt);
       const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
       body.rotation.x = eased * Math.PI * 2;
-      const tuck = Math.sin(progress * Math.PI);
-      Object.values(legs).forEach((leg) => {
-        leg.hip.rotation.x = tuck * 0.6;
-        leg.knee.rotation.x = tuck * 0.8;
-      });
-      if (progress > 0.94 && this.robot.isPlayer && !this._flipSoundPlayed) {
+      body.rotation.z = damp2(body.rotation.z, 0, 12, dt);
+      const tuck = Math.sin(progress * Math.PI) * 0.6;
+      const kneeTuck = Math.sin(progress * Math.PI) * 0.8;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, tuck, 18, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, tuck, 18, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, tuck, 18, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, tuck, 18, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, kneeTuck, 18, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, kneeTuck, 18, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, kneeTuck, 18, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, kneeTuck, 18, dt);
+      if (progress > 0.92 && this.robot.isPlayer && !this._flipSoundPlayed) {
         this._flipSoundPlayed = true;
         roboAudio.playTrickSuccess();
-      } else if (progress < 0.1) {
-        this._flipSoundPlayed = false;
       }
     }
-    animateSpin(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepLegs: true, keepTail: true });
+    animateSpin(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 16 | 64);
       const { body, legs, tail } = this.nodes;
-      this.robot.group.rotation.y += delta * 6.5;
-      body.position.y = this.baseBodyY + Math.abs(Math.sin(this.animTime * 10)) * 0.06;
-      tail.rotation.y = Math.sin(this.animTime * 15) * 0.95;
-      legs.FL.hip.rotation.x = Math.sin(this.animTime * 12) * 0.45;
-      legs.FR.hip.rotation.x = Math.sin(this.animTime * 12 + Math.PI) * 0.45;
-      legs.BL.hip.rotation.x = Math.cos(this.animTime * 12) * 0.45;
-      legs.BR.hip.rotation.x = Math.cos(this.animTime * 12 + Math.PI) * 0.45;
+      this.robot.group.rotation.y = wrapAngle(this.robot.group.rotation.y + dt * 6.5);
+      body.position.y = damp2(body.position.y, this.baseBodyY + Math.abs(Math.sin(this.animTime * 10)) * 0.06, 16, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 15) * 0.95, 16, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(this.animTime * 12) * 0.45, 18, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, Math.sin(this.animTime * 12 + Math.PI) * 0.45, 18, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, Math.cos(this.animTime * 12) * 0.45, 18, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, Math.cos(this.animTime * 12 + Math.PI) * 0.45, 18, dt);
     }
-    animateRoll(delta) {
+    animateRoll(dt) {
+      this.dampPoseToNeutral(dt, 10, 1 | 2 | 16 | 64);
       const { body, legs, tail } = this.nodes;
       const progress = Math.min(1, this.actionTimer / (this.actionDuration || 1.8));
-      body.position.y = this.damp(body.position.y, 0.45 + Math.sin(progress * Math.PI) * 0.32, 10, delta);
+      body.position.y = damp2(body.position.y, 0.45 + Math.sin(progress * Math.PI) * 0.32, 12, dt);
       body.rotation.z = progress * Math.PI * 2;
-      legs.FL.hip.rotation.x = 0.55;
-      legs.FR.hip.rotation.x = 0.55;
-      legs.BL.hip.rotation.x = 0.75;
-      legs.BR.hip.rotation.x = 0.75;
-      tail.rotation.y = Math.sin(this.animTime * 12) * 0.8;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.55, 14, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.55, 14, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, 0.75, 14, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, 0.75, 14, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 12) * 0.8, 14, dt);
     }
-    animateWave(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateWave(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 2 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 1.15, 7, delta);
-      body.rotation.x = this.damp(body.rotation.x, -0.68, 7, delta);
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.5, 7, delta);
-      legs.FR.hip.rotation.x = -1.25 + Math.sin(this.animTime * 10) * 0.35;
-      legs.FR.hip.rotation.z = -0.2 + Math.cos(this.animTime * 10) * 0.2;
-      legs.FR.knee.rotation.x = 0.75 + Math.sin(this.animTime * 10) * 0.3;
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.1, 7, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.1, 7, delta);
-      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.3, 7, delta);
-      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.3, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.45, 7, delta);
-      neck.rotation.y = Math.sin(this.animTime * 3.5) * 0.2;
-      tail.rotation.y = Math.sin(this.animTime * 11) * 0.85;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      body.position.y = damp2(body.position.y, 1.15, 7, dt);
+      body.rotation.x = damp2(body.rotation.x, -0.68, 7, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.5, 7, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -1.25 + Math.sin(this.animTime * 10) * 0.35, 16, dt);
+      legs.FR.hip.rotation.z = damp2(legs.FR.hip.rotation.z, -0.2 + Math.cos(this.animTime * 10) * 0.2, 16, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.75 + Math.sin(this.animTime * 10) * 0.3, 16, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.1, 7, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.1, 7, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 1.3, 7, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 1.3, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.45, 7, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.sin(this.animTime * 3.5) * 0.2, 10, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 11) * 0.85, 14, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playWaveSound(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
-    animateRecharge(delta) {
-      this.dampPoseToNeutral(delta, 5, { keepBodyPos: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateRecharge(dt) {
+      this.dampPoseToNeutral(dt, 5, 1 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.28 + Math.sin(this.animTime * 1.4) * 0.012, 5, delta);
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 1.25, 5, delta);
-      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 1.25, 5, delta);
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.25, 5, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.25, 5, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.38, 5, delta);
-      tail.rotation.y = this.damp(tail.rotation.y, 0, 5, delta);
+      body.position.y = damp2(body.position.y, 0.28 + Math.sin(this.animTime * 1.4) * 0.012, 5, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 1.25, 5, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 1.25, 5, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.25, 5, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.25, 5, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.38, 5, dt);
+      tail.rotation.y = damp2(tail.rotation.y, 0, 5, dt);
     }
-    animateDig(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateDig(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.72, 8, delta);
-      body.rotation.x = this.damp(body.rotation.x, 0.36, 8, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.45, 8, delta);
+      body.position.y = damp2(body.position.y, 0.72, 8, dt);
+      body.rotation.x = damp2(body.rotation.x, 0.36, 8, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.45, 8, dt);
       const digL = Math.sin(this.animTime * 19);
       const digR = Math.sin(this.animTime * 19 + Math.PI);
-      legs.FL.hip.rotation.x = 0.45 + digL * 0.65;
-      legs.FL.knee.rotation.x = Math.max(0, -digL * 0.8);
-      legs.FR.hip.rotation.x = 0.45 + digR * 0.65;
-      legs.FR.knee.rotation.x = Math.max(0, -digR * 0.8);
-      tail.rotation.x = 0.85;
-      tail.rotation.y = Math.sin(this.animTime * 15) * 0.9;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.45 + digL * 0.65, 22, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, Math.max(0, -digL * 0.8), 22, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.45 + digR * 0.65, 22, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, Math.max(0, -digR * 0.8), 22, dt);
+      this._dampLegNeutral(legs.BL, 8, dt);
+      this._dampLegNeutral(legs.BR, 8, dt);
+      tail.rotation.x = damp2(tail.rotation.x, 0.85, 10, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 15) * 0.9, 16, dt);
     }
-    animateHowl(delta) {
-      this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateHowl(dt) {
+      this.dampPoseToNeutral(dt, 6, 1 | 2 | 8 | 16 | 64);
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.62, 6, delta);
-      body.rotation.x = this.damp(body.rotation.x, -0.38, 6, delta);
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.15, 6, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.15, 6, delta);
-      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.35, 6, delta);
-      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.35, 6, delta);
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.35, 6, delta);
-      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.35, 6, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.85, 7, delta);
-      neck.rotation.y = Math.sin(this.animTime * 2.5) * 0.08;
-      tail.rotation.y = Math.sin(this.animTime * 6) * 0.3;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      body.position.y = damp2(body.position.y, 0.62, 6, dt);
+      body.rotation.x = damp2(body.rotation.x, -0.38, 6, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.15, 6, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.15, 6, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 1.35, 6, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 1.35, 6, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.35, 6, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.35, 6, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.85, 7, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.sin(this.animTime * 2.5) * 0.08, 10, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 6) * 0.3, 12, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playHowl(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
-    animateDance(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateDance(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const t = this.animTime * 9.2;
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.baseBodyY + Math.abs(Math.sin(t)) * 0.22;
-      body.rotation.z = Math.sin(t * 0.5) * 0.24;
-      body.rotation.y = Math.cos(t * 0.5) * 0.15;
-      neck.rotation.z = -Math.sin(t * 0.5) * 0.22;
-      neck.rotation.x = Math.sin(t) * 0.16;
-      legs.FL.hip.rotation.x = Math.sin(t) * 0.6;
-      legs.FL.knee.rotation.x = Math.max(0, Math.cos(t) * 0.6);
-      legs.BR.hip.rotation.x = -Math.sin(t) * 0.6;
-      legs.FR.hip.rotation.x = -Math.sin(t) * 0.6;
-      legs.FR.knee.rotation.x = Math.max(0, -Math.cos(t) * 0.6);
-      legs.BL.hip.rotation.x = Math.sin(t) * 0.6;
-      tail.rotation.y = Math.sin(t * 2) * 1.2;
+      body.position.y = damp2(body.position.y, this.baseBodyY + Math.abs(Math.sin(t)) * 0.22, 18, dt);
+      body.rotation.z = damp2(body.rotation.z, Math.sin(t * 0.5) * 0.24, 16, dt);
+      body.rotation.y = damp2(body.rotation.y, Math.cos(t * 0.5) * 0.15, 16, dt);
+      neck.rotation.z = damp2(neck.rotation.z, -Math.sin(t * 0.5) * 0.22, 16, dt);
+      neck.rotation.x = damp2(neck.rotation.x, Math.sin(t) * 0.16, 16, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(t) * 0.6, 18, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, Math.max(0, Math.cos(t) * 0.6), 18, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -Math.sin(t) * 0.6, 18, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -Math.sin(t) * 0.6, 18, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, Math.max(0, -Math.cos(t) * 0.6), 18, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, Math.sin(t) * 0.6, 18, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(t * 2) * 1.2, 18, dt);
     }
-    animateSneak(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true });
+    animateSneak(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const t = this.animTime * 3.8;
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.55 + Math.sin(t * 2) * 0.025, 8, delta);
-      body.rotation.x = this.damp(body.rotation.x, 0.14, 8, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.24, 8, delta);
-      legs.FL.hip.rotation.x = Math.sin(t) * 0.35;
-      legs.BR.hip.rotation.x = Math.sin(t) * 0.35;
-      legs.FR.hip.rotation.x = Math.sin(t + Math.PI) * 0.35;
-      legs.BL.hip.rotation.x = Math.sin(t + Math.PI) * 0.35;
-      tail.rotation.y = Math.sin(t) * 0.3;
+      body.position.y = damp2(body.position.y, 0.55 + Math.sin(t * 2) * 0.025, 8, dt);
+      body.rotation.x = damp2(body.rotation.x, 0.14, 8, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.24, 8, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(t) * 0.35, 14, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, Math.sin(t) * 0.35, 14, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, Math.sin(t + Math.PI) * 0.35, 14, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, Math.sin(t + Math.PI) * 0.35, 14, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(t) * 0.3, 12, dt);
     }
-    animatePlayBow(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animatePlayBow(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.52, 8, delta);
-      body.rotation.x = this.damp(body.rotation.x, 0.46, 8, delta);
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, 0.95, 8, delta);
-      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, 0.95, 8, delta);
-      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, -0.6, 8, delta);
-      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, -0.6, 8, delta);
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -0.2, 8, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -0.2, 8, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.42, 8, delta);
-      tail.rotation.x = 0.85;
-      tail.rotation.y = Math.sin(this.animTime * 18) * 1.1;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      body.position.y = damp2(body.position.y, 0.52, 8, dt);
+      body.rotation.x = damp2(body.rotation.x, 0.46, 8, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.95, 8, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.95, 8, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, -0.6, 8, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, -0.6, 8, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -0.2, 8, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -0.2, 8, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.42, 8, dt);
+      tail.rotation.x = damp2(tail.rotation.x, 0.85, 10, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 18) * 1.1, 18, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playYip(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
-    animateHeadTilt(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepNeck: true, keepEars: true, keepTail: true });
+    animateHeadTilt(dt) {
+      this.dampPoseToNeutral(dt, 7, 8 | 16 | 32);
       const { neck, tail, earL, earR } = this.nodes;
       const tiltCycle = Math.sin(this.animTime * 3.5);
-      neck.rotation.z = this.damp(neck.rotation.z, tiltCycle * 0.44, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.18, 6, delta);
-      earL.rotation.z = 0.25 + (tiltCycle > 0 ? 0.35 : -0.15);
-      earR.rotation.z = -0.25 + (tiltCycle < 0 ? -0.35 : 0.15);
-      tail.rotation.y = Math.sin(this.animTime * 5) * 0.4;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      neck.rotation.z = damp2(neck.rotation.z, tiltCycle * 0.44, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.18, 6, dt);
+      earL.rotation.z = damp2(earL.rotation.z, 0.25 + (tiltCycle > 0 ? 0.35 : -0.15), 12, dt);
+      earR.rotation.z = damp2(earR.rotation.z, -0.25 + (tiltCycle < 0 ? -0.35 : 0.15), 12, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 5) * 0.4, 12, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playWhine(this.robot.profile ? this.robot.profile.voicePitch : 1);
       }
     }
-    animateBellyRub(delta) {
-      this.dampPoseToNeutral(delta, 6, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateBellyRub(dt) {
+      this.dampPoseToNeutral(dt, 6, 1 | 2 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.34, 6, delta);
-      body.rotation.z = this.damp(body.rotation.z, Math.PI * 0.92, 6, delta);
+      body.position.y = damp2(body.position.y, 0.34, 6, dt);
+      body.rotation.z = damp2(body.rotation.z, Math.PI * 0.92, 6, dt);
       const pawPaddle = Math.sin(this.animTime * 6.5) * 0.35;
-      legs.FL.hip.rotation.x = 0.75 + pawPaddle;
-      legs.FR.hip.rotation.x = 0.75 - pawPaddle;
-      legs.FL.knee.rotation.x = 0.45;
-      legs.FR.knee.rotation.x = 0.45;
-      legs.BL.hip.rotation.x = -0.5 + pawPaddle;
-      legs.BR.hip.rotation.x = -0.5 - pawPaddle;
-      neck.rotation.x = 0.2;
-      tail.rotation.y = Math.sin(this.animTime * 14) * 0.7;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.75 + pawPaddle, 14, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.75 - pawPaddle, 14, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0.45, 10, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.45, 10, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -0.5 + pawPaddle, 14, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -0.5 - pawPaddle, 14, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.2, 8, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 14) * 0.7, 16, dt);
     }
-    animateBeg(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepLegs: true, keepNeck: true, keepTail: true });
+    animateBeg(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 2 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, 1.24, 7, delta);
-      body.rotation.x = this.damp(body.rotation.x, -0.76, 7, delta);
+      body.position.y = damp2(body.position.y, 1.24, 7, dt);
+      body.rotation.x = damp2(body.rotation.x, -0.76, 7, dt);
       const begBob = Math.sin(this.animTime * 8.5) * 0.22;
-      legs.FL.hip.rotation.x = this.damp(legs.FL.hip.rotation.x, -0.65 + begBob, 8, delta);
-      legs.FR.hip.rotation.x = this.damp(legs.FR.hip.rotation.x, -0.65 + begBob, 8, delta);
-      legs.FL.knee.rotation.x = this.damp(legs.FL.knee.rotation.x, 0.92, 8, delta);
-      legs.FR.knee.rotation.x = this.damp(legs.FR.knee.rotation.x, 0.92, 8, delta);
-      legs.BL.hip.rotation.x = this.damp(legs.BL.hip.rotation.x, -1.2, 7, delta);
-      legs.BR.hip.rotation.x = this.damp(legs.BR.hip.rotation.x, -1.2, 7, delta);
-      legs.BL.knee.rotation.x = this.damp(legs.BL.knee.rotation.x, 1.35, 7, delta);
-      legs.BR.knee.rotation.x = this.damp(legs.BR.knee.rotation.x, 1.35, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.52, 7, delta);
-      tail.rotation.y = Math.sin(this.animTime * 12) * 0.8;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, -0.65 + begBob, 8, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -0.65 + begBob, 8, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0.92, 8, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.92, 8, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.2, 7, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.2, 7, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 1.35, 7, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 1.35, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.52, 7, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 12) * 0.8, 16, dt);
     }
-    animateShakeOff(delta) {
-      this.dampPoseToNeutral(delta, 8, { keepBodyRot: true, keepNeck: true, keepTail: true, keepEars: true });
+    animateShakeOff(dt) {
+      this.dampPoseToNeutral(dt, 8, 2 | 8 | 16 | 32);
       const { body, neck, tail, earL, earR } = this.nodes;
       const envelope = Math.sin(Math.min(1, this.actionTimer / (this.actionDuration || 1.8)) * Math.PI);
       const shakeFreq = Math.sin(this.animTime * 34) * envelope;
-      body.rotation.z = shakeFreq * 0.36;
-      neck.rotation.z = -shakeFreq * 0.48;
-      tail.rotation.y = -shakeFreq * 0.85;
-      earL.rotation.z = 0.25 + shakeFreq * 0.55;
-      earR.rotation.z = -0.25 + shakeFreq * 0.55;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      body.rotation.z = damp2(body.rotation.z, shakeFreq * 0.36, 26, dt);
+      neck.rotation.z = damp2(neck.rotation.z, -shakeFreq * 0.48, 26, dt);
+      tail.rotation.y = damp2(tail.rotation.y, -shakeFreq * 0.85, 26, dt);
+      earL.rotation.z = damp2(earL.rotation.z, 0.25 + shakeFreq * 0.55, 26, dt);
+      earR.rotation.z = damp2(earR.rotation.z, -0.25 + shakeFreq * 0.55, 26, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playPlayfulGrumble(1.2);
       }
     }
-    animateNuzzle(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true, keepTail: true });
+    animateNuzzle(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 2 | 8 | 16);
       const { body, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.08, 7, delta);
-      body.rotation.z = this.damp(body.rotation.z, Math.sin(this.animTime * 3) * 0.14, 7, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.26, 7, delta);
-      neck.rotation.y = Math.sin(this.animTime * 3.2) * 0.26;
-      tail.rotation.y = Math.sin(this.animTime * 9) * 0.75;
-      if (this.actionTimer < 0.08 && this.robot.isPlayer) {
+      body.position.y = damp2(body.position.y, this.baseBodyY - 0.08, 7, dt);
+      body.rotation.z = damp2(body.rotation.z, Math.sin(this.animTime * 3) * 0.14, 7, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.26, 7, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.sin(this.animTime * 3.2) * 0.26, 12, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 9) * 0.75, 16, dt);
+      if (!this._sfxTriggered && this.robot.isPlayer) {
+        this._sfxTriggered = true;
         roboAudio.playBoop(1.4);
       }
     }
-    animatePickedUp(delta) {
+    animatePickedUp(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const { body, legs, neck, tail } = this.nodes;
-      body.position.y = this.damp(body.position.y, this.baseBodyY + 0.15, 7, delta);
-      body.rotation.z = Math.sin(this.animTime * 4) * 0.08;
-      body.rotation.x = Math.sin(this.animTime * 3) * 0.06;
+      body.position.y = damp2(body.position.y, this.baseBodyY + 0.15, 7, dt);
+      body.rotation.z = damp2(body.rotation.z, Math.sin(this.animTime * 4) * 0.08, 14, dt);
+      body.rotation.x = damp2(body.rotation.x, Math.sin(this.animTime * 3) * 0.06, 14, dt);
       const paddleSpeed = 12;
       const paddleAmp = 0.55;
-      legs.FL.hip.rotation.x = Math.sin(this.animTime * paddleSpeed) * paddleAmp;
-      legs.FR.hip.rotation.x = -Math.sin(this.animTime * paddleSpeed) * paddleAmp;
-      legs.BL.hip.rotation.x = -Math.cos(this.animTime * paddleSpeed) * (paddleAmp * 0.8);
-      legs.BR.hip.rotation.x = Math.cos(this.animTime * paddleSpeed) * (paddleAmp * 0.8);
-      legs.FL.knee.rotation.x = 0.4 + Math.sin(this.animTime * paddleSpeed) * 0.3;
-      legs.FR.knee.rotation.x = 0.4 - Math.sin(this.animTime * paddleSpeed) * 0.3;
-      legs.BL.knee.rotation.x = 0.4 - Math.cos(this.animTime * paddleSpeed) * 0.3;
-      legs.BR.knee.rotation.x = 0.4 + Math.cos(this.animTime * paddleSpeed) * 0.3;
-      neck.rotation.x = 0.15 + Math.sin(this.animTime * 5) * 0.1;
-      tail.rotation.y = Math.sin(this.animTime * 14) * 0.85;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(this.animTime * paddleSpeed) * paddleAmp, 20, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -Math.sin(this.animTime * paddleSpeed) * paddleAmp, 20, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -Math.cos(this.animTime * paddleSpeed) * (paddleAmp * 0.8), 20, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, Math.cos(this.animTime * paddleSpeed) * (paddleAmp * 0.8), 20, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0.4 + Math.sin(this.animTime * paddleSpeed) * 0.3, 20, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.4 - Math.sin(this.animTime * paddleSpeed) * 0.3, 20, dt);
+      legs.BL.knee.rotation.x = damp2(legs.BL.knee.rotation.x, 0.4 - Math.cos(this.animTime * paddleSpeed) * 0.3, 20, dt);
+      legs.BR.knee.rotation.x = damp2(legs.BR.knee.rotation.x, 0.4 + Math.cos(this.animTime * paddleSpeed) * 0.3, 20, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.15 + Math.sin(this.animTime * 5) * 0.1, 12, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 14) * 0.85, 16, dt);
     }
-    animateChaseTail(delta) {
+    animateChaseTail(dt) {
+      this.dampPoseToNeutral(dt, 10, 1 | 2 | 8 | 16 | 64);
       const { body, neck, tail, legs } = this.nodes;
-      this.robot.group.rotation.y += delta * 8.5;
-      body.rotation.y = Math.sin(this.animTime * 24) * 0.2;
-      body.rotation.z = -0.15;
-      body.position.y = this.baseBodyY;
-      neck.rotation.y = 0.75;
-      neck.rotation.x = 0.3;
-      tail.rotation.y = -0.85;
+      this.robot.group.rotation.y = wrapAngle(this.robot.group.rotation.y + dt * 8.5);
+      body.rotation.y = damp2(body.rotation.y, Math.sin(this.animTime * 24) * 0.2, 20, dt);
+      body.rotation.z = damp2(body.rotation.z, -0.15, 12, dt);
+      body.position.y = damp2(body.position.y, this.baseBodyY, 12, dt);
+      neck.rotation.y = damp2(neck.rotation.y, 0.75, 12, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.3, 12, dt);
+      tail.rotation.y = damp2(tail.rotation.y, -0.85, 12, dt);
       const legFreq = this.animTime * 18;
-      legs.FL.hip.rotation.x = Math.sin(legFreq) * 0.6;
-      legs.FR.hip.rotation.x = -Math.sin(legFreq) * 0.6;
-      legs.BL.hip.rotation.x = -Math.sin(legFreq) * 0.6;
-      legs.BR.hip.rotation.x = Math.sin(legFreq) * 0.6;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(legFreq) * 0.6, 20, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -Math.sin(legFreq) * 0.6, 20, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -Math.sin(legFreq) * 0.6, 20, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, Math.sin(legFreq) * 0.6, 20, dt);
     }
-    animateDizzy(delta) {
+    animateDizzy(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.55, 8, delta);
-      legs.BL.hip.rotation.x = -1.1;
-      legs.BR.hip.rotation.x = -1.1;
-      legs.FL.hip.rotation.x = 0.2;
-      legs.FR.hip.rotation.x = 0.2;
-      neck.rotation.z = Math.sin(this.animTime * 6) * 0.35;
-      neck.rotation.y = Math.cos(this.animTime * 4.5) * 0.3;
-      neck.rotation.x = 0.25;
-      body.rotation.z = Math.sin(this.animTime * 5) * 0.12;
-      tail.rotation.y = Math.sin(this.animTime * 2) * 0.2;
+      body.position.y = damp2(body.position.y, 0.55, 8, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -1.1, 8, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, -1.1, 8, dt);
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, 0.2, 8, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, 0.2, 8, dt);
+      neck.rotation.z = damp2(neck.rotation.z, Math.sin(this.animTime * 6) * 0.35, 14, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.cos(this.animTime * 4.5) * 0.3, 14, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.25, 10, dt);
+      body.rotation.z = damp2(body.rotation.z, Math.sin(this.animTime * 5) * 0.12, 12, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 2) * 0.2, 10, dt);
     }
-    animateSwimming(delta) {
+    animateSwimming(dt) {
+      this.dampPoseToNeutral(dt, 8, 1 | 2 | 8 | 16 | 64);
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.damp(body.position.y, 0.45 + Math.sin(this.animTime * 4) * 0.04, 6, delta);
-      body.rotation.x = this.damp(body.rotation.x, 0.14, 6, delta);
-      body.rotation.z = Math.sin(this.animTime * 6) * 0.08;
-      neck.rotation.x = this.damp(neck.rotation.x, -0.36, 6, delta);
-      neck.rotation.y = Math.sin(this.animTime * 3) * 0.1;
+      body.position.y = damp2(body.position.y, 0.45 + Math.sin(this.animTime * 4) * 0.04, 6, dt);
+      body.rotation.x = damp2(body.rotation.x, 0.14, 6, dt);
+      body.rotation.z = damp2(body.rotation.z, Math.sin(this.animTime * 6) * 0.08, 12, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.36, 6, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.sin(this.animTime * 3) * 0.1, 10, dt);
       const paddleSpeed = 8.5;
-      legs.FL.hip.rotation.x = Math.sin(this.animTime * paddleSpeed) * 0.65;
-      legs.FL.knee.rotation.x = 0.5 + Math.cos(this.animTime * paddleSpeed) * 0.4;
-      legs.FR.hip.rotation.x = -Math.sin(this.animTime * paddleSpeed) * 0.65;
-      legs.FR.knee.rotation.x = 0.5 - Math.cos(this.animTime * paddleSpeed) * 0.4;
-      legs.BL.hip.rotation.x = -Math.cos(this.animTime * paddleSpeed) * 0.5;
-      legs.BR.hip.rotation.x = Math.cos(this.animTime * paddleSpeed) * 0.5;
-      tail.rotation.y = Math.sin(this.animTime * 10) * 0.65;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(this.animTime * paddleSpeed) * 0.65, 16, dt);
+      legs.FL.knee.rotation.x = damp2(legs.FL.knee.rotation.x, 0.5 + Math.cos(this.animTime * paddleSpeed) * 0.4, 16, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -Math.sin(this.animTime * paddleSpeed) * 0.65, 16, dt);
+      legs.FR.knee.rotation.x = damp2(legs.FR.knee.rotation.x, 0.5 - Math.cos(this.animTime * paddleSpeed) * 0.4, 16, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -Math.cos(this.animTime * paddleSpeed) * 0.5, 16, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, Math.cos(this.animTime * paddleSpeed) * 0.5, 16, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 10) * 0.65, 14, dt);
     }
-    animatePatrolLook(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepNeck: true, keepTail: true });
+    animatePatrolLook(dt) {
+      this.dampPoseToNeutral(dt, 7, 8 | 16);
       const { neck, tail } = this.nodes;
       const scanCycle = Math.sin(this.animTime * 2);
-      neck.rotation.y = this.damp(neck.rotation.y, scanCycle * 0.75, 5, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, -0.15, 5, delta);
-      tail.rotation.y = Math.sin(this.animTime * 4) * 0.25;
+      neck.rotation.y = damp2(neck.rotation.y, scanCycle * 0.75, 5, dt);
+      neck.rotation.x = damp2(neck.rotation.x, -0.15, 5, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 4) * 0.25, 10, dt);
     }
-    animateScentTrack(delta) {
-      this.dampPoseToNeutral(delta, 7, { keepBodyPos: true, keepBodyRot: true, keepNeck: true, keepLegs: true });
+    animateScentTrack(dt) {
+      this.dampPoseToNeutral(dt, 7, 1 | 2 | 8 | 16 | 64);
       const { body, neck, tail, legs } = this.nodes;
-      body.position.y = this.damp(body.position.y, this.baseBodyY - 0.14, 6, delta);
-      body.rotation.x = this.damp(body.rotation.x, 0.18, 6, delta);
-      neck.rotation.x = this.damp(neck.rotation.x, 0.48, 6, delta);
-      neck.rotation.y = Math.sin(this.animTime * 4) * 0.22;
+      body.position.y = damp2(body.position.y, this.baseBodyY - 0.14, 6, dt);
+      body.rotation.x = damp2(body.rotation.x, 0.18, 6, dt);
+      neck.rotation.x = damp2(neck.rotation.x, 0.48, 6, dt);
+      neck.rotation.y = damp2(neck.rotation.y, Math.sin(this.animTime * 4) * 0.22, 10, dt);
       const t = this.animTime * 4.2;
-      legs.FL.hip.rotation.x = Math.sin(t) * 0.4;
-      legs.FR.hip.rotation.x = -Math.sin(t) * 0.4;
-      legs.BL.hip.rotation.x = -Math.sin(t) * 0.4;
-      legs.BR.hip.rotation.x = Math.sin(t) * 0.4;
-      tail.rotation.y = Math.sin(this.animTime * 5) * 0.35;
+      legs.FL.hip.rotation.x = damp2(legs.FL.hip.rotation.x, Math.sin(t) * 0.4, 14, dt);
+      legs.FR.hip.rotation.x = damp2(legs.FR.hip.rotation.x, -Math.sin(t) * 0.4, 14, dt);
+      legs.BL.hip.rotation.x = damp2(legs.BL.hip.rotation.x, -Math.sin(t) * 0.4, 14, dt);
+      legs.BR.hip.rotation.x = damp2(legs.BR.hip.rotation.x, Math.sin(t) * 0.4, 14, dt);
+      tail.rotation.y = damp2(tail.rotation.y, Math.sin(this.animTime * 5) * 0.35, 12, dt);
+    }
+    dispose() {
+      this.disposed = true;
+      this.actionQueue.length = 0;
+      this.onClipComplete = null;
+      this.onSequenceComplete = null;
+      this.robot = null;
+      this.nodes = null;
+      this.eventBus = null;
     }
   };
 
   // public/js/other_robots.js
-  function lerpAngle(current, target, t) {
-    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-    return current + diff * Math.min(1, t);
-  }
+  var AI_STATES = {
+    PATROL: "PATROL",
+    ALERT: "ALERT",
+    CHASE: "CHASE",
+    ACTION: "ACTION",
+    RECOVER: "RECOVER"
+  };
+  var WORLD_LIMIT = 190;
+  var LAKE_CX = -80;
+  var LAKE_CZ = -80;
+  var LAKE_AVOID_R = 60.5;
+  var PATROL_WAYPOINTS = [
+    { x: -32, z: 48, sub: "ballpit" },
+    { x: -18, z: -32, sub: "slide" },
+    { x: 22, z: -50, sub: "tunnel" },
+    { x: 38, z: 22, sub: "trampoline" },
+    { x: 50, z: 40, sub: "playground" },
+    { x: 12, z: 10, sub: "fountain" },
+    { x: 76, z: 18, sub: "target" },
+    { x: -42, z: 14, sub: "pinata" }
+  ];
+  var RACE_DESTINATIONS = [
+    { name: "la Porter\xEDa de F\xFAtbol", x: 25, z: 40 },
+    { name: "el Muelle del Lago", x: -44, z: -75 },
+    { name: "la Piscina de Pelotas", x: -32, z: 48 }
+  ];
+  var GREETINGS = {
+    Bolt: '\u26A1 Bolt: "\xA1Hola {player}! \xBFListo para una carrera hacia la porter\xEDa?"',
+    Pixel: '\u{1F50D} Pixel: "He sincronizado mis sensores contigo, {player}."',
+    Luna: '\u{1F496} Luna: "\xA1Qu\xE9 lindo verte, {player}! Te mando mimos cibern\xE9ticos."',
+    Rusty: '\u{1F938} Rusty: "\xA1M\xEDrame, {player}! \xA1Mira qu\xE9 truco acabo de inventar!"',
+    Sparky: '\u{1F43E} Sparky: "\xA1Hola compa\xF1ero! El d\xEDa est\xE1 perfecto para explorar juntos."'
+  };
+  var SOCIAL_EMOTIONS = [EMOTIONS.HAPPY, EMOTIONS.LOVING, EMOTIONS.EXCITED, EMOTIONS.PROUD];
+  var SOCIAL_MOVES = ["wave", "wagTail", "bark", "spin", "dance"];
+  var TRICKS = ["sniff", "sit", "wagTail", "bark", "spin", "backflip", "dance"];
+  var WHISKER_ANGLES = [0, 0.56, -0.56];
+  var WHISKER_LENGTHS = [3.2, 2.4, 2.4];
+  var RECOVER_ANGLES = [0.78, -0.78, 1.57, -1.57, 2.35, -2.35];
   var RobotPackManager = class {
-    constructor(scene, world, onActivityCallback = null) {
+    constructor(scene, world, assetCache2 = null, eventBus2 = null, onActivityCallback = null) {
       this.scene = scene;
       this.world = world;
+      this.assetCache = assetCache2;
+      this.eventBus = eventBus2;
       this.onActivity = onActivityCallback;
-      this.allRobots = {};
+      if (typeof assetCache2 === "function") {
+        this.onActivity = assetCache2;
+        this.assetCache = null;
+        this.eventBus = null;
+      }
+      this.dogs = {};
+      this.allRobots = this.dogs;
+      this.dogList = [];
       this.pack = [];
+      this.playerDog = null;
       this.currentControlledRobot = null;
+      this._obsBuffer = [];
+      this._steerOut = new Vector3();
+      this._rawDir = new Vector3();
+      this._feelerProbe = new Vector3();
+      this._repelSum = new Vector3();
+      this.disposed = false;
       this.spawnCompletePack();
     }
     logActivity(message) {
       if (this.onActivity) {
         this.onActivity(message);
       }
+      if (this.eventBus) {
+        this.eventBus.emit("world:activity", { text: message, level: "info" });
+      }
+    }
+    getDog(name) {
+      return this.dogs[name] || null;
     }
     spawnCompletePack() {
-      const robotNames = ["Sparky", "Bolt", "Pixel", "Luna", "Rusty"];
-      const startPositions = {
-        Sparky: new Vector3(32, 0, 32),
-        Bolt: new Vector3(46, 0, 36),
-        Pixel: new Vector3(-45, 0, -60),
-        Luna: new Vector3(18, 0, -15),
-        Rusty: new Vector3(55, 0, 48)
-      };
-      robotNames.forEach((name) => {
-        const isInitialPlayer = name === "Sparky";
-        const startPos = startPositions[name];
-        const dog = new ChibiRobotDog(name, {
-          isPlayer: isInitialPlayer
-        });
-        dog.animController = new AnimationController(dog);
-        dog.group.position.copy(startPos);
-        dog.group.position.y = this.world.getHeightAt(startPos.x, startPos.z);
-        dog.velocityY = 0;
+      const configs = [
+        { name: "Sparky", x: 32, z: 32 },
+        { name: "Bolt", x: 46, z: 36 },
+        { name: "Pixel", x: -45, z: -60 },
+        { name: "Luna", x: 18, z: -15 },
+        { name: "Rusty", x: 55, z: 48 }
+      ];
+      for (let i = 0; i < configs.length; i++) {
+        const cfg = configs[i];
+        const isInitialPlayer = cfg.name === "Sparky";
+        const dog = new ChibiRobotDog(cfg.name, isInitialPlayer, this.assetCache);
+        dog.animController = new AnimationController(dog, this.eventBus);
+        const gy = this.world ? this.world.getHeightAt(cfg.x, cfg.z) : 0;
+        dog.group.position.set(cfg.x, gy, cfg.z);
+        dog.lastPosition.set(cfg.x, gy, cfg.z);
+        dog.physics.velocityY = 0;
+        dog.physics.groundY = gy;
         this.scene.add(dog.group);
-        this.allRobots[name] = dog;
+        this.dogs[cfg.name] = dog;
+        this.dogList.push(dog);
         dog.aiState = {
-          state: "WANDER",
-          targetPos: new Vector3(),
+          state: AI_STATES.PATROL,
+          subAction: "wander",
+          targetPos: new Vector3(cfg.x, gy, cfg.z),
           targetBall: null,
           targetSnack: null,
-          stateTimer: 2 + Math.random() * 4,
-          speed: 3.4 * (dog.profile.speedMultiplier || 1),
-          lastInteractedDog: null,
+          targetDog: null,
+          pendingState: null,
+          pendingSubAction: null,
+          stateTimer: 2 + Math.random() * 3,
+          stateElapsed: 0,
+          desiredSpeed: 3.4 * (dog.profile.speedMultiplier || 1),
           playerGreetCooldown: 0,
           dogGreetCooldown: 0,
+          alertCooldown: 0,
           tagRole: null,
-          // 'CHASER' | 'PREY'
           tagTarget: null,
           stuckTimer: 0,
-          lastPos: startPos.clone()
+          recoverDir: new Vector3(1, 0, 0),
+          lastPos: new Vector3(cfg.x, gy, cfg.z)
         };
         if (!isInitialPlayer) {
           this.pack.push(dog);
-          this.pickNewTarget(dog);
+          this.pickNewPatrolTarget(dog);
         } else {
+          this.playerDog = dog;
           this.currentControlledRobot = dog;
         }
-      });
+      }
     }
-    // Hot-swap player possession to ANY of the 5 robots!
+    setPlayerDog(name) {
+      return this.switchToRobot(name);
+    }
     switchToRobot(name) {
-      if (!this.allRobots[name]) return null;
-      const targetRobot = this.allRobots[name];
-      if (this.currentControlledRobot === targetRobot) return targetRobot;
-      if (this.currentControlledRobot) {
-        this.currentControlledRobot.setAsPlayer(false);
-        this.currentControlledRobot.aiState.state = "WANDER";
-        this.currentControlledRobot.aiState.playerGreetCooldown = 6;
-        this.pickNewTarget(this.currentControlledRobot);
-        if (!this.pack.includes(this.currentControlledRobot)) {
-          this.pack.push(this.currentControlledRobot);
+      const targetRobot = this.dogs[name];
+      if (!targetRobot) return null;
+      if (this.playerDog === targetRobot) return targetRobot;
+      const prevName = this.playerDog ? this.playerDog.name : null;
+      if (this.playerDog) {
+        const oldPlayer = this.playerDog;
+        oldPlayer.setAsPlayer(false);
+        oldPlayer.clearLookTarget();
+        oldPlayer.aiState.playerGreetCooldown = 6;
+        if (this.pack.indexOf(oldPlayer) === -1) {
+          this.pack.push(oldPlayer);
         }
+        this.pickNewPatrolTarget(oldPlayer);
       }
       targetRobot.setAsPlayer(true);
+      targetRobot.clearLookTarget();
+      this.playerDog = targetRobot;
       this.currentControlledRobot = targetRobot;
       const idx = this.pack.indexOf(targetRobot);
       if (idx !== -1) {
@@ -38598,535 +39888,698 @@ void main() {
       }
       this.logActivity(`\u{1F3AE} \xA1Has tomado el control de ${targetRobot.name} (${targetRobot.profile.title})!`);
       roboAudio.playBoop(targetRobot.profile.voicePitch || 1);
+      if (this.eventBus) {
+        this.eventBus.emit("robot:switched", {
+          robot: targetRobot,
+          name: targetRobot.name,
+          previousName: prevName
+        });
+      }
       return targetRobot;
     }
-    // Assemble all autonomous robots into an adorable semicircle formation in front of the player
-    callPackToPlayer(playerRobot) {
+    transitionTo(dog, nextState, subAction = "wander", timer = 5) {
+      const ai = dog.aiState;
+      if (ai.state === AI_STATES.ALERT || ai.state === AI_STATES.ACTION) {
+        dog.clearLookTarget();
+      }
+      ai.state = nextState;
+      ai.subAction = subAction;
+      ai.stateTimer = timer;
+      ai.stateElapsed = 0;
+      ai.stuckTimer = 0;
+      if (nextState === AI_STATES.PATROL) {
+        dog.animController.play(ai.desiredSpeed > 4.8 ? "run" : "walk");
+      } else if (nextState === AI_STATES.ALERT) {
+        ai.desiredSpeed = 0;
+        dog.animController.syncLocomotion(0, false);
+        dog.animController.play("patrolLook", timer);
+      } else if (nextState === AI_STATES.CHASE) {
+        dog.animController.play("run");
+      } else if (nextState === AI_STATES.RECOVER) {
+        ai.desiredSpeed = 3.2 * (dog.profile.speedMultiplier || 1);
+        dog.setEmotion(EMOTIONS.CONFUSED, true);
+        dog.animController.play("walk");
+      }
+    }
+    _sanitizeGoal(vec) {
+      const dx = vec.x - LAKE_CX;
+      const dz = vec.z - LAKE_CZ;
+      const dLake = Math.hypot(dx, dz);
+      if (dLake < LAKE_AVOID_R) {
+        const nx = dLake > 0.01 ? dx / dLake : 1;
+        const nz = dLake > 0.01 ? dz / dLake : 0;
+        vec.x = LAKE_CX + nx * (LAKE_AVOID_R + 3);
+        vec.z = LAKE_CZ + nz * (LAKE_AVOID_R + 3);
+      }
+      const r = Math.hypot(vec.x, vec.z);
+      if (r > WORLD_LIMIT - 8) {
+        const s = (WORLD_LIMIT - 8) / r;
+        vec.x *= s;
+        vec.z *= s;
+      }
+    }
+    callPackToPlayer(playerRobot = this.playerDog) {
       if (!playerRobot) return;
       const pPos = playerRobot.group.position;
       const pRotY = playerRobot.group.rotation.y;
-      this.logActivity(`\u{1F4E3} \xA1La manada escuch\xF3 tu llamado y se re\xFAne a tu alrededor!`);
+      this.logActivity("\u{1F4E3} \xA1La manada escuch\xF3 tu llamado y se re\xFAne a tu alrededor!");
       roboAudio.playHappyJingle();
       const count = this.pack.length;
-      this.pack.forEach((dog, idx) => {
-        const angle = pRotY + (idx - (count - 1) / 2) * 0.55;
-        const targetX = pPos.x + Math.sin(angle) * 3.6;
-        const targetZ = pPos.z + Math.cos(angle) * 3.6;
-        dog.aiState.state = "ASSEMBLE_PACK";
-        dog.aiState.targetPos.set(targetX, 0, targetZ);
-        dog.aiState.speed = 6 * (dog.profile.speedMultiplier || 1);
-        dog.aiState.stateTimer = 9;
-        dog.animController.play("run");
-      });
+      for (let i = 0; i < count; i++) {
+        const dog = this.pack[i];
+        const ai = dog.aiState;
+        const angle = pRotY + (i - (count - 1) / 2) * 0.55;
+        ai.targetPos.set(pPos.x + Math.sin(angle) * 3.6, 0, pPos.z + Math.cos(angle) * 3.6);
+        this._sanitizeGoal(ai.targetPos);
+        ai.desiredSpeed = 6 * (dog.profile.speedMultiplier || 1);
+        this.transitionTo(dog, AI_STATES.CHASE, "assemble", 9);
+      }
     }
-    // Social Game 1: "La Traes" (Tag Chaser vs Prey)
     startTagGame(initiator) {
-      if (this.pack.length === 0) return;
-      const candidates = this.pack.filter((d) => d !== initiator);
-      const chaserDog = initiator && this.pack.includes(initiator) ? initiator : candidates[0];
-      const preyDog = candidates.find((d) => d !== chaserDog) || this.pack[0];
+      if (this.pack.length < 2) return;
+      let chaserDog = initiator && this.pack.indexOf(initiator) !== -1 ? initiator : this.pack[0];
+      let preyDog = null;
+      for (let i = 0; i < this.pack.length; i++) {
+        if (this.pack[i] !== chaserDog) {
+          preyDog = this.pack[i];
+          break;
+        }
+      }
       if (!chaserDog || !preyDog) return;
       this.logActivity(`\u{1F3C3} \xA1Comienza el juego de "La Traes"! \xA1${chaserDog.name} persigue a ${preyDog.name}!`);
       roboAudio.playYip(1.4);
-      chaserDog.aiState.state = "PLAY_TAG";
       chaserDog.aiState.tagRole = "CHASER";
       chaserDog.aiState.tagTarget = preyDog;
-      chaserDog.aiState.speed = 7 * (chaserDog.profile.speedMultiplier || 1);
-      chaserDog.aiState.stateTimer = 16;
-      chaserDog.animController.play("run");
-      preyDog.aiState.state = "PLAY_TAG";
+      chaserDog.aiState.desiredSpeed = 6.8 * (chaserDog.profile.speedMultiplier || 1);
+      this.transitionTo(chaserDog, AI_STATES.CHASE, "play_tag", 16);
       preyDog.aiState.tagRole = "PREY";
       preyDog.aiState.tagTarget = chaserDog;
-      preyDog.aiState.speed = 6.8 * (preyDog.profile.speedMultiplier || 1);
-      preyDog.aiState.stateTimer = 16;
-      preyDog.animController.play("run");
+      preyDog.aiState.desiredSpeed = 6.6 * (preyDog.profile.speedMultiplier || 1);
+      this.transitionTo(preyDog, AI_STATES.CHASE, "play_tag", 16);
     }
-    // Social Game 2: Speed Race to Landmark
-    startSpeedRace(initiator) {
-      const destinations = [
-        { name: "la Porter\xEDa de F\xFAtbol", pos: new Vector3(25, 0, 40) },
-        { name: "el Muelle del Lago", pos: new Vector3(-44, 0, -75) },
-        { name: "la Piscina de Pelotas", pos: new Vector3(-32, 0, 48) }
-      ];
-      const target = destinations[Math.floor(Math.random() * destinations.length)];
-      const racers = this.pack.slice(0, 3);
-      this.logActivity(`\u{1F3C1} \xA1RETO DE VELOCIDAD hacia ${target.name}! \xA13... 2... 1... \xA1\xA1YA!! \u{1F415}\u26A1`);
+    startSpeedRace() {
+      const dest = RACE_DESTINATIONS[Math.floor(Math.random() * RACE_DESTINATIONS.length)];
+      const count = Math.min(3, this.pack.length);
+      this.logActivity(`\u{1F3C1} \xA1RETO DE VELOCIDAD hacia ${dest.name}! \xA13... 2... 1... \xA1\xA1YA!! \u{1F415}\u26A1`);
       roboAudio.playBark(1.2);
-      racers.forEach((r, idx) => {
-        const offsetPos = target.pos.clone();
-        offsetPos.x += (idx - 1) * 1.4;
-        r.aiState.state = "SPEED_RACE";
-        r.aiState.targetPos.copy(offsetPos);
-        r.aiState.speed = (6 + Math.random() * 2.2) * (r.profile.speedMultiplier || 1);
-        r.aiState.stateTimer = 18;
-        r.animController.play("run");
-      });
-      return target.pos.clone();
+      for (let i = 0; i < count; i++) {
+        const r = this.pack[i];
+        r.aiState.targetPos.set(dest.x + (i - 1) * 1.6, 0, dest.z);
+        r.aiState.desiredSpeed = (6 + Math.random() * 2) * (r.profile.speedMultiplier || 1);
+        this.transitionTo(r, AI_STATES.CHASE, "speed_race", 18);
+      }
+      return new Vector3(dest.x, 0, dest.z);
     }
-    // Social Game 3: Pack Gossip / Small Circle Meeting
     startPackGossip(initiator) {
-      const center = initiator ? initiator.group.position.clone() : new Vector3(0, 0, 0);
-      this.logActivity(`\u{1F4AC} \xA1Reuni\xF3n secreta de la manada en c\xEDrculo para saludarse y charlar!`);
+      const cx = initiator ? initiator.group.position.x : 0;
+      const cz = initiator ? initiator.group.position.z : 0;
+      this.logActivity("\u{1F4AC} \xA1Reuni\xF3n secreta de la manada en c\xEDrculo para saludarse y charlar!");
       roboAudio.playHappyJingle();
-      const count = this.pack.length;
-      this.pack.forEach((dog, idx) => {
-        const angle = idx / Math.max(1, count) * Math.PI * 2;
-        const targetX = center.x + Math.cos(angle) * 2.6;
-        const targetZ = center.z + Math.sin(angle) * 2.6;
-        dog.aiState.state = "PACK_GOSSIP";
-        dog.aiState.targetPos.set(targetX, 0, targetZ);
-        dog.aiState.speed = 4.4;
-        dog.aiState.stateTimer = 12;
-        dog.animController.play("walk");
-      });
+      const count = Math.max(1, this.pack.length);
+      for (let i = 0; i < this.pack.length; i++) {
+        const dog = this.pack[i];
+        const angle = i / count * Math.PI * 2;
+        dog.aiState.targetPos.set(cx + Math.cos(angle) * 2.6, 0, cz + Math.sin(angle) * 2.6);
+        this._sanitizeGoal(dog.aiState.targetPos);
+        dog.aiState.desiredSpeed = 4.4;
+        this.transitionTo(dog, AI_STATES.CHASE, "pack_gossip", 12);
+      }
     }
-    pickNewTarget(dog) {
+    pickNewPatrolTarget(dog) {
       const ai = dog.aiState;
       const profile = dog.profile;
       ai.targetBall = null;
       ai.targetSnack = null;
+      ai.targetDog = null;
       dog.energy = Math.max(10, (dog.energy || 100) - 1.5);
       dog.hydration = Math.max(15, (dog.hydration || 90) - 2);
       if (dog.hydration < 35 && Math.random() < 0.75) {
         ai.targetPos.set(12, 0, 10);
-        ai.state = "WANDER";
-        dog.animController.play("walk");
-        ai.speed = 3.8 * profile.speedMultiplier;
-        ai.stateTimer = 9;
+        ai.desiredSpeed = 3.8 * profile.speedMultiplier;
+        this.transitionTo(dog, AI_STATES.CHASE, "drink", 9);
         this.logActivity(`\u{1F4A7} ${dog.name} tiene sed y va a beber a la cibercuenca.`);
         return;
       }
       if (dog.energy < 25 && Math.random() < 0.7) {
         ai.targetPos.set(72, 0, 52);
-        ai.state = "GO_RECHARGE";
-        dog.animController.play("walk");
-        ai.speed = 3.2 * profile.speedMultiplier;
-        ai.stateTimer = 11;
+        ai.desiredSpeed = 3.2 * profile.speedMultiplier;
+        this.transitionTo(dog, AI_STATES.CHASE, "recharge", 11);
         this.logActivity(`\u{1F50B} ${dog.name} tiene poca bater\xEDa y va a la estaci\xF3n de recarga.`);
         return;
       }
-      if (this.world.snacks && this.world.snacks.length > 0 && Math.random() < 0.65) {
+      if (this.world && this.world.snacks && this.world.snacks.length > 0 && Math.random() < 0.65) {
         const snack = this.world.snacks[0];
         ai.targetSnack = snack;
         ai.targetPos.copy(snack.group.position);
-        ai.state = "CHASE_SNACK";
-        dog.animController.play("run");
-        ai.speed = 5.6 * profile.speedMultiplier;
-        ai.stateTimer = 8;
+        ai.desiredSpeed = 5.6 * profile.speedMultiplier;
+        this.transitionTo(dog, AI_STATES.CHASE, "snack", 8);
         this.logActivity(`\u{1F36A} \xA1${dog.name} oli\xF3 una galleta y corre a com\xE9rsela!`);
         return;
       }
       const choice = Math.random();
-      if (profile.name === "Bolt") {
-        const availableBalls = (this.world.balls || []).filter((b) => !b.carriedBy);
-        if (availableBalls.length > 0 && choice < 0.6) {
-          const ball = availableBalls[Math.floor(Math.random() * availableBalls.length)];
-          ai.targetBall = ball;
-          ai.targetPos.copy(ball.mesh.position);
-          ai.state = "CHASE_BALL";
-          dog.animController.play("run");
-          ai.speed = 6.4 * profile.speedMultiplier;
-          ai.stateTimer = 9;
-          this.logActivity(`\u26A1 \xA1${dog.name} corre a toda velocidad hacia la pelota!`);
-        } else {
-          ai.targetPos.set(22, 0, -50);
-          ai.state = "GO_TUNNEL";
-          dog.animController.play("run");
-          ai.speed = 5.8 * profile.speedMultiplier;
-          ai.stateTimer = 8;
+      if (profile.name === "Bolt" && this.world && this.world.balls && this.world.balls.length > 0 && choice < 0.6) {
+        for (let i = 0; i < this.world.balls.length; i++) {
+          const b = this.world.balls[i];
+          if (!b.carriedBy) {
+            ai.targetBall = b;
+            ai.targetPos.copy(b.mesh.position);
+            ai.desiredSpeed = 6.2 * profile.speedMultiplier;
+            this.transitionTo(dog, AI_STATES.CHASE, "ball", 9);
+            this.logActivity(`\u26A1 \xA1${dog.name} corre a toda velocidad hacia la pelota!`);
+            return;
+          }
         }
-      } else if (profile.name === "Pixel") {
-        if (choice < 0.45) {
-          const angle = Math.random() * Math.PI * 2;
-          const r = 12 + Math.random() * 30;
-          ai.targetPos.set(-80 + Math.cos(angle) * r, 0, -80 + Math.sin(angle) * r);
-          ai.state = "WANDER";
-        } else {
-          ai.targetPos.set(76, 0, 18);
-          ai.state = "GO_TARGET";
+      }
+      if (profile.name === "Pixel" && choice < 0.45) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = 64 + Math.random() * 14;
+        ai.targetPos.set(LAKE_CX + Math.cos(angle) * r, 0, LAKE_CZ + Math.sin(angle) * r);
+        this._sanitizeGoal(ai.targetPos);
+        ai.desiredSpeed = 3.6 * profile.speedMultiplier;
+        this.transitionTo(dog, AI_STATES.PATROL, "shore", 10);
+        return;
+      }
+      if (profile.name === "Luna" && choice < 0.35) {
+        ai.targetPos.set(72, 0, 52);
+        ai.desiredSpeed = 3 * profile.speedMultiplier;
+        this.transitionTo(dog, AI_STATES.CHASE, "recharge", 10);
+        return;
+      }
+      const wp = PATROL_WAYPOINTS[Math.floor(Math.random() * PATROL_WAYPOINTS.length)];
+      ai.targetPos.set(wp.x + (Math.random() - 0.5) * 4, 0, wp.z + (Math.random() - 0.5) * 4);
+      this._sanitizeGoal(ai.targetPos);
+      const fast = profile.name === "Rusty" || profile.name === "Bolt" || choice > 0.5;
+      ai.desiredSpeed = (fast ? 5 : 3.5) * profile.speedMultiplier;
+      this.transitionTo(dog, AI_STATES.PATROL, wp.sub, 9);
+    }
+    // Legacy alias
+    pickNewTarget(dog) {
+      this.pickNewPatrolTarget(dog);
+    }
+    // Zero-alloc 3-whisker steering avoidance (accumulates ALL obstacles, lake edge, world bounds & peer dogs)
+    computeAvoidanceDir(pos, desiredDir, outDir = null, selfDog = null) {
+      const res = outDir || this._steerOut;
+      res.copy(desiredDir);
+      res.y = 0;
+      if (res.lengthSq() < 1e-6) {
+        res.set(0, 0, 1);
+        return res;
+      }
+      res.normalize();
+      this._repelSum.set(0, 0, 0);
+      const baseYaw = Math.atan2(res.x, res.z);
+      if (this.world && this.world.getNearObstacles) {
+        for (let w = 0; w < 3; w++) {
+          const yaw = baseYaw + WHISKER_ANGLES[w];
+          const len = WHISKER_LENGTHS[w];
+          const px2 = pos.x + Math.sin(yaw) * len;
+          const pz2 = pos.z + Math.cos(yaw) * len;
+          this._obsBuffer.length = 0;
+          const obstacles = this.world.getNearObstacles(px2, pz2, this._obsBuffer) || this._obsBuffer;
+          for (let i = 0; i < obstacles.length; i++) {
+            const obs = obstacles[i];
+            if (obs.yMin !== void 0 && obs.yMax !== void 0) {
+              if (pos.y + 1.1 < obs.yMin || pos.y > obs.yMax) continue;
+            }
+            const dx = px2 - obs.x;
+            const dz = pz2 - obs.z;
+            const r = (obs.radius || Math.max(obs.halfW || 1, obs.halfD || 1)) + 1.15;
+            const dist = Math.hypot(dx, dz);
+            if (dist < r && dist > 1e-3) {
+              const weight = (r - dist) / r * (w === 0 ? 1.55 : 1.05);
+              this._repelSum.x += dx / dist * weight;
+              this._repelSum.z += dz / dist * weight;
+            }
+          }
         }
-        dog.animController.play("walk");
-        ai.speed = 3.6 * profile.speedMultiplier;
-        ai.stateTimer = 10;
-      } else if (profile.name === "Luna") {
-        if (choice < 0.4) {
-          ai.targetPos.set(-32, 0, 48);
-          ai.state = "GO_BALLPIT";
-          dog.animController.play("walk");
-        } else if (choice < 0.7) {
-          ai.targetPos.set(72, 0, 52);
-          ai.state = "GO_RECHARGE";
-          dog.animController.play("walk");
-        } else {
-          const a = Math.random() * Math.PI * 2;
-          ai.targetPos.set(Math.cos(a) * 28, 0, Math.sin(a) * 28);
-          ai.state = "WANDER";
-          dog.animController.play("walk");
+      }
+      for (let i = 0; i < this.dogList.length; i++) {
+        const other = this.dogList[i];
+        if (other === selfDog) continue;
+        if (Math.abs(other.group.position.y - pos.y) > 1.5) continue;
+        const dx = pos.x - other.group.position.x;
+        const dz = pos.z - other.group.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 2.2 && d > 1e-3) {
+          const w = (2.2 - d) / 2.2 * 1.1;
+          this._repelSum.x += dx / d * w;
+          this._repelSum.z += dz / d * w;
         }
-        ai.speed = 3 * profile.speedMultiplier;
-        ai.stateTimer = 10;
-      } else if (profile.name === "Rusty") {
-        if (choice < 0.35) {
-          ai.targetPos.set(-18, 0, -32);
-          ai.state = "GO_SLIDE";
-        } else if (choice < 0.65) {
-          ai.targetPos.set(38, 0, 22);
-          ai.state = "GO_TRAMPOLINE";
-        } else {
-          ai.targetPos.set(-42, 0, 14);
-          ai.state = "GO_PINATA";
+      }
+      if (!selfDog || !selfDog.isInWater) {
+        const lx = pos.x + res.x * 2.2 - LAKE_CX;
+        const lz = pos.z + res.z * 2.2 - LAKE_CZ;
+        const lDist = Math.hypot(lx, lz);
+        if (lDist < LAKE_AVOID_R && lDist > 0.01) {
+          const w = (LAKE_AVOID_R - lDist) * 0.4;
+          this._repelSum.x += lx / lDist * w;
+          this._repelSum.z += lz / lDist * w;
         }
-        dog.animController.play("run");
-        ai.speed = 5 * profile.speedMultiplier;
-        ai.stateTimer = 9;
+      }
+      const rCenter = Math.hypot(pos.x, pos.z);
+      if (rCenter > WORLD_LIMIT - 6) {
+        const w = (rCenter - (WORLD_LIMIT - 6)) * 0.35;
+        this._repelSum.x -= pos.x / rCenter * w;
+        this._repelSum.z -= pos.z / rCenter * w;
+      }
+      res.add(this._repelSum);
+      res.y = 0;
+      if (res.lengthSq() > 1e-6) {
+        res.normalize();
       } else {
-        const destinations = [
-          new Vector3(-32, 0, 48),
-          new Vector3(-18, 0, -32),
-          new Vector3(22, 0, -50),
-          new Vector3(38, 0, 22),
-          new Vector3(50, 0, 40)
-        ];
-        const dest = destinations[Math.floor(Math.random() * destinations.length)];
-        ai.targetPos.copy(dest);
-        ai.state = "WANDER";
-        dog.animController.play(Math.random() < 0.5 ? "run" : "walk");
-        ai.speed = 3.8 * profile.speedMultiplier;
-        ai.stateTimer = 8;
+        res.copy(desiredDir).normalize();
       }
+      return res;
     }
-    // Proactive obstacle feeler so autonomous dogs steer smoothly around trees & walls
-    computeAvoidanceDir(pos, desiredDir) {
-      if (!this.world || !this.world.getNearObstacles) return desiredDir;
-      const lookAhead = 2.4;
-      const probeX = pos.x + desiredDir.x * lookAhead;
-      const probeZ = pos.z + desiredDir.z * lookAhead;
-      const obstacles = this.world.getNearObstacles(probeX, probeZ);
-      for (let i = 0; i < obstacles.length; i++) {
-        const obs = obstacles[i];
-        if (obs.yMin !== void 0 && obs.yMax !== void 0) {
-          if (pos.y + 1.1 < obs.yMin || pos.y > obs.yMax) continue;
-        }
-        const dx = probeX - obs.x;
-        const dz = probeZ - obs.z;
-        const r = (obs.radius || Math.max(obs.halfW || 1, obs.halfD || 1)) + 1.1;
-        const dist = Math.hypot(dx, dz);
-        if (dist < r && dist > 1e-3) {
-          const steer = new Vector3(dx / dist, 0, dz / dist);
-          return desiredDir.clone().addScaledVector(steer, 1.35).normalize();
+    _scoreRecoverDirection(pos, yaw) {
+      const px2 = pos.x + Math.sin(yaw) * 2.6;
+      const pz2 = pos.z + Math.cos(yaw) * 2.6;
+      let score = 0;
+      const lDist = Math.hypot(px2 - LAKE_CX, pz2 - LAKE_CZ);
+      if (lDist < LAKE_AVOID_R) score -= 50;
+      if (Math.hypot(px2, pz2) > WORLD_LIMIT - 4) score -= 50;
+      if (this.world && this.world.getNearObstacles) {
+        this._obsBuffer.length = 0;
+        const obstacles = this.world.getNearObstacles(px2, pz2, this._obsBuffer) || this._obsBuffer;
+        for (let i = 0; i < obstacles.length; i++) {
+          const obs = obstacles[i];
+          const r = (obs.radius || Math.max(obs.halfW || 1, obs.halfD || 1)) + 1.2;
+          const d = Math.hypot(px2 - obs.x, pz2 - obs.z);
+          if (d < r) score -= (r - d) * 15;
         }
       }
-      return desiredDir;
+      return score;
     }
-    update(delta, playerRobot = null) {
-      this.pack.forEach((dog) => {
-        dog.update(delta);
-        dog.animController.update(delta);
-        if (dog.isPickedUp || dog.isSliding) return;
+    _startRecover(dog) {
+      const ai = dog.aiState;
+      const pos = dog.group.position;
+      const baseYaw = dog.group.rotation.y;
+      let bestYaw = baseYaw + Math.PI;
+      let bestScore = -Infinity;
+      for (let i = 0; i < RECOVER_ANGLES.length; i++) {
+        const cand = baseYaw + RECOVER_ANGLES[i];
+        const sc = this._scoreRecoverDirection(pos, cand);
+        if (sc > bestScore) {
+          bestScore = sc;
+          bestYaw = cand;
+        }
+      }
+      ai.recoverDir.set(Math.sin(bestYaw), 0, Math.cos(bestYaw)).normalize();
+      this.transitionTo(dog, AI_STATES.RECOVER, "unstuck", 1.15);
+    }
+    _handleArrivedAction(dog, playerRobot) {
+      const ai = dog.aiState;
+      const sub = ai.subAction;
+      if (sub === "assemble") {
+        if (playerRobot) dog.lookAt(playerRobot.group.position, 3.5);
+        dog.setEmotion(EMOTIONS.LOVING, true);
+        dog.animController.play("playBow", 2.5);
+        roboAudio.playBoop(dog.profile.voicePitch || 1);
+        this.transitionTo(dog, AI_STATES.ACTION, "trick", 3.2);
+        return;
+      }
+      if (sub === "recharge") {
+        dog.energy = 100;
+        dog.setEmotion(EMOTIONS.SLEEPY, true);
+        dog.animController.play("lieDown", 5);
+        roboAudio.playBoop(dog.profile.voicePitch || 1);
+        this.transitionTo(dog, AI_STATES.ACTION, "recharging", 5);
+        return;
+      }
+      if (sub === "drink") {
+        if (dog.quenchThirst) dog.quenchThirst();
+        dog.animController.play("wagTail", 2.2);
+        this.transitionTo(dog, AI_STATES.ACTION, "drinking", 2.2);
+        return;
+      }
+      if (sub === "ball" && ai.targetBall && !ai.targetBall.carriedBy && this.world && this.world.kickBall) {
+        this._rawDir.subVectors(ai.targetBall.mesh.position, dog.group.position);
+        this._rawDir.y = 0;
+        if (this._rawDir.lengthSq() > 1e-3) this._rawDir.normalize();
+        else this._rawDir.set(0, 0, 1);
+        this.world.kickBall(ai.targetBall, this._rawDir, 11.5);
+        dog.setEmotion(EMOTIONS.EXCITED, true);
+        dog.animController.play("playBow", 1.8);
+        this.logActivity(`\u26BD \xA1${dog.name} pate\xF3 la pelota con entusiasmo!`);
+        this.transitionTo(dog, AI_STATES.ACTION, "kick_celebrate", 1.8);
+        return;
+      }
+      if (sub === "speed_race") {
+        this.logActivity(`\u{1F3C6} \xA1\xA1${dog.name} GAN\xD3 LA CARRERA!! \xA1Es el perrito m\xE1s veloz del parque! \u{1F947}`);
+        roboAudio.playGoalFanfare();
+        dog.animController.play("backflip", 2);
+        dog.setEmotion(EMOTIONS.PROUD, true);
+        for (let i = 0; i < this.pack.length; i++) {
+          const other = this.pack[i];
+          if (other !== dog && other.aiState.subAction === "speed_race") {
+            other.animController.play("wagTail", 2.5);
+            this.transitionTo(other, AI_STATES.ACTION, "race_finish", 2.5);
+          }
+        }
+        this.transitionTo(dog, AI_STATES.ACTION, "race_win", 2.5);
+        return;
+      }
+      if (sub === "pack_gossip") {
+        dog.animController.play(Math.random() < 0.4 ? "headTilt" : "wagTail", 2.4);
+        this.transitionTo(dog, AI_STATES.ACTION, "gossiping", 2.4);
+        return;
+      }
+      if (Math.random() < 0.45) {
+        const trick = TRICKS[Math.floor(Math.random() * TRICKS.length)];
+        dog.animController.play(trick, 2.2);
+        this.transitionTo(dog, AI_STATES.ACTION, "trick", 2.2);
+      } else {
+        this.pickNewPatrolTarget(dog);
+      }
+    }
+    update(delta, playerRobotOverride = null) {
+      if (this.disposed) return;
+      const dt = Math.min(delta, 0.05);
+      const playerRobot = playerRobotOverride || this.playerDog;
+      for (let i = 0; i < this.pack.length; i++) {
+        const dog = this.pack[i];
         const ai = dog.aiState;
-        ai.stateTimer -= delta;
-        if (ai.playerGreetCooldown > 0) ai.playerGreetCooldown = Math.max(0, ai.playerGreetCooldown - delta);
-        if (ai.dogGreetCooldown > 0) ai.dogGreetCooldown = Math.max(0, ai.dogGreetCooldown - delta);
-        if (ai.state === "CHASE_BALL" && ai.targetBall) {
-          if (ai.targetBall.carriedBy) {
-            this.pickNewTarget(dog);
-            return;
+        const curPos = dog.group.position;
+        dog.update(dt);
+        dog.animController.update(dt);
+        if (dog.isPickedUp || dog.isSliding) continue;
+        ai.stateTimer -= dt;
+        ai.stateElapsed += dt;
+        if (ai.playerGreetCooldown > 0) ai.playerGreetCooldown = Math.max(0, ai.playerGreetCooldown - dt);
+        if (ai.dogGreetCooldown > 0) ai.dogGreetCooldown = Math.max(0, ai.dogGreetCooldown - dt);
+        if (ai.alertCooldown > 0) ai.alertCooldown = Math.max(0, ai.alertCooldown - dt);
+        if (ai.state === AI_STATES.PATROL && ai.alertCooldown <= 0 && playerRobot && playerRobot !== dog) {
+          const distP = curPos.distanceTo(playerRobot.group.position);
+          if (distP < 6.8 && playerRobot.physics.speedScalar > 4.5 && ai.playerGreetCooldown <= 0) {
+            ai.alertCooldown = 10;
+            ai.targetDog = playerRobot;
+            dog.lookAt(playerRobot.group.position, 1.2);
+            dog.setEmotion(EMOTIONS.ALERT, true);
+            ai.pendingState = AI_STATES.ACTION;
+            ai.pendingSubAction = "greet_player";
+            this.transitionTo(dog, AI_STATES.ALERT, "notice_player", 0.75);
+            continue;
           }
-          ai.targetPos.copy(ai.targetBall.mesh.position);
-        } else if (ai.state === "CHASE_SNACK") {
-          if (!ai.targetSnack || !this.world.snacks.includes(ai.targetSnack)) {
-            this.pickNewTarget(dog);
-            return;
-          }
-          ai.targetPos.copy(ai.targetSnack.group.position);
         }
-        if (ai.state === "PLAY_TAG") {
-          if (!ai.tagTarget) {
-            this.pickNewTarget(dog);
-            return;
-          }
-          if (ai.tagRole === "CHASER") {
-            ai.targetPos.copy(ai.tagTarget.group.position);
-            const d = dog.group.position.distanceTo(ai.tagTarget.group.position);
-            if (d < 1.5) {
-              roboAudio.playBoop(1.5);
-              this.logActivity(`\u26A1 \xA1${dog.name} toc\xF3 a ${ai.tagTarget.name}! \xA1Ahora la trae ${ai.tagTarget.name}! \u{1F43E}`);
-              const prevTarget = ai.tagTarget;
-              ai.tagRole = "PREY";
-              ai.tagTarget = prevTarget;
-              ai.stateTimer = 8;
-              if (prevTarget.aiState) {
-                prevTarget.aiState.tagRole = "CHASER";
-                prevTarget.aiState.tagTarget = dog;
-                prevTarget.aiState.stateTimer = 8;
-                prevTarget.animController.play("jump", 1);
-              }
+        if (ai.state === AI_STATES.CHASE) {
+          if (ai.subAction === "ball") {
+            if (!ai.targetBall || ai.targetBall.carriedBy) {
+              this.pickNewPatrolTarget(dog);
+              continue;
             }
-          } else if (ai.tagRole === "PREY") {
-            const fleeDir = new Vector3().subVectors(dog.group.position, ai.tagTarget.group.position);
-            fleeDir.y = 0;
-            if (fleeDir.lengthSq() > 1e-3) fleeDir.normalize();
-            else fleeDir.set(1, 0, 0);
-            ai.targetPos.copy(dog.group.position).addScaledVector(fleeDir, 8);
-          }
-          if (ai.stateTimer <= 0) {
-            ai.state = "WANDER";
-            this.pickNewTarget(dog);
-            return;
-          }
-        }
-        if (ai.state === "SPEED_RACE") {
-          const d = Math.hypot(dog.group.position.x - ai.targetPos.x, dog.group.position.z - ai.targetPos.z);
-          if (d < 2.8) {
-            this.logActivity(`\u{1F3C6} \xA1\xA1${dog.name} GAN\xD3 LA CARRERA!! \xA1Es el perrito m\xE1s veloz del parque! \u{1F947}`);
-            roboAudio.playGoalFanfare();
-            dog.animController.play("backflip", 2);
-            dog.setEmotion(EMOTIONS.PROUD);
-            this.pack.forEach((dOther) => {
-              if (dOther.aiState && dOther.aiState.state === "SPEED_RACE") {
-                dOther.aiState.state = "PAUSE";
-                dOther.aiState.stateTimer = 3;
+            ai.targetPos.copy(ai.targetBall.mesh.position);
+          } else if (ai.subAction === "snack") {
+            if (!ai.targetSnack || !this.world || this.world.snacks.indexOf(ai.targetSnack) === -1) {
+              this.pickNewPatrolTarget(dog);
+              continue;
+            }
+            ai.targetPos.copy(ai.targetSnack.group.position);
+          } else if (ai.subAction === "play_tag") {
+            if (!ai.tagTarget) {
+              this.pickNewPatrolTarget(dog);
+              continue;
+            }
+            if (ai.tagRole === "CHASER") {
+              ai.targetPos.copy(ai.tagTarget.group.position);
+              if (curPos.distanceTo(ai.tagTarget.group.position) < 1.55) {
+                roboAudio.playBoop(1.5);
+                this.logActivity(`\u26A1 \xA1${dog.name} toc\xF3 a ${ai.tagTarget.name}! \xA1Ahora la trae ${ai.tagTarget.name}! \u{1F43E}`);
+                const prev = ai.tagTarget;
+                ai.tagRole = "PREY";
+                ai.stateTimer = 8;
+                if (prev.aiState) {
+                  prev.aiState.tagRole = "CHASER";
+                  prev.aiState.tagTarget = dog;
+                  prev.aiState.stateTimer = 8;
+                  prev.animController.play("jump", 1);
+                }
               }
-            });
-            return;
-          }
-        }
-        if (ai.state === "PACK_GOSSIP") {
-          const d = Math.hypot(dog.group.position.x - ai.targetPos.x, dog.group.position.z - ai.targetPos.z);
-          if (d < 1.8) {
-            dog.animController.play("wagTail");
-            if (Math.random() < 0.04) {
-              dog.animController.play(Math.random() < 0.5 ? "headTilt" : "playBow", 1.8);
-              roboAudio.playBoop(dog.profile.voicePitch || 1);
+            } else {
+              this._rawDir.subVectors(curPos, ai.tagTarget.group.position);
+              this._rawDir.y = 0;
+              if (this._rawDir.lengthSq() > 1e-3) this._rawDir.normalize();
+              else this._rawDir.set(1, 0, 0);
+              ai.targetPos.copy(curPos).addScaledVector(this._rawDir, 8);
+              this._sanitizeGoal(ai.targetPos);
             }
           }
-          if (ai.stateTimer <= 0) {
-            this.pickNewTarget(dog);
-            return;
-          }
         }
-        if (playerRobot && playerRobot !== dog && ai.playerGreetCooldown <= 0) {
-          const distToPlayer = dog.group.position.distanceTo(playerRobot.group.position);
-          if (distToPlayer < 4 && !["INTERACT_PLAYER", "PLAY_TAG", "SPEED_RACE", "ASSEMBLE_PACK"].includes(ai.state)) {
-            ai.state = "INTERACT_PLAYER";
-            ai.stateTimer = 3.2;
+        if (playerRobot && playerRobot !== dog && ai.playerGreetCooldown <= 0 && (ai.state === AI_STATES.PATROL || ai.state === AI_STATES.CHASE && ai.subAction !== "play_tag" && ai.subAction !== "speed_race" && ai.subAction !== "assemble")) {
+          if (curPos.distanceTo(playerRobot.group.position) < 3.8) {
             ai.playerGreetCooldown = 18;
-            dog.lookAt(playerRobot.group.position);
-            const socialEmotions = [EMOTIONS.HAPPY, EMOTIONS.LOVING, EMOTIONS.EXCITED, EMOTIONS.PROUD];
-            dog.setEmotion(socialEmotions[Math.floor(Math.random() * socialEmotions.length)]);
-            const socialMoves = ["wave", "wagTail", "bark", "spin", "dance"];
-            dog.animController.play(socialMoves[Math.floor(Math.random() * socialMoves.length)], 2.5);
+            dog.lookAt(playerRobot.group.position, 3.2);
+            dog.setEmotion(SOCIAL_EMOTIONS[Math.floor(Math.random() * SOCIAL_EMOTIONS.length)], true);
+            dog.animController.play(SOCIAL_MOVES[Math.floor(Math.random() * SOCIAL_MOVES.length)], 2.5);
             roboAudio.playBark(dog.profile.voicePitch || 1);
-            const greetings = {
-              Bolt: `\u26A1 Bolt: "\xA1Hola ${playerRobot.name}! \xBFListo para una carrera hacia la porter\xEDa?"`,
-              Pixel: `\u{1F50D} Pixel: "He sincronizado mis sensores contigo, ${playerRobot.name}."`,
-              Luna: `\u{1F496} Luna: "\xA1Qu\xE9 lindo verte, ${playerRobot.name}! Te mando mimos cibern\xE9ticos."`,
-              Rusty: `\u{1F938} Rusty: "\xA1M\xEDrame, ${playerRobot.name}! \xA1Mira qu\xE9 truco acabo de inventar!"`,
-              Sparky: `\u{1F43E} Sparky: "\xA1Hola compa\xF1ero! El d\xEDa est\xE1 perfecto para explorar juntos."`
-            };
-            this.logActivity(greetings[dog.name] || `\u{1F43E} \xA1${dog.name} salud\xF3 alegremente a ${playerRobot.name}!`);
+            const tpl = GREETINGS[dog.name] || "\u{1F43E} \xA1{name} salud\xF3 alegremente a {player}!";
+            this.logActivity(tpl.replace("{player}", playerRobot.name).replace("{name}", dog.name));
+            this.transitionTo(dog, AI_STATES.ACTION, "greet_player", 3);
+            continue;
           }
         }
-        if (ai.dogGreetCooldown <= 0) {
-          this.pack.forEach((otherDog) => {
-            if (otherDog === dog) return;
-            const distBetween = dog.group.position.distanceTo(otherDog.group.position);
-            if (distBetween < 3.4 && ai.state !== "INTERACT_DOG" && ai.lastInteractedDog !== otherDog && otherDog.aiState.dogGreetCooldown <= 0) {
-              ai.state = "INTERACT_DOG";
-              ai.stateTimer = 3;
+        if (ai.dogGreetCooldown <= 0 && ai.state === AI_STATES.PATROL) {
+          for (let j = 0; j < this.pack.length; j++) {
+            const otherDog = this.pack[j];
+            if (otherDog === dog) continue;
+            if (otherDog.aiState.state !== AI_STATES.PATROL || otherDog.aiState.dogGreetCooldown > 0) continue;
+            if (curPos.distanceTo(otherDog.group.position) < 3.2) {
               ai.dogGreetCooldown = 16;
-              ai.lastInteractedDog = otherDog;
               otherDog.aiState.dogGreetCooldown = 16;
-              dog.lookAt(otherDog.group.position);
-              otherDog.lookAt(dog.group.position);
+              dog.lookAt(otherDog.group.position, 2.8);
+              otherDog.lookAt(curPos, 2.8);
               if (Math.random() < 0.45) {
-                dog.setEmotion(EMOTIONS.EXCITED);
-                dog.animController.play("playBow", 2.5);
-                otherDog.animController.play("wagTail", 2.5);
+                dog.setEmotion(EMOTIONS.EXCITED, true);
+                dog.animController.play("playBow", 2.4);
+                otherDog.animController.play("wagTail", 2.4);
                 roboAudio.playYip(dog.profile.voicePitch || 1);
-                this.logActivity(`\u{1F436} \xA1${dog.name} hizo una reverencia de juego (play-bow) ante ${otherDog.name}!`);
+                this.logActivity(`\u{1F436} \xA1${dog.name} hizo una reverencia de juego ante ${otherDog.name}!`);
               } else {
-                dog.setEmotion(EMOTIONS.HAPPY);
-                dog.animController.play(Math.random() < 0.5 ? "sniff" : "nuzzle", 2.2);
+                dog.setEmotion(EMOTIONS.HAPPY, true);
+                dog.animController.play("sniff", 2.2);
+                otherDog.animController.play("nuzzle", 2.2);
                 roboAudio.playBoop(dog.profile.voicePitch || 1);
                 this.logActivity(`\u{1F43E} ${dog.name} y ${otherDog.name} se saludaron con un boop de hocicos.`);
               }
+              this.transitionTo(dog, AI_STATES.ACTION, "greet_dog", 2.5);
+              this.transitionTo(otherDog, AI_STATES.ACTION, "greet_dog", 2.5);
+              break;
             }
-          });
+          }
         }
-        if (ai.state === "INTERACT_PLAYER") {
-          if (playerRobot) dog.lookAt(playerRobot.group.position);
+        if (ai.state === AI_STATES.ALERT) {
+          dog.animController.syncLocomotion(0, false);
+          dog.bankAngle = damp2(dog.bankAngle, 0, 10, dt);
           if (ai.stateTimer <= 0) {
-            this.pickNewTarget(dog);
-          }
-          return;
-        }
-        if (ai.state === "INTERACT_DOG") {
-          if (ai.stateTimer <= 0) {
-            ai.lastInteractedDog = null;
-            this.pickNewTarget(dog);
-          }
-          return;
-        }
-        if (ai.state === "GO_RECHARGE") {
-          const distToStation = Math.hypot(dog.group.position.x - 72, dog.group.position.z - 52);
-          if (distToStation < 2.5) {
-            ai.state = "RECHARGING";
-            ai.stateTimer = 6;
-            dog.energy = 100;
-            dog.setEmotion(EMOTIONS.SLEEPY);
-            dog.animController.play("lieDown");
-            roboAudio.playBoop(dog.profile.voicePitch || 1);
-          }
-        }
-        if (ai.state === "RECHARGING") {
-          if (ai.stateTimer <= 0) {
-            dog.setEmotion(EMOTIONS.HAPPY);
-            this.pickNewTarget(dog);
-          }
-          return;
-        }
-        const curPos = dog.group.position;
-        const distToTarget = Math.hypot(curPos.x - ai.targetPos.x, curPos.z - ai.targetPos.z);
-        if (ai.state === "ASSEMBLE_PACK" && distToTarget < 1.8) {
-          if (playerRobot) dog.lookAt(playerRobot.group.position);
-          dog.setEmotion(EMOTIONS.LOVING);
-          dog.animController.play("playBow", 2.5);
-          roboAudio.playBoop(dog.profile.voicePitch || 1);
-          ai.state = "PAUSE";
-          ai.stateTimer = 4;
-        } else if (distToTarget < 2 || ai.stateTimer <= 0) {
-          if (Math.random() < 0.35 && ai.state !== "PAUSE") {
-            const tricks = ["sniff", "sit", "wagTail", "bark", "spin", "backflip", "dance"];
-            const trick = tricks[Math.floor(Math.random() * tricks.length)];
-            dog.animController.play(trick, 2.5);
-            ai.state = "PAUSE";
-            ai.stateTimer = 2.5;
-          } else {
-            this.pickNewTarget(dog);
-          }
-        }
-        const activeMoveStates = [
-          "WANDER",
-          "CHASE_BALL",
-          "CHASE_SNACK",
-          "GO_RECHARGE",
-          "GO_TRAMPOLINE",
-          "GO_BALLPIT",
-          "GO_SLIDE",
-          "GO_TUNNEL",
-          "GO_TARGET",
-          "GO_PINATA",
-          "ASSEMBLE_PACK",
-          "PLAY_TAG",
-          "SPEED_RACE",
-          "PACK_GOSSIP"
-        ];
-        if (activeMoveStates.includes(ai.state)) {
-          const rawDir = new Vector3().subVectors(ai.targetPos, curPos);
-          rawDir.y = 0;
-          if (rawDir.lengthSq() > 1e-4) rawDir.normalize();
-          const dir = this.computeAvoidanceDir(curPos, rawDir);
-          const targetAngle = Math.atan2(dir.x, dir.z);
-          dog.group.rotation.y = lerpAngle(dog.group.rotation.y, targetAngle, delta * 6);
-          if (ai.lastPos) {
-            const moved = Math.hypot(curPos.x - ai.lastPos.x, curPos.z - ai.lastPos.z);
-            ai.lastPos.copy(curPos);
-            if (moved < 0.035 && distToTarget > 2) {
-              ai.stuckTimer = (ai.stuckTimer || 0) + delta;
-              if (ai.stuckTimer > 0.65) {
-                const tan = new Vector3(-rawDir.z, 0, rawDir.x).normalize();
-                curPos.addScaledVector(tan, delta * 3.8);
-              }
-              if (ai.stuckTimer > 1.8) {
-                ai.stuckTimer = 0;
-                this.pickNewTarget(dog);
-              }
+            if (ai.pendingState === AI_STATES.ACTION && ai.pendingSubAction === "greet_player" && playerRobot) {
+              ai.pendingState = null;
+              ai.playerGreetCooldown = 16;
+              dog.lookAt(playerRobot.group.position, 2.8);
+              dog.setEmotion(EMOTIONS.HAPPY, true);
+              dog.animController.play("wave", 2.4);
+              this.transitionTo(dog, AI_STATES.ACTION, "greet_player", 2.4);
             } else {
-              ai.stuckTimer = Math.max(0, (ai.stuckTimer || 0) - delta * 2);
+              this.pickNewPatrolTarget(dog);
             }
           }
-          curPos.addScaledVector(dir, ai.speed * delta);
-          if (this.world && this.world.resolveObstacleCollisions) {
+          continue;
+        }
+        if (ai.state === AI_STATES.ACTION) {
+          dog.animController.syncLocomotion(0, false);
+          dog.bankAngle = damp2(dog.bankAngle, 0, 10, dt);
+          if (ai.subAction === "greet_player" && playerRobot) {
+            dog.lookAt(playerRobot.group.position, 0.5);
+          }
+          if (ai.stateTimer <= 0) {
+            if (ai.subAction === "recharging") dog.setEmotion(EMOTIONS.HAPPY, true);
+            this.pickNewPatrolTarget(dog);
+          }
+          continue;
+        }
+        const distToTarget = Math.hypot(curPos.x - ai.targetPos.x, curPos.z - ai.targetPos.z);
+        if (ai.state === AI_STATES.RECOVER) {
+          const dir = this.computeAvoidanceDir(curPos, ai.recoverDir, this._steerOut, dog);
+          const targetAngle = Math.atan2(dir.x, dir.z);
+          dog.group.rotation.y = dampAngle(dog.group.rotation.y, targetAngle, 7, dt);
+          curPos.addScaledVector(dir, ai.desiredSpeed * dt);
+          dog.animController.syncLocomotion(dog.physics.speedScalar, true);
+          if (ai.stateTimer <= 0) {
+            this.pickNewPatrolTarget(dog);
+          }
+        } else {
+          const arrivalR = ai.subAction === "speed_race" ? 2.8 : 2;
+          if (distToTarget < arrivalR) {
+            this._handleArrivedAction(dog, playerRobot);
+            continue;
+          }
+          if (ai.stateTimer <= 0) {
+            this.pickNewPatrolTarget(dog);
+            continue;
+          }
+          this._rawDir.subVectors(ai.targetPos, curPos);
+          this._rawDir.y = 0;
+          if (this._rawDir.lengthSq() > 1e-6) this._rawDir.normalize();
+          const dir = this.computeAvoidanceDir(curPos, this._rawDir, this._steerOut, dog);
+          const targetAngle = Math.atan2(dir.x, dir.z);
+          const yawDiff = wrapAngle(targetAngle - dog.group.rotation.y);
+          dog.group.rotation.y = dampAngle(dog.group.rotation.y, targetAngle, 6.5, dt);
+          dog.bankAngle = damp2(dog.bankAngle, MathUtils.clamp(-yawDiff * 0.42, -0.26, 0.26), 8, dt);
+          const movedStep = Math.hypot(curPos.x - ai.lastPos.x, curPos.z - ai.lastPos.z);
+          ai.lastPos.copy(curPos);
+          const actualSpeed = movedStep / Math.max(dt, 1e-3);
+          if (actualSpeed < ai.desiredSpeed * 0.25 && distToTarget > 2.2) {
+            ai.stuckTimer += dt;
+            if (ai.stuckTimer > 0.65) {
+              this._startRecover(dog);
+              continue;
+            }
+          } else {
+            ai.stuckTimer = Math.max(0, ai.stuckTimer - dt * 2);
+          }
+          curPos.addScaledVector(dir, ai.desiredSpeed * dt);
+          dog.animController.syncLocomotion(dog.physics.speedScalar, true);
+        }
+        if (this.world) {
+          if (this.world.resolveObstacleCollisions) {
             this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
           }
-          const MAP_LIMIT = 110;
-          curPos.x = MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
-          curPos.z = MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
+          if (this.world.clampToWorld) {
+            this.world.clampToWorld(curPos, 2);
+          } else {
+            const r = Math.hypot(curPos.x, curPos.z);
+            if (r > WORLD_LIMIT) {
+              const s = WORLD_LIMIT / r;
+              curPos.x *= s;
+              curPos.z *= s;
+            }
+          }
           const groundY = this.world.getHeightAt(curPos.x, curPos.z);
           if (!dog.isInWater) {
-            if (curPos.y > groundY + 0.05 || dog.velocityY && dog.velocityY > 0) {
-              dog.velocityY = (dog.velocityY || 0) - 18 * delta;
-              curPos.y += dog.velocityY * delta;
+            if (curPos.y > groundY + 0.14 || dog.physics.velocityY > 0) {
+              dog.physics.velocityY -= 18.5 * dt;
+              curPos.y += dog.physics.velocityY * dt;
               if (curPos.y <= groundY) {
                 curPos.y = groundY;
-                dog.velocityY = 0;
+                dog.physics.velocityY = 0;
+                dog.physics.isGrounded = true;
               }
             } else {
               curPos.y = groundY;
-              dog.velocityY = 0;
+              dog.physics.velocityY = 0;
+              dog.physics.isGrounded = true;
             }
           }
           const prevY = curPos.y;
-          this.world.handleRobotInteractions(dog);
+          this.world.handleRobotInteractions(dog, dog.animController, dt);
           if (curPos.y > prevY + 0.5 && !dog.isInWater) {
-            dog.velocityY = (curPos.y - prevY) * 3.2;
+            dog.physics.velocityY = (curPos.y - prevY) * 3.2;
             curPos.y = prevY + 0.15;
+            dog.physics.isGrounded = false;
           }
         }
-        if (playerRobot && Math.abs(dog.group.position.y - playerRobot.group.position.y) < 1.2) {
-          const dx = dog.group.position.x - playerRobot.group.position.x;
-          const dz = dog.group.position.z - playerRobot.group.position.z;
-          const distToPlayer = Math.hypot(dx, dz);
-          if (distToPlayer < 1.4 && distToPlayer > 1e-3) {
-            const overlap = (1.4 - distToPlayer) * 0.5;
-            const nx = dx / distToPlayer;
-            const nz = dz / distToPlayer;
-            dog.group.position.x += nx * overlap;
-            dog.group.position.z += nz * overlap;
-            playerRobot.group.position.x -= nx * overlap;
-            playerRobot.group.position.z -= nz * overlap;
+      }
+      for (let i = 0; i < this.pack.length; i++) {
+        const dog = this.pack[i];
+        if (dog.isPickedUp) continue;
+        const p1 = dog.group.position;
+        if (playerRobot && playerRobot !== dog && Math.abs(p1.y - playerRobot.group.position.y) < 1.2) {
+          const p2 = playerRobot.group.position;
+          const dx = p1.x - p2.x;
+          const dz = p1.z - p2.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 1.4 && d > 1e-3) {
+            const ov = (1.4 - d) * 0.5;
+            const nx = dx / d;
+            const nz = dz / d;
+            p1.x += nx * ov;
+            p1.z += nz * ov;
+            p2.x -= nx * ov;
+            p2.z -= nz * ov;
+            if (this.world && this.world.resolveObstacleCollisions) {
+              this.world.resolveObstacleCollisions(p2, 0.75, 1.2);
+            }
           }
         }
-        this.pack.forEach((otherDog) => {
-          if (otherDog === dog) return;
-          if (Math.abs(dog.group.position.y - otherDog.group.position.y) >= 1.2) return;
-          const dx = dog.group.position.x - otherDog.group.position.x;
-          const dz = dog.group.position.z - otherDog.group.position.z;
-          const distBetween = Math.hypot(dx, dz);
-          if (distBetween < 1.35 && distBetween > 1e-3) {
-            const overlap = (1.35 - distBetween) * 0.5;
-            const nx = dx / distBetween;
-            const nz = dz / distBetween;
-            dog.group.position.x += nx * overlap;
-            dog.group.position.z += nz * overlap;
-            otherDog.group.position.x -= nx * overlap;
-            otherDog.group.position.z -= nz * overlap;
+        for (let j = i + 1; j < this.pack.length; j++) {
+          const other = this.pack[j];
+          if (other.isPickedUp) continue;
+          const p2 = other.group.position;
+          if (Math.abs(p1.y - p2.y) >= 1.2) continue;
+          const dx = p1.x - p2.x;
+          const dz = p1.z - p2.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 1.35 && d > 1e-3) {
+            const ov = (1.35 - d) * 0.5;
+            const nx = dx / d;
+            const nz = dz / d;
+            p1.x += nx * ov;
+            p1.z += nz * ov;
+            p2.x -= nx * ov;
+            p2.z -= nz * ov;
           }
-        });
-      });
+        }
+        if (this.world && this.world.resolveObstacleCollisions) {
+          this.world.resolveObstacleCollisions(p1, 0.75, 1.2);
+        }
+      }
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      for (let i = 0; i < this.dogList.length; i++) {
+        const dog = this.dogList[i];
+        if (this.scene && dog.group) {
+          this.scene.remove(dog.group);
+        }
+        if (dog.animController) dog.animController.dispose();
+        dog.dispose();
+      }
+      this.dogList.length = 0;
+      this.pack.length = 0;
+      this.dogs = {};
+      this.allRobots = this.dogs;
+      this.playerDog = null;
+      this.currentControlledRobot = null;
+      this._obsBuffer.length = 0;
     }
   };
 
   // public/js/vision.js
   var RobotVisionSystem = class {
-    constructor(robot, scene, world) {
-      this.robot = robot;
-      this.scene = scene;
-      this.world = world;
-      this.eyeCamera = new PerspectiveCamera(75, 230 / 130, 0.08, 300);
-      this.attachToRobot(this.robot);
-      this.pipCanvas = null;
-      this.pipRenderer = null;
+    constructor(worldOrRobot, eventBusOrScene = null, maybeWorld = null) {
+      if (maybeWorld) {
+        this.robot = worldOrRobot;
+        this.world = maybeWorld;
+        this.eventBus = null;
+      } else {
+        this.robot = null;
+        this.world = worldOrRobot;
+        this.eventBus = eventBusOrScene;
+      }
+      this.eyeCamera = new PerspectiveCamera(75, 230 / 130, 0.08, 280);
+      if (this.robot) {
+        this.attachToRobot(this.robot);
+      }
       this.visionAngle = Math.PI * 0.58;
       this.visionRange = 42;
-      this._tempWorldPos = new Vector3();
-      this._tempRobotDir = new Vector3();
-      this._tempToItem = new Vector3();
-      this._tempCross = new Vector3();
+      this.pipAccum = 0;
+      this.pipInterval = 1 / 12;
+      this._snapCandidates = [];
+      for (let i = 0; i < 64; i++) {
+        this._snapCandidates.push({
+          distSq: 0,
+          dist: 0,
+          kind: 0,
+          // 0=item, 1=snack, 2=treasure, 3=bot, 4=landmark
+          label: "",
+          emotion: "",
+          action: "",
+          dir: ""
+        });
+      }
+      this.disposed = false;
     }
     attachToRobot(newRobot) {
-      if (!newRobot) return;
+      if (this.disposed || !newRobot) return;
       this.robot = newRobot;
       if (this.robot.nodes && this.robot.nodes.head) {
         this.robot.nodes.head.add(this.eyeCamera);
@@ -39134,69 +40587,38 @@ void main() {
         this.eyeCamera.rotation.set(0, Math.PI, 0);
       }
     }
-    initPIP(canvasElement) {
-      this.pipCanvas = canvasElement;
-      if (!canvasElement) return;
-      try {
-        this.pipRenderer = new WebGLRenderer({
-          canvas: canvasElement,
-          antialias: true,
-          alpha: false,
-          powerPreference: "default"
-        });
-        this.pipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        const w = canvasElement.clientWidth || 230;
-        const h = canvasElement.clientHeight || 130;
-        this.pipRenderer.setSize(w, h, false);
-        this.pipRenderer.setClearColor(659485, 1);
-      } catch (e) {
-        console.warn("PIP canvas WebGL fallback:", e);
+    update(dt, dog = null) {
+      if (this.disposed) return;
+      if (dog && dog !== this.robot) {
+        this.attachToRobot(dog);
       }
+      this.pipAccum += dt;
     }
-    renderPIP() {
-      if (!this.pipRenderer || !this.pipCanvas) return;
-      const w = this.pipCanvas.clientWidth || this.pipCanvas.width || 230;
-      const h = this.pipCanvas.clientHeight || this.pipCanvas.height || 130;
+    renderPIP(gfxPipeline, targetCanvas) {
+      if (this.disposed || !gfxPipeline || !targetCanvas) return;
+      if (this.pipAccum < this.pipInterval) return;
+      this.pipAccum = 0;
+      const w = targetCanvas.clientWidth || targetCanvas.width || 230;
+      const h = targetCanvas.clientHeight || targetCanvas.height || 130;
       if (w > 10 && h > 10) {
-        const curSize = this.pipRenderer.getSize(new Vector2());
-        if (Math.abs(curSize.x - w) > 2 || Math.abs(curSize.y - h) > 2) {
-          this.pipRenderer.setSize(w, h, false);
-          this.eyeCamera.aspect = w / h;
+        const targetAspect = w / h;
+        if (Math.abs(this.eyeCamera.aspect - targetAspect) > 0.02) {
+          this.eyeCamera.aspect = targetAspect;
           this.eyeCamera.updateProjectionMatrix();
         }
       }
-      try {
-        this.eyeCamera.updateWorldMatrix(true, false);
-        this.pipRenderer.render(this.scene, this.eyeCamera);
-      } catch (e) {
+      this.eyeCamera.updateWorldMatrix(true, false);
+      if (typeof gfxPipeline.renderEyePip === "function") {
+        gfxPipeline.renderEyePip(this.eyeCamera, targetCanvas);
       }
     }
-    // Noción del Cuerpo (Proprioception)
-    getBodyState() {
-      const pos = this.robot.group.position;
-      const currentLoc = this.getCurrentLocationName(pos);
-      return {
-        name: this.robot.name,
-        position: {
-          x: Number(pos.x.toFixed(1)),
-          y: Number(pos.y.toFixed(1)),
-          z: Number(pos.z.toFixed(1))
-        },
-        current_area: currentLoc,
-        current_emotion: this.robot.currentEmotion ? this.robot.currentEmotion.name : "Feliz",
-        current_action: this.robot.animController ? this.robot.animController.currentAnim : "idle",
-        energy_level: Math.round(this.robot.energy || 100),
-        curiosity_level: Math.round(this.robot.curiosity || 80),
-        sociability_level: Math.round(this.robot.sociability || 85)
-      };
-    }
-    // FIXED: Selects the most specific (smallest radius) matching Point of Interest
-    // so sub-attractions inside the Playground (Trampoline, Carousel, Disco, Seesaw) are properly reported!
     getCurrentLocationName(pos) {
-      if (!this.world || !this.world.pointsOfInterest) return "Gran Prado Verde";
+      if (!pos || !this.world || !this.world.pointsOfInterest) return "Gran Prado Verde";
       let bestPoi = null;
       let smallestRadius = Infinity;
-      for (const poi of this.world.pointsOfInterest) {
+      const pois = this.world.pointsOfInterest;
+      for (let i = 0; i < pois.length; i++) {
+        const poi = pois[i];
         const d = Math.hypot(pos.x - poi.position.x, pos.z - poi.position.z);
         if (d <= poi.radius && poi.radius < smallestRadius) {
           smallestRadius = poi.radius;
@@ -39205,145 +40627,261 @@ void main() {
       }
       return bestPoi ? bestPoi.name : "Gran Prado Verde";
     }
-    // Semantic Vision Snapshot: Uses true World Positions and scans Toys, Snacks, Treasures, Robots & POIs
-    getVisualSnapshot(otherRobots = []) {
-      const robotPos = this.robot.group.position;
-      this._tempRobotDir.set(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.robot.group.rotation.y);
-      const visibleItems = [];
+    getBodyState(dog = null) {
+      const bot = dog || this.robot;
+      if (!bot) return null;
+      const pos = bot.group.position;
+      return {
+        name: bot.name,
+        position: {
+          x: Number(pos.x.toFixed(1)),
+          y: Number(pos.y.toFixed(1)),
+          z: Number(pos.z.toFixed(1))
+        },
+        current_area: this.getCurrentLocationName(pos),
+        current_emotion: bot.currentEmotion ? bot.currentEmotion.name : "Feliz",
+        current_action: bot.animController ? bot.animController.currentAnim : "idle",
+        energy_level: Math.round(bot.energy || 100),
+        curiosity_level: Math.round(bot.curiosity || 80),
+        sociability_level: Math.round(bot.sociability || 85)
+      };
+    }
+    _getRelativeDirection(forward, toTarget) {
+      TMP.v4.crossVectors(forward, toTarget);
+      const dot = forward.dot(toTarget);
+      if (Math.abs(dot) > 0.85) {
+        return dot > 0 ? "Al frente" : "Atr\xE1s";
+      }
+      return TMP.v4.y > 0 ? "A la izquierda" : "A la derecha";
+    }
+    // Supports both getVisualSnapshot(dog, otherRobots) and getVisualSnapshot(otherRobots)
+    getVisualSnapshot(dogOrRobots = null, maybeOtherRobots = null) {
+      let bot = this.robot;
+      let otherRobots = [];
+      if (Array.isArray(dogOrRobots)) {
+        otherRobots = dogOrRobots;
+      } else if (dogOrRobots && dogOrRobots.group) {
+        bot = dogOrRobots;
+        otherRobots = Array.isArray(maybeOtherRobots) ? maybeOtherRobots : [];
+      }
+      if (!bot) return [];
+      const robotPos = bot.group.position;
+      const yaw = bot.group.rotation.y;
+      TMP.v2.set(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+      const maxRangeSq = this.visionRange * this.visionRange;
+      const poiMaxRangeSq = this.visionRange * 1.5 * (this.visionRange * 1.5);
+      const cosHalfFov = Math.cos(this.visionAngle * 0.5);
+      let count = 0;
+      const addCandidate = (distSq, dist, kind, label, emotion, action) => {
+        if (count >= this._snapCandidates.length) return;
+        const slot = this._snapCandidates[count++];
+        slot.distSq = distSq;
+        slot.dist = dist;
+        slot.kind = kind;
+        slot.label = label;
+        slot.emotion = emotion;
+        slot.action = action;
+        slot.dir = this._getRelativeDirection(TMP.v2, TMP.v3);
+      };
       if (this.world && this.world.interactiveObjects) {
-        this.world.interactiveObjects.forEach((item) => {
-          if (!item.object) return;
-          item.object.getWorldPosition(this._tempWorldPos);
-          this._tempToItem.subVectors(this._tempWorldPos, robotPos);
-          const dist = this._tempToItem.length();
-          if (dist <= this.visionRange && dist > 0.4) {
-            this._tempToItem.normalize();
-            const dot = this._tempRobotDir.dot(this._tempToItem);
-            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
-            if (angle <= this.visionAngle / 2) {
-              visibleItems.push({
-                type: item.name,
-                distance: `${dist.toFixed(1)}m`,
-                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
-              });
+        const items = this.world.interactiveObjects;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (!item.object) continue;
+          item.object.getWorldPosition(TMP.v1);
+          TMP.v3.subVectors(TMP.v1, robotPos);
+          const distSq = TMP.v3.lengthSq();
+          if (distSq <= maxRangeSq && distSq > 0.16) {
+            const dist = Math.sqrt(distSq);
+            TMP.v3.multiplyScalar(1 / dist);
+            if (TMP.v2.dot(TMP.v3) >= cosHalfFov) {
+              addCandidate(distSq, dist, 0, item.name, "", "");
             }
           }
-        });
+        }
       }
       if (this.world && this.world.snacks) {
-        this.world.snacks.forEach((snack) => {
-          if (!snack.group) return;
-          snack.group.getWorldPosition(this._tempWorldPos);
-          this._tempToItem.subVectors(this._tempWorldPos, robotPos);
-          const dist = this._tempToItem.length();
-          if (dist <= this.visionRange) {
-            this._tempToItem.normalize();
-            const dot = this._tempRobotDir.dot(this._tempToItem);
-            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
-            if (angle <= this.visionAngle / 2) {
-              visibleItems.push({
-                type: "Galleta Energ\xE9tica",
-                distance: `${dist.toFixed(1)}m`,
-                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
-              });
+        const snacks = this.world.snacks;
+        for (let i = 0; i < snacks.length; i++) {
+          const snack = snacks[i];
+          if (!snack.group) continue;
+          snack.group.getWorldPosition(TMP.v1);
+          TMP.v3.subVectors(TMP.v1, robotPos);
+          const distSq = TMP.v3.lengthSq();
+          if (distSq <= maxRangeSq && distSq > 0.01) {
+            const dist = Math.sqrt(distSq);
+            TMP.v3.multiplyScalar(1 / dist);
+            if (TMP.v2.dot(TMP.v3) >= cosHalfFov) {
+              addCandidate(distSq, dist, 1, "Galleta Energ\xE9tica", "", "");
             }
           }
-        });
+        }
       }
       if (this.world && this.world.treasureSpots) {
-        this.world.treasureSpots.forEach((spot) => {
-          if (spot.dug) return;
-          this._tempWorldPos.set(spot.x, robotPos.y, spot.z);
-          this._tempToItem.subVectors(this._tempWorldPos, robotPos);
-          const dist = this._tempToItem.length();
-          if (dist <= this.visionRange * 0.8) {
-            this._tempToItem.normalize();
-            const dot = this._tempRobotDir.dot(this._tempToItem);
-            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
-            if (angle <= this.visionAngle / 2) {
-              visibleItems.push({
-                type: `Mont\xEDculo de Tesoro (${spot.name})`,
-                distance: `${dist.toFixed(1)}m`,
-                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
-              });
+        const spots = this.world.treasureSpots;
+        const tRangeSq = this.visionRange * 0.8 * (this.visionRange * 0.8);
+        for (let i = 0; i < spots.length; i++) {
+          const spot = spots[i];
+          if (spot.dug) continue;
+          TMP.v1.set(spot.x, robotPos.y, spot.z);
+          TMP.v3.subVectors(TMP.v1, robotPos);
+          const distSq = TMP.v3.lengthSq();
+          if (distSq <= tRangeSq && distSq > 0.01) {
+            const dist = Math.sqrt(distSq);
+            TMP.v3.multiplyScalar(1 / dist);
+            if (TMP.v2.dot(TMP.v3) >= cosHalfFov) {
+              addCandidate(distSq, dist, 2, `Mont\xEDculo de Tesoro (${spot.name})`, "", "");
             }
           }
-        });
+        }
       }
-      if (Array.isArray(otherRobots)) {
-        otherRobots.forEach((bot) => {
-          if (bot === this.robot) return;
-          const botPos = bot.group.position;
-          this._tempToItem.subVectors(botPos, robotPos);
-          const dist = this._tempToItem.length();
-          if (dist <= this.visionRange) {
-            this._tempToItem.normalize();
-            const dot = this._tempRobotDir.dot(this._tempToItem);
-            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
-            if (angle <= this.visionAngle / 2) {
-              visibleItems.push({
-                type: `Amigo robot ${bot.name}`,
-                emotion: bot.currentEmotion ? bot.currentEmotion.name : "Feliz",
-                action: bot.animController ? bot.animController.currentAnim : "idle",
-                distance: `${dist.toFixed(1)}m`,
-                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
-              });
-            }
+      for (let i = 0; i < otherRobots.length; i++) {
+        const other = otherRobots[i];
+        if (!other || other === bot) continue;
+        TMP.v3.subVectors(other.group.position, robotPos);
+        const distSq = TMP.v3.lengthSq();
+        if (distSq <= maxRangeSq && distSq > 0.01) {
+          const dist = Math.sqrt(distSq);
+          TMP.v3.multiplyScalar(1 / dist);
+          if (TMP.v2.dot(TMP.v3) >= cosHalfFov) {
+            addCandidate(
+              distSq,
+              dist,
+              3,
+              `Amigo robot ${other.name}`,
+              other.currentEmotion ? other.currentEmotion.name : "Feliz",
+              other.animController ? other.animController.currentAnim : "idle"
+            );
           }
-        });
+        }
       }
       if (this.world && this.world.pointsOfInterest) {
-        this.world.pointsOfInterest.forEach((poi) => {
-          this._tempToItem.subVectors(poi.position, robotPos);
-          const dist = this._tempToItem.length();
-          if (dist <= this.visionRange * 1.5 && dist > 2) {
-            this._tempToItem.normalize();
-            const dot = this._tempRobotDir.dot(this._tempToItem);
-            const angle = Math.acos(MathUtils.clamp(dot, -1, 1));
-            if (angle <= this.visionAngle / 2) {
-              visibleItems.push({
-                landmark: poi.name,
-                distance: `${dist.toFixed(1)}m`,
-                direction: this.getRelativeDirection(this._tempRobotDir, this._tempToItem)
-              });
+        const pois = this.world.pointsOfInterest;
+        for (let i = 0; i < pois.length; i++) {
+          const poi = pois[i];
+          TMP.v3.subVectors(poi.position, robotPos);
+          const distSq = TMP.v3.lengthSq();
+          if (distSq <= poiMaxRangeSq && distSq > 4) {
+            const dist = Math.sqrt(distSq);
+            TMP.v3.multiplyScalar(1 / dist);
+            if (TMP.v2.dot(TMP.v3) >= cosHalfFov) {
+              addCandidate(distSq, dist, 4, poi.name, "", "");
             }
           }
-        });
+        }
       }
-      visibleItems.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-      return visibleItems.slice(0, 5);
+      const out = [];
+      const topK = Math.min(5, count);
+      for (let k = 0; k < topK; k++) {
+        let bestIdx = k;
+        for (let j = k + 1; j < count; j++) {
+          if (this._snapCandidates[j].distSq < this._snapCandidates[bestIdx].distSq) {
+            bestIdx = j;
+          }
+        }
+        if (bestIdx !== k) {
+          const tmp3 = this._snapCandidates[k];
+          this._snapCandidates[k] = this._snapCandidates[bestIdx];
+          this._snapCandidates[bestIdx] = tmp3;
+        }
+        const c = this._snapCandidates[k];
+        if (c.kind === 3) {
+          out.push({
+            type: c.label,
+            emotion: c.emotion,
+            action: c.action,
+            distance: `${c.dist.toFixed(1)}m`,
+            direction: c.dir
+          });
+        } else if (c.kind === 4) {
+          out.push({
+            landmark: c.label,
+            distance: `${c.dist.toFixed(1)}m`,
+            direction: c.dir
+          });
+        } else {
+          out.push({
+            type: c.label,
+            distance: `${c.dist.toFixed(1)}m`,
+            direction: c.dir
+          });
+        }
+      }
+      return out;
     }
-    getRelativeDirection(forward, toTarget) {
-      this._tempCross.crossVectors(forward, toTarget);
-      if (Math.abs(forward.dot(toTarget)) > 0.85) {
-        return forward.dot(toTarget) > 0 ? "Al frente" : "Atr\xE1s";
+    dispose() {
+      this.disposed = true;
+      if (this.eyeCamera && this.eyeCamera.parent) {
+        this.eyeCamera.parent.remove(this.eyeCamera);
       }
-      return this._tempCross.y > 0 ? "A la izquierda" : "A la derecha";
+      this.robot = null;
+      this.world = null;
+      this.eventBus = null;
     }
   };
 
   // public/js/brain_llm.js
-  function lerpAngle2(current, target, t) {
-    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-    return current + diff * Math.min(1, t);
-  }
+  var TRICK_TITLES = [
+    "Tornado Cibern\xE9tico",
+    "S\xFAper Combo Lunar",
+    "Acrobacia Rayo",
+    "Baile S\xF3nico"
+  ];
+  var TRICK_MOVES = ["jump", "spin", "backflip", "wave", "dance", "roll", "howl"];
+  var DIRECT_ANIMS = /* @__PURE__ */ new Set([
+    "walk",
+    "run",
+    "sit",
+    "lieDown",
+    "jump",
+    "wagTail",
+    "bark",
+    "sniff",
+    "scratch",
+    "backflip",
+    "spin",
+    "roll",
+    "wave",
+    "recharge",
+    "dig",
+    "howl",
+    "dance",
+    "sneak",
+    "playBow",
+    "headTilt",
+    "bellyRub",
+    "beg",
+    "shakeOff",
+    "nuzzle",
+    "dizzy",
+    "swimming",
+    "patrolLook",
+    "scentTrack"
+  ]);
+  var INTERACTION_TO_ACTION = {
+    bounce_trampoline: "go_trampoline",
+    kick_ball: "go_ball",
+    eat_snack: "go_snack",
+    drink_water: "go_fountain",
+    ride_carousel: "go_carousel",
+    dance_disco: "go_disco",
+    recharge: "go_doghouse",
+    cross_bridge: "go_bridge",
+    ride_seesaw: "go_seesaw"
+  };
   var RobotBrain = class {
-    constructor(robot, vision, world, packManager, particleSystem) {
-      this.robot = robot;
-      this.vision = vision;
-      this.world = world;
+    constructor(packManager, world, particles, vision, eventBus2 = eventBus) {
       this.packManager = packManager;
-      this.particleSystem = particleSystem;
+      this.world = world;
+      this.particleSystem = particles;
+      this.vision = vision;
+      this.eventBus = eventBus2;
       let storedModel = localStorage.getItem("freellm_model");
       if (!storedModel || storedModel === "gpt-3.5-turbo") {
         storedModel = "auto";
         localStorage.setItem("freellm_model", "auto");
       }
-      let storedKey = localStorage.getItem("freellm_apikey");
-      if (!storedKey) {
-        storedKey = "freellmapi-dc6415f70139118055e4065b767a1d8acb930795eb3d1384";
-        localStorage.setItem("freellm_apikey", storedKey);
-      }
+      const storedKey = localStorage.getItem("freellm_apikey") || "";
       let storedEndpoint = localStorage.getItem("freellm_endpoint");
       if (!storedEndpoint) {
         storedEndpoint = "http://127.0.0.1:31415/v1/chat/completions";
@@ -39360,47 +40898,108 @@ void main() {
       };
       this.thinkCooldown = 0;
       this.isThinking = false;
+      this.isNavigating = false;
+      this.navSpeed = 4.8;
+      this.navTimer = 0;
+      this.navMaxTime = 16;
+      this.navStuckTime = 0;
+      this.onArrivalCallback = null;
       this.lastThought = "Iniciando mis sensores en el prado verde...";
-      this.onChatResponse = null;
-      this.activeIntervals = [];
-      this.activeTimeouts = [];
-      this.isVoiceEnabled = true;
+      this.isVoiceEnabled = appState.isVoiceEnabled !== false;
       this.memoryData = null;
+      this._navTarget = new Vector3();
+      this._navLastPos = new Vector3();
+      this._nearObstacles = [];
+      this._timers = new TimerRegistry();
+      this._unsubs = [];
+      this._disposed = false;
+      this._unsubs.push(
+        this.eventBus.on("robot:switched", ({ robot }) => {
+          this.onRobotSwitched(robot);
+        }),
+        this.eventBus.on("input:action", ({ action, payload }) => {
+          if (action === "remote_chat_command" && payload && payload.text) {
+            this.handleUserCommand(payload.text, payload.targetRobot);
+          } else if (action === "brain_action" && payload && payload.action) {
+            this.executeAction(payload.action, payload.interaction || null);
+          }
+        }),
+        this.eventBus.on("app:dispose", () => {
+          this.dispose();
+        })
+      );
       this.loadMemoryFromDisk();
     }
-    registerInterval(fn, ms) {
-      const id = setInterval(fn, ms);
-      this.activeIntervals.push(id);
-      return id;
+    getActiveRobot() {
+      if (this.packManager) {
+        if (this.packManager.playerDog) return this.packManager.playerDog;
+        if (typeof this.packManager.getDog === "function") {
+          const d = this.packManager.getDog(appState.activeRobotName);
+          if (d) return d;
+        }
+        if (this.packManager.currentControlledRobot) return this.packManager.currentControlledRobot;
+      }
+      return this._robotRef || null;
     }
-    registerTimeout(fn, ms) {
-      const id = setTimeout(() => {
-        this.activeTimeouts = this.activeTimeouts.filter((t) => t !== id);
-        fn();
-      }, ms);
-      this.activeTimeouts.push(id);
-      return id;
+    _getAnim(dog) {
+      return dog ? dog.animController || dog.anim || null : null;
     }
-    clearActiveTimers() {
-      this.activeIntervals.forEach((id) => clearInterval(id));
-      this.activeIntervals = [];
-      this.activeTimeouts.forEach((id) => clearTimeout(id));
-      this.activeTimeouts = [];
+    _setDogVelocityY(dog, vy) {
+      if (!dog) return;
+      if (dog.physics) {
+        dog.physics.velocityY = vy;
+        dog.physics.isGrounded = false;
+      } else {
+        dog.velocityY = vy;
+      }
+    }
+    _getProfile(dog) {
+      if (!dog) return { name: "Sparky", title: "Explorador", description: "", speedMultiplier: 1, voicePitch: 1 };
+      return dog.profile || {
+        name: dog.name || "Sparky",
+        title: dog.title || "RoboPup",
+        description: dog.description || "Cachorro robot curioso",
+        speedMultiplier: dog.speedMultiplier || 1,
+        voicePitch: dog.voicePitch || 1
+      };
+    }
+    _getRandomThought(dog) {
+      if (!dog) return "Explorando con alegr\xEDa.";
+      if (typeof dog.getRandomPersonalThought === "function") return dog.getRandomPersonalThought();
+      const thoughts = dog.profile?.thoughts || dog.thoughts;
+      if (Array.isArray(thoughts) && thoughts.length > 0) {
+        return thoughts[Math.floor(Math.random() * thoughts.length)];
+      }
+      return "Explorando felizmente el prado verde.";
+    }
+    onRobotSwitched(newRobot) {
+      this.cancelNavigation();
+      this._robotRef = newRobot;
+      if (!newRobot) return;
+      this.lastThought = this._getRandomThought(newRobot);
+      this.eventBus.emit("robot:thought", {
+        name: newRobot.name,
+        thought: this.lastThought,
+        emotion: newRobot.currentEmotion ? newRobot.currentEmotion.id : "HAPPY",
+        action: null
+      });
     }
     cancelNavigation() {
-      this.clearActiveTimers();
+      this._timers.clearAll();
       if (this.isNavigating) {
         this.isNavigating = false;
-        this.navTarget = null;
         this.onArrivalCallback = null;
-        if (this.robot && this.robot.clearMission) {
-          this.robot.clearMission();
+        appState.navigation.active = false;
+        appState.navigation.target = null;
+        appState.navigation.mode = null;
+        const dog = this.getActiveRobot();
+        if (dog && typeof dog.clearMission === "function") {
+          dog.clearMission();
         }
       }
     }
-    // FIXED: Proper regex for stripping [tags] and emojis without eating normal characters
     speakThought(text, pitch = 1) {
-      if (!this.isVoiceEnabled || !("speechSynthesis" in window) || !text) return;
+      if (!this.isVoiceEnabled || !appState.isVoiceEnabled || !("speechSynthesis" in window) || !text) return;
       try {
         window.speechSynthesis.cancel();
         const clean = String(text).replace(/\[.*?\]/g, "").replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, "").trim();
@@ -39411,32 +41010,29 @@ void main() {
         utter.rate = 1.12;
         utter.volume = 0.8;
         const voices = window.speechSynthesis.getVoices();
-        const es = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("es"));
-        if (es) utter.voice = es;
+        for (let i = 0; i < voices.length; i++) {
+          if (voices[i].lang && voices[i].lang.toLowerCase().startsWith("es")) {
+            utter.voice = voices[i];
+            break;
+          }
+        }
         window.speechSynthesis.speak(utter);
       } catch (e) {
       }
-    }
-    setRobot(newRobot) {
-      this.cancelNavigation();
-      this.robot = newRobot;
-      this.lastThought = newRobot.getRandomPersonalThought();
-      const thoughtEl = document.getElementById("thought-bubble-text");
-      if (thoughtEl) thoughtEl.textContent = this.lastThought;
     }
     saveConfig() {
       localStorage.setItem("freellm_endpoint", this.config.endpoint);
       localStorage.setItem("freellm_apikey", this.config.apiKey);
       localStorage.setItem("freellm_model", this.config.model);
       localStorage.setItem("freellm_system_prompt", this.config.systemPrompt || "");
-      localStorage.setItem("freellm_interval", this.config.intervalSeconds.toString());
+      localStorage.setItem("freellm_interval", String(this.config.intervalSeconds));
     }
     async loadMemoryFromDisk() {
       try {
         const res = await fetch("/api/memory");
         if (res.ok) {
           this.memoryData = await res.json();
-          this.updateMemoryUI();
+          this.eventBus.emit("brain:memoryUpdated", { memoryData: this.memoryData });
           return;
         }
       } catch (e) {
@@ -39445,14 +41041,14 @@ void main() {
       if (localSaved) {
         try {
           this.memoryData = JSON.parse(localSaved);
-          this.updateMemoryUI();
+          this.eventBus.emit("brain:memoryUpdated", { memoryData: this.memoryData });
           return;
         } catch (e) {
         }
       }
       this.memoryData = {
         robot_name: "Manada Chibi CyberPups",
-        model_type: "Chibi-CyberPup v2.0 Multi-Possess",
+        model_type: "Chibi-CyberPup v2.5 Modular",
         personality: "5 Personalidades \xDAnicas (Sparky, Bolt, Pixel, Luna, Rusty)",
         discovered_places: [
           { name: "Prado Esmeralda", emotion_felt: "Feliz" },
@@ -39477,11 +41073,12 @@ void main() {
           { time: (/* @__PURE__ */ new Date()).toISOString(), emotion: "Curioso", thought: "La manada de perritos robots est\xE1 explorando el mundo 3D juntos." }
         ]
       };
-      this.updateMemoryUI();
+      this.eventBus.emit("brain:memoryUpdated", { memoryData: this.memoryData });
     }
     async addJournalEntry(emotion, thought) {
-      if (!this.memoryData) return;
-      const author = this.robot ? this.robot.name : "Sparky";
+      if (!this.memoryData || this._disposed) return;
+      const dog = this.getActiveRobot();
+      const author = dog ? dog.name : "Sparky";
       const entry = {
         author,
         time: (/* @__PURE__ */ new Date()).toISOString(),
@@ -39491,7 +41088,11 @@ void main() {
       if (!Array.isArray(this.memoryData.journal)) this.memoryData.journal = [];
       this.memoryData.journal.push(entry);
       if (this.memoryData.journal.length > 80) this.memoryData.journal.shift();
-      localStorage.setItem("robo_chibi_memory_local", JSON.stringify(this.memoryData));
+      try {
+        localStorage.setItem("robo_chibi_memory_local", JSON.stringify(this.memoryData));
+      } catch (e) {
+      }
+      this.eventBus.emit("brain:memoryUpdated", { memoryData: this.memoryData });
       try {
         await fetch("/api/memory/journal", {
           method: "POST",
@@ -39500,11 +41101,11 @@ void main() {
         });
       } catch (e) {
       }
-      this.updateMemoryUI();
     }
     async addLearnedTrick(name, description, sequence) {
-      if (!this.memoryData) return;
-      const author = this.robot ? this.robot.name : "Sparky";
+      if (!this.memoryData || this._disposed) return;
+      const dog = this.getActiveRobot();
+      const author = dog ? dog.name : "Sparky";
       const trick = {
         name,
         description,
@@ -39514,7 +41115,11 @@ void main() {
       };
       if (!Array.isArray(this.memoryData.learned_movements)) this.memoryData.learned_movements = [];
       this.memoryData.learned_movements.push(trick);
-      localStorage.setItem("robo_chibi_memory_local", JSON.stringify(this.memoryData));
+      try {
+        localStorage.setItem("robo_chibi_memory_local", JSON.stringify(this.memoryData));
+      } catch (e) {
+      }
+      this.eventBus.emit("brain:memoryUpdated", { memoryData: this.memoryData });
       try {
         await fetch("/api/memory/trick", {
           method: "POST",
@@ -39523,130 +41128,160 @@ void main() {
         });
       } catch (e) {
       }
-      this.updateMemoryUI();
     }
-    updateMemoryUI() {
-      const memoryDisplay = document.getElementById("memory-display");
-      if (memoryDisplay && this.memoryData) {
-        memoryDisplay.textContent = JSON.stringify(this.memoryData, null, 2);
-      }
-      const tricksList = document.getElementById("learned-tricks-list");
-      if (tricksList && this.memoryData && this.memoryData.learned_movements) {
-        tricksList.innerHTML = "";
-        this.memoryData.learned_movements.forEach((trick) => {
-          const btn = document.createElement("button");
-          btn.className = "trick-btn";
-          btn.innerHTML = `\u2728 <strong>${trick.name}</strong> <small>(${trick.created_by || "IA"})</small><br><small>${trick.sequence.join(" \u2794 ")}</small>`;
-          btn.onclick = () => {
-            this.executeMovementSequence(trick.sequence);
-          };
-          tricksList.appendChild(btn);
-        });
-      }
-    }
-    update(delta) {
+    update(dt) {
+      if (this._disposed) return;
       if (this.config.autoThink) {
-        this.thinkCooldown -= delta;
+        this.thinkCooldown -= dt;
         if (this.thinkCooldown <= 0 && !this.isThinking) {
           this.thinkCooldown = Math.max(5, this.config.intervalSeconds);
-          this.think();
+          this.triggerFreeWillThought();
         }
       }
     }
-    // FIXED: Zero-latency physical dispatch without duplicating chat messages or restarting running actions
+    handleUserCommand(text, targetDogName = null) {
+      if (!text || this._disposed) return;
+      if (targetDogName && targetDogName !== "ALL" && this.packManager && typeof this.packManager.setPlayerDog === "function" && appState.activeRobotName !== targetDogName) {
+        this.packManager.setPlayerDog(targetDogName);
+      }
+      this.think(text);
+    }
+    triggerFreeWillThought() {
+      if (this._disposed || this.isThinking) return;
+      this.think(null);
+    }
+    async pingLlm() {
+      const t0 = performance.now();
+      try {
+        const res = await fetch("/api/llm/proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: this.config.endpoint,
+            apiKey: this.config.apiKey,
+            model: this.config.model,
+            messages: [{ role: "user", content: 'Di "OK" en 2 palabras' }],
+            max_tokens: 16
+          })
+        });
+        const latencyMs = Math.round(performance.now() - t0);
+        const data = await res.json();
+        appState.telemetry.apiCalls++;
+        if (res.ok && data.choices && data.choices.length > 0) {
+          const reply = data.choices[0].message?.content || "Conectado";
+          appState.telemetry.aiPingMs = latencyMs;
+          this.eventBus.emit("telemetry:llm", {
+            latencyMs,
+            model: data.model || this.config.model,
+            ok: true,
+            preview: reply,
+            totalCalls: appState.telemetry.apiCalls
+          });
+          return { ok: true, latencyMs, model: data.model || this.config.model, reply };
+        }
+        const errMsg = data.error?.message || data.error || "Error de autenticaci\xF3n/endpoint";
+        this.eventBus.emit("telemetry:llm", {
+          latencyMs,
+          model: this.config.model,
+          ok: false,
+          preview: errMsg,
+          totalCalls: appState.telemetry.apiCalls
+        });
+        return { ok: false, latencyMs, error: errMsg };
+      } catch (err) {
+        const latencyMs = Math.round(performance.now() - t0);
+        this.eventBus.emit("telemetry:llm", {
+          latencyMs,
+          model: this.config.model,
+          ok: false,
+          preview: err.message,
+          totalCalls: appState.telemetry.apiCalls
+        });
+        return { ok: false, latencyMs, error: err.message };
+      }
+    }
     async think(customUserPrompt = null) {
-      if (this.isThinking) return;
+      if (this.isThinking || this._disposed) return;
+      const dog = this.getActiveRobot();
+      if (!dog) return;
       this.isThinking = true;
+      this.eventBus.emit("brain:status", { thinking: true });
       let dispatchedAction = null;
+      const profile = this._getProfile(dog);
       if (customUserPrompt) {
-        const immediateDecision = this.extractIntentFromText(null, customUserPrompt);
-        if (immediateDecision && immediateDecision.action) {
-          dispatchedAction = immediateDecision.action;
-          this.executeAction(immediateDecision.action, immediateDecision.interaction);
-          if (immediateDecision.emotion && EMOTIONS[immediateDecision.emotion]) {
-            this.robot.setEmotion(EMOTIONS[immediateDecision.emotion]);
+        const immediate = this.extractIntentFromText(null, customUserPrompt, dog);
+        if (immediate && immediate.action && !immediate.invent_movement) {
+          dispatchedAction = immediate.action;
+          this.executeAction(immediate.action, immediate.interaction);
+          if (immediate.emotion && EMOTIONS[immediate.emotion]) {
+            dog.setEmotion(EMOTIONS[immediate.emotion]);
           }
-          roboAudio.playBoop(this.robot.profile ? this.robot.profile.voicePitch : 1);
+          roboAudio.playBoop(profile.voicePitch || 1);
         }
       }
-      const thinkStatusEl = document.getElementById("think-status");
-      if (thinkStatusEl) {
-        thinkStatusEl.textContent = "\u{1F9E0} Pensando...";
-        thinkStatusEl.classList.add("pulse");
-      }
-      const body = this.vision.getBodyState();
-      const visibleObjects = this.vision.getVisualSnapshot(this.packManager ? this.packManager.pack : []);
-      const recentMemories = this.memoryData && this.memoryData.journal ? this.memoryData.journal.slice(-2).map((j) => `[${j.author || "Perrito"}]: ${j.thought}`) : [];
+      const body = this.vision && typeof this.vision.getBodyState === "function" ? this.vision.getBodyState(dog) : {
+        name: dog.name,
+        position: {
+          x: Number(dog.group.position.x.toFixed(1)),
+          y: Number(dog.group.position.y.toFixed(1)),
+          z: Number(dog.group.position.z.toFixed(1))
+        },
+        current_area: this.vision ? this.vision.getCurrentLocationName(dog.group.position) : "Prado Esmeralda",
+        current_emotion: dog.currentEmotion ? dog.currentEmotion.name : "Feliz"
+      };
+      const visibleObjects = this.vision && typeof this.vision.getVisualSnapshot === "function" ? this.vision.getVisualSnapshot(dog) : [];
+      const recentMemories = this.memoryData && Array.isArray(this.memoryData.journal) ? this.memoryData.journal.slice(-2).map((j) => `[${j.author || "Perrito"}]: ${j.thought}`) : [];
       const sensoryContext = {
-        robot_active: this.robot.name,
-        title: this.robot.profile.title,
+        robot_active: dog.name,
+        title: profile.title,
         body,
         canine_drives: {
-          energy: Math.round(this.robot.energy || 100),
-          affection: Math.round(this.robot.affection || 88),
-          hydration: Math.round(this.robot.hydration || 90),
-          curiosity: Math.round(this.robot.curiosity || 85),
-          playfulness: Math.round(this.robot.playfulness || 80)
+          energy: Math.round(dog.energy ?? 100),
+          affection: Math.round(dog.affection ?? 88),
+          hydration: Math.round(dog.hydration ?? 90),
+          curiosity: Math.round(dog.curiosity ?? 85),
+          playfulness: Math.round(dog.playfulness ?? 80)
         },
         sees: visibleObjects,
-        holding_in_mouth: this.robot.carriedObject ? "Pelota de juego" : "nada",
+        holding_in_mouth: dog.carriedObject ? "Pelota de juego" : "nada",
         recent_memories: recentMemories,
         user_command: customUserPrompt || null
       };
       let decision = null;
       if (this.config.apiKey && this.config.endpoint) {
         try {
-          decision = await this.callLLM(sensoryContext);
+          decision = await this.callLLM(sensoryContext, dog);
         } catch (err) {
-          console.warn("Fallo en FreeLLMsAPI, usando cerebro heur\xEDstico:", err);
-          decision = this.heuristicDecision(sensoryContext);
+          console.warn("[RobotBrain] Fallback heur\xEDstico:", err.message);
+          decision = this.heuristicDecision(sensoryContext, dog);
         }
       } else {
-        decision = this.heuristicDecision(sensoryContext);
+        decision = this.heuristicDecision(sensoryContext, dog);
       }
-      this.applyDecision(decision, dispatchedAction);
+      if (!this._disposed) {
+        this.applyDecision(decision, dispatchedAction, dog);
+      }
       this.isThinking = false;
-      if (thinkStatusEl) {
-        thinkStatusEl.textContent = "Listo";
-        thinkStatusEl.classList.remove("pulse");
-      }
+      this.eventBus.emit("brain:status", { thinking: false });
     }
-    async callLLM(sensoryContext) {
-      const p = this.robot.profile;
+    async callLLM(sensoryContext, dog) {
+      const p = this._getProfile(dog);
       let systemPrompt = `Eres ${p.name} (${p.title}), un perrito robot inteligente con cognici\xF3n canina avanzada, etolog\xEDa y libre albedr\xEDo en un mundo virtual 3D.
 Tu personalidad: ${p.description}.
 Tus impulsos biol\xF3gicos caninos actuales son: ${JSON.stringify(sensoryContext.canine_drives)}.
-Lugares interactivos en el mundo:
-- "lago": Lago de Cristal con agua fresca reflectante y bote flotante.
-- "trampolin": Cama el\xE1stica para dar s\xFAper saltos en el aire.
-- "carrusel": Carrusel mec\xE1nico giratorio para pasear.
-- "porteria": Cancha con pelota de f\xFAtbol interactiva.
-- "disco": Pista de baile con luces ne\xF3n y m\xFAsica.
-- "snack": Estaci\xF3n de galletas cibern\xE9ticas que recargan energ\xEDa al 100%.
-- "casita": Estaci\xF3n de recarga y descanso.
-- "manada": Tus amigos perros robots (Sparky, Bolt, Pixel, Luna, Rusty).
-
-Acciones y comportamientos caninos que puedes ejecutar:
-- Conducta canina natural: playBow, headTilt, bellyRub, beg, shakeOff, nuzzle, fetch_ball, praise_burst, chorus_howl, scent_track.
-- Movimientos: walk, run, sit, lieDown, jump, wagTail, bark, sniff, scratch, backflip, spin, roll, wave, recharge, dig, howl, dance, sneak.
-- Navegaci\xF3n: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_soccer_goal, go_disco, go_snack, go_doghouse, go_fountain, go_bridge, go_seesaw, go_ballpit, go_slide, go_tunnel, go_target, go_pinata, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
-- Emociones: HAPPY, CURIOUS, LOVING, EXCITED, SLEEPY, ALERT, MISCHIEVOUS, PROUD, SCARED, HUNGRY, PARTY, CONFUSED.
-
-Responde SIEMPRE con un objeto JSON v\xE1lido con este formato exacto:
-{
-  "thought": "Tu pensamiento o ladrido en primera persona acorde a tu psicolog\xEDa canina",
-  "emotion": "HAPPY",
-  "action": "playBow",
-  "interaction": "bounce_trampoline | kick_ball | eat_snack | drink_water | none",
-  "invent_movement": {"name": "Nombre Truco", "sequence": ["jump", "spin", "backflip"]},
-  "remember": "recuerdo clave para guardar en disco"
-}`;
+Lugares interactivos: "lago", "trampolin", "carrusel", "porteria", "disco", "snack", "casita", "manada".
+Conducta canina: playBow, headTilt, bellyRub, beg, shakeOff, nuzzle, fetch_ball, praise_burst, chorus_howl, scent_track.
+Movimientos: walk, run, sit, lieDown, jump, wagTail, bark, sniff, scratch, backflip, spin, roll, wave, recharge, dig, howl, dance, sneak.
+Navegaci\xF3n: go_lake, go_playground, go_ball, go_trampoline, go_carousel, go_disco, go_snack, go_doghouse, go_fountain, go_bridge, go_seesaw, go_ballpit, go_slide, go_tunnel, go_target, go_pinata, go_robot_Sparky, go_robot_Bolt, go_robot_Pixel, go_robot_Luna, go_robot_Rusty, call_pack.
+Emociones: HAPPY, CURIOUS, LOVING, EXCITED, SLEEPY, ALERT, MISCHIEVOUS, PROUD, SCARED, HUNGRY, PARTY, CONFUSED.
+Responde SIEMPRE JSON v\xE1lido exacto:
+{"thought":"...","emotion":"HAPPY","action":"playBow","interaction":"none","invent_movement":null,"remember":"..."}`;
       if (this.config.systemPrompt && this.config.systemPrompt.trim()) {
         systemPrompt = `${this.config.systemPrompt.trim()}
 
 ${systemPrompt}`;
       }
-      const userPrompt = JSON.stringify(sensoryContext);
+      const t0 = performance.now();
       const res = await fetch("/api/llm/proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -39656,16 +41291,35 @@ ${systemPrompt}`;
           model: this.config.model,
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
+            { role: "user", content: JSON.stringify(sensoryContext) }
           ],
           max_tokens: 280,
           temperature: 0.7
         })
       });
-      if (!res.ok) throw new Error(`Proxy error ${res.status}`);
+      const latencyMs = Math.round(performance.now() - t0);
+      appState.telemetry.apiCalls++;
+      if (!res.ok) {
+        this.eventBus.emit("telemetry:llm", {
+          latencyMs,
+          model: this.config.model,
+          ok: false,
+          preview: `HTTP ${res.status}`,
+          totalCalls: appState.telemetry.apiCalls
+        });
+        throw new Error(`Proxy error ${res.status}`);
+      }
       const data = await res.json();
       const content = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "";
-      return this.parseLLMResponse(content, sensoryContext.user_command);
+      appState.telemetry.aiPingMs = latencyMs;
+      this.eventBus.emit("telemetry:llm", {
+        latencyMs,
+        model: data.model || this.config.model,
+        ok: true,
+        preview: content,
+        totalCalls: appState.telemetry.apiCalls
+      });
+      return this.parseLLMResponse(content, sensoryContext.user_command, dog);
     }
     cleanThought(raw) {
       if (!raw) return "\xA1Guau guau! \xA1Entendido!";
@@ -39682,8 +41336,8 @@ ${systemPrompt}`;
       }
       return s || "\xA1Guau guau!";
     }
-    parseLLMResponse(content, userCommand) {
-      if (!content) return this.heuristicDecision({ user_command: userCommand });
+    parseLLMResponse(content, userCommand, dog) {
+      if (!content) return this.heuristicDecision({ user_command: userCommand }, dog);
       let jsonStr = "";
       const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
       if (codeBlockMatch) {
@@ -39703,42 +41357,46 @@ ${systemPrompt}`;
         }
       }
       if (parsed && typeof parsed === "object") {
-        const decision = {
+        const emotionKey = (parsed.emotion || "HAPPY").toUpperCase();
+        return {
           thought: this.cleanThought(parsed.thought || content.substring(0, 120)),
-          emotion: (parsed.emotion || "HAPPY").toUpperCase(),
+          emotion: EMOTIONS[emotionKey] ? emotionKey : "HAPPY",
           action: parsed.action || "wagTail",
           interaction: parsed.interaction || null,
           invent_movement: parsed.invent_movement || null,
           remember: parsed.remember || null
         };
-        if (!EMOTIONS[decision.emotion]) {
-          decision.emotion = "HAPPY";
-        }
-        return decision;
       }
-      return this.extractIntentFromText(content, userCommand);
+      return this.extractIntentFromText(content, userCommand, dog);
     }
-    extractIntentFromText(text, userCommand) {
+    extractIntentFromText(text, userCommand, dog = this.getActiveRobot()) {
       const combined = `${userCommand || ""} ${text || ""}`.toLowerCase();
-      const p = this.robot.profile;
-      let thought = text ? this.cleanThought(text) : `\xA1Guau! \xA1Enseguida lo hago!`;
+      const p = this._getProfile(dog);
+      let thought = text ? this.cleanThought(text) : "\xA1Guau! \xA1Enseguida lo hago!";
       let emotion = "HAPPY";
       let action = "wagTail";
       let interaction = null;
       let invent = null;
       let remember = null;
       if (/buen chico|buena chica|good boy|good girl|hermoso|precioso|te quiero|te amo|lindo perro|crack|campe[oó]n|bien hecho|buen perrito/i.test(combined)) {
-        action = "praise_burst";
-        emotion = "LOVING";
-        thought = `\xA1Guau guau! \u2764\uFE0F \xA1Gracias humano! \xA1Me siento el cachorro m\xE1s feliz y leal del mundo!`;
-        remember = 'Mi humano me dijo "buen chico"; sent\xED una gran felicidad.';
-        return { thought, emotion, action, interaction: null, invent_movement: null, remember };
+        return {
+          thought: "\xA1Guau guau! \u2764\uFE0F \xA1Gracias humano! \xA1Me siento el cachorro m\xE1s feliz y leal del mundo!",
+          emotion: "LOVING",
+          action: "praise_burst",
+          interaction: null,
+          invent_movement: null,
+          remember: 'Mi humano me dijo "buen chico"; sent\xED una gran felicidad.'
+        };
       }
       if (/busca la pelota|trae la pelota|ve por la pelota|juega a la pelota|fetch|ve por el bal[oó]n|tr[aá]emela/i.test(combined)) {
-        action = "fetch_ball";
-        emotion = "EXCITED";
-        thought = `\xA1All\xE1 voy! \xA1Voy a perseguir la pelota a toda velocidad, la atrapar\xE9 y te la traer\xE9 a tus pies!`;
-        return { thought, emotion, action, interaction: null, invent_movement: null, remember: "Jugamos a traer la pelota." };
+        return {
+          thought: "\xA1All\xE1 voy! \xA1Voy a perseguir la pelota a toda velocidad, la atrapar\xE9 y te la traer\xE9 a tus pies!",
+          emotion: "EXCITED",
+          action: "fetch_ball",
+          interaction: null,
+          invent_movement: null,
+          remember: "Jugamos a traer la pelota."
+        };
       }
       if (/juguemos|a jugar|reverencia|postura de juego|play bow/i.test(combined)) {
         action = "playBow";
@@ -39747,7 +41405,7 @@ ${systemPrompt}`;
       } else if (/ladea la cabeza|qu[eé] dices|escucha|atento|head tilt/i.test(combined)) {
         action = "headTilt";
         emotion = "CURIOUS";
-        thought = "Ladeo mi cabecita a 25 grados y oriento mis orejas para escucharte con atenci\xF3n.";
+        thought = "Ladeo mi cabecita y oriento mis orejas para escucharte con atenci\xF3n.";
       } else if (/panza arriba|barriga|cosquillas|belly rub|acaricia la panza/i.test(combined)) {
         action = "bellyRub";
         emotion = "LOVING";
@@ -39763,7 +41421,7 @@ ${systemPrompt}`;
       } else if (/hocico|beso|mimos|boop|nuzzle/i.test(combined)) {
         action = "nuzzle";
         emotion = "LOVING";
-        thought = 'Acerco mi hocico h\xFAmedo suavemente para darte un cari\xF1oso "boop".';
+        thought = 'Acerco mi hocico suavemente para darte un cari\xF1oso "boop".';
       } else if (/a[uú]llen todos|aullido de manada|coro|chorus/i.test(combined)) {
         action = "chorus_howl";
         emotion = "EXCITED";
@@ -39949,17 +41607,11 @@ ${systemPrompt}`;
         } else if (/olfatea|huele|sniff/i.test(combined)) action = "sniff";
       }
       if (/aprende|inventa|nuevo truco|coreograf[ií]a/i.test(combined)) {
-        const trickTitles = [
-          `Tornado Cibern\xE9tico de ${p.name}`,
-          `S\xFAper Combo Lunar de ${p.name}`,
-          `Acrobacia Rayo de ${p.name}`,
-          `Baile S\xF3nico de ${p.name}`
-        ];
-        const moves = ["jump", "spin", "backflip", "wave", "dance", "roll", "howl"];
-        const chosenTitle = trickTitles[Math.floor(Math.random() * trickTitles.length)];
+        const baseTitle = TRICK_TITLES[Math.floor(Math.random() * TRICK_TITLES.length)];
+        const chosenTitle = `${baseTitle} de ${p.name}`;
         const seq = [
-          moves[Math.floor(Math.random() * moves.length)],
-          moves[Math.floor(Math.random() * moves.length)],
+          TRICK_MOVES[Math.floor(Math.random() * TRICK_MOVES.length)],
+          TRICK_MOVES[Math.floor(Math.random() * TRICK_MOVES.length)],
           "wagTail"
         ];
         invent = { name: chosenTitle, sequence: seq };
@@ -39975,16 +41627,15 @@ ${systemPrompt}`;
         remember
       };
     }
-    heuristicDecision(ctx) {
-      const p = this.robot.profile;
-      let thought = this.robot.getRandomPersonalThought();
+    heuristicDecision(ctx, dog = this.getActiveRobot()) {
+      const p = this._getProfile(dog);
+      let thought = this._getRandomThought(dog);
       let emotion = "HAPPY";
       let action = "wagTail";
       let interaction = null;
-      let remember = null;
       let invent = null;
       if (ctx.user_command) {
-        return this.extractIntentFromText("", ctx.user_command);
+        return this.extractIntentFromText("", ctx.user_command, dog);
       } else if (p.name === "Bolt") {
         thought = "\xA1Mis propulsores est\xE1n al m\xE1ximo! \xA1A toda velocidad hacia la pelota!";
         emotion = "EXCITED";
@@ -40006,7 +41657,7 @@ ${systemPrompt}`;
         interaction = "bounce_trampoline";
       }
       if (Math.random() < 0.2) {
-        const trickNames = [`Salto Estelar de ${p.name}`, `Giro Veloz ${p.name}`, `Ola Rob\xF3tica`];
+        const trickNames = [`Salto Estelar de ${p.name}`, `Giro Veloz ${p.name}`, "Ola Rob\xF3tica"];
         const sequences = [
           ["jump", "backflip", "wagTail"],
           ["dance", "spin", "wave"],
@@ -40023,95 +41674,117 @@ ${systemPrompt}`;
         action,
         interaction,
         invent_movement: invent,
-        remember
+        remember: null
       };
     }
-    applyDecision(dec, alreadyDispatchedAction = null) {
-      if (!dec) return;
+    applyDecision(dec, alreadyDispatchedAction = null, dog = this.getActiveRobot()) {
+      if (!dec || !dog) return;
       if (dec.emotion && EMOTIONS[dec.emotion]) {
-        this.robot.setEmotion(EMOTIONS[dec.emotion]);
+        dog.setEmotion(EMOTIONS[dec.emotion]);
         if (this.particleSystem) {
-          this.particleSystem.spawnBurst(this.robot.group.position, dec.emotion);
+          this.particleSystem.spawnBurst(dog.group.position, dec.emotion);
         }
+        this.eventBus.emit("robot:emotion", { name: dog.name, emotion: dec.emotion });
       }
       this.lastThought = dec.thought || "Explorando...";
-      const thoughtEl = document.getElementById("thought-bubble-text");
-      if (thoughtEl) thoughtEl.textContent = this.lastThought;
-      const worldBubble = document.getElementById("world-speech-bubble");
-      if (worldBubble) {
-        worldBubble.textContent = `\u{1F43E} ${this.robot.name}: "${this.lastThought}"`;
-        worldBubble.classList.remove("hidden");
-        clearTimeout(this.bubbleTimeout);
-        this.bubbleTimeout = setTimeout(() => {
-          worldBubble.classList.add("hidden");
-        }, 5500);
-      }
-      if (dec.invent_movement && dec.invent_movement.name && dec.invent_movement.sequence) {
-        this.addLearnedTrick(dec.invent_movement.name, `Inventado por ${this.robot.name}`, dec.invent_movement.sequence);
-        roboAudio.playTrickSuccess();
+      this.eventBus.emit("robot:thought", {
+        name: dog.name,
+        thought: this.lastThought,
+        emotion: dec.emotion || "HAPPY",
+        action: dec.action || null
+      });
+      let ranSequence = false;
+      if (dec.invent_movement && dec.invent_movement.name && Array.isArray(dec.invent_movement.sequence)) {
+        this.addLearnedTrick(
+          dec.invent_movement.name,
+          `Inventado por ${dog.name}`,
+          dec.invent_movement.sequence
+        );
+        roboAudio.playSuccess();
         this.executeMovementSequence(dec.invent_movement.sequence);
+        ranSequence = true;
       }
       if (dec.remember) {
         this.addJournalEntry(dec.emotion || "Curioso", dec.remember);
       } else if (dec.thought) {
         this.addJournalEntry(dec.emotion || "Curioso", dec.thought);
       }
-      if (this.onChatResponse && dec.thought) {
-        this.onChatResponse(this.robot.name, dec.thought, dec.action);
-      }
       if (dec.thought) {
-        this.speakThought(dec.thought, this.robot.profile ? this.robot.profile.voicePitch : 1);
+        this.eventBus.emit("chat:message", {
+          author: dog.name,
+          message: dec.thought,
+          role: "robot",
+          targetDog: dog.name,
+          time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        });
+        this.speakThought(dec.thought, this._getProfile(dog).voicePitch || 1);
       }
-      if (dec.action && dec.action !== alreadyDispatchedAction) {
+      if (!ranSequence && dec.action && dec.action !== alreadyDispatchedAction) {
         this.executeAction(dec.action, dec.interaction);
       }
     }
     executeAction(action, interaction = null) {
-      if (!action) return;
-      this.clearActiveTimers();
-      const activeBot = this.robot;
-      if (action === "call_pack") {
-        if (this.packManager && this.packManager.callPackToPlayer) {
-          this.packManager.callPackToPlayer(activeBot);
-          roboAudio.playHowl();
-          activeBot.animController.play("howl", 2.5);
-          this.addJournalEntry("Orgulloso", "\xA1Llam\xE9 a toda mi manada y nos reunimos en formaci\xF3n!");
-          return;
-        }
+      if (this._disposed) return;
+      let resolvedAction = action;
+      if ((!resolvedAction || resolvedAction === "none" || resolvedAction === "idle") && interaction && INTERACTION_TO_ACTION[interaction]) {
+        resolvedAction = INTERACTION_TO_ACTION[interaction];
       }
-      if (action === "praise_burst") {
-        activeBot.praise();
+      if (!resolvedAction) return;
+      this._timers.clearAll();
+      const activeBot = this.getActiveRobot();
+      if (!activeBot) return;
+      const anim = this._getAnim(activeBot);
+      const pitch = this._getProfile(activeBot).voicePitch || 1;
+      this.eventBus.emit("robot:action", { name: activeBot.name, action: resolvedAction, source: "ai" });
+      if (resolvedAction === "call_pack") {
+        if (this.packManager && typeof this.packManager.callPackToPlayer === "function") {
+          this.packManager.callPackToPlayer(activeBot);
+        } else {
+          this.eventBus.emit("pack:assemble", { leader: activeBot });
+        }
+        roboAudio.playHowl(pitch);
+        if (anim) anim.play("howl", 2.5);
+        this.addJournalEntry("Orgulloso", "\xA1Llam\xE9 a toda mi manada y nos reunimos en formaci\xF3n!");
+        return;
+      }
+      if (resolvedAction === "praise_burst") {
+        activeBot.setEmotion(EMOTIONS.LOVING);
+        activeBot.affection = Math.min(100, (activeBot.affection || 85) + 25);
+        activeBot.curiosity = Math.min(100, (activeBot.curiosity || 80) + 10);
+        activeBot.energy = Math.min(100, (activeBot.energy || 80) + 15);
+        activeBot.tailHelicopterTimer = 4;
+        roboAudio.playHappyJingle();
         if (this.particleSystem) {
           this.particleSystem.spawnBurst(activeBot.group.position, "LOVING");
         }
-        activeBot.animController.play(Math.random() < 0.5 ? "bellyRub" : "playBow", 3);
+        if (anim) anim.play(Math.random() < 0.5 ? "bellyRub" : "playBow", 3);
         this.addJournalEntry("Cari\xF1oso", "\xA1Mi humano me elogi\xF3! Sent\xED una oleada de amor y lealtad perruna.");
         return;
       }
-      if (action === "fetch_ball") {
-        let ball = this.world.soccerBall;
-        if (!ball && this.world.balls && this.world.balls.length > 0) {
+      if (resolvedAction === "fetch_ball") {
+        let ball = this.world?.soccerBall || null;
+        if (!ball && this.world?.balls?.length > 0) {
           ball = this.world.balls[0];
         }
         if (!ball) return;
-        const humanPos = activeBot.group.position.clone();
+        const returnPos = activeBot.group.position.clone();
         activeBot.setEmotion(EMOTIONS.EXCITED);
         roboAudio.playYip(1.3);
         this.navigateToward(ball.mesh.position, 7.2, "run", () => {
-          activeBot.grabObject(ball.mesh);
+          if (typeof activeBot.grabObject === "function") activeBot.grabObject(ball.mesh);
           ball.carriedBy = activeBot;
-          roboAudio.playGrumble ? roboAudio.playGrumble(1.1) : roboAudio.playBoop(1.4);
+          roboAudio.playGrumble(1.1);
           this.addJournalEntry("Juguet\xF3n", "\xA1Atrap\xE9 la pelota en mi hocico! Llev\xE1ndosela a mi humano.");
-          this.navigateToward(humanPos, 6.6, "run", () => {
-            const droppedMesh = activeBot.dropObject();
+          this.navigateToward(returnPos, 6.6, "run", () => {
+            const droppedMesh = typeof activeBot.dropObject === "function" ? activeBot.dropObject() : null;
             ball.carriedBy = null;
-            if (droppedMesh) {
+            if (droppedMesh && this.world?.scene) {
               this.world.scene.add(droppedMesh);
               droppedMesh.position.copy(activeBot.group.position);
               droppedMesh.position.y = this.world.getHeightAt(droppedMesh.position.x, droppedMesh.position.z) + ball.radius;
               ball.velocity.set(0, 0, 0);
             }
-            activeBot.animController.play("playBow", 2.8);
+            if (anim) anim.play("playBow", 2.8);
             activeBot.setEmotion(EMOTIONS.HAPPY);
             roboAudio.playHappyJingle();
             this.addJournalEntry("Feliz", "\xA1Te traje la pelota y la dej\xE9 a tus pies! \xA1L\xE1nzamela otra vez!");
@@ -40119,42 +41792,54 @@ ${systemPrompt}`;
         });
         return;
       }
-      if (action === "chorus_howl") {
-        roboAudio.playHowl();
-        activeBot.animController.play("howl", 3);
+      if (resolvedAction === "chorus_howl") {
+        roboAudio.playHowl(pitch);
+        if (anim) anim.play("howl", 3);
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        if (this.packManager && this.packManager.pack) {
-          this.packManager.pack.forEach((otherBot, idx) => {
-            this.registerTimeout(() => {
-              otherBot.animController.play("howl", 2.8);
-              otherBot.setEmotion(EMOTIONS.EXCITED);
-              otherBot.lookAt(activeBot.group.position);
-            }, 350 + idx * 300);
-          });
+        const dogs = this.packManager?.dogs || (this.packManager?.pack || []);
+        for (let idx = 0; idx < dogs.length; idx++) {
+          const otherBot = dogs[idx];
+          if (!otherBot || otherBot === activeBot) continue;
+          this._timers.setTimeout(() => {
+            const otherAnim = this._getAnim(otherBot);
+            if (otherAnim) otherAnim.play("howl", 2.8);
+            otherBot.setEmotion(EMOTIONS.EXCITED);
+            otherBot.lookAt(activeBot.group.position);
+          }, 350 + idx * 300);
         }
         this.addJournalEntry("Emocionado", "\xA1Iniciamos un coro de aullidos en manada bajo el cielo virtual!");
         return;
       }
-      if (action === "scent_track") {
-        activeBot.animController.play("sniff", 3);
+      if (resolvedAction === "scent_track") {
+        if (anim) anim.play("sniff", 3);
         activeBot.setEmotion(EMOTIONS.CURIOUS);
         roboAudio.playBoop(1.1);
         let nearestPos = null;
         let minDist = Infinity;
         const rPos = activeBot.group.position;
-        const candidates = [];
-        if (this.world.snacks) this.world.snacks.forEach((s) => candidates.push(s.group.position));
-        if (this.world.balls) this.world.balls.forEach((b) => candidates.push(b.mesh.position));
-        candidates.forEach((pos) => {
-          const d = rPos.distanceTo(pos);
-          if (d < minDist && d > 1.2) {
-            minDist = d;
-            nearestPos = pos;
+        if (this.world?.snacks) {
+          for (let i = 0; i < this.world.snacks.length; i++) {
+            const p = this.world.snacks[i].group.position;
+            const d = rPos.distanceTo(p);
+            if (d < minDist && d > 1.2) {
+              minDist = d;
+              nearestPos = p;
+            }
           }
-        });
+        }
+        if (this.world?.balls) {
+          for (let i = 0; i < this.world.balls.length; i++) {
+            const p = this.world.balls[i].mesh.position;
+            const d = rPos.distanceTo(p);
+            if (d < minDist && d > 1.2) {
+              minDist = d;
+              nearestPos = p;
+            }
+          }
+        }
         if (nearestPos) {
           this.navigateToward(nearestPos, 3.8, "walk", () => {
-            activeBot.animController.play("wagTail", 2);
+            if (anim) anim.play("wagTail", 2);
             activeBot.setEmotion(EMOTIONS.HAPPY);
             roboAudio.playHappyJingle();
             this.addJournalEntry("Curioso", "\xA1Mi olfato cibern\xE9tico sigui\xF3 el rastro y encontr\xE9 un objeto en el prado!");
@@ -40162,7 +41847,7 @@ ${systemPrompt}`;
         }
         return;
       }
-      if (action === "patrol_perimeter") {
+      if (resolvedAction === "patrol_perimeter") {
         const waypoints = [
           new Vector3(70, 0, 70),
           new Vector3(70, 0, -70),
@@ -40172,49 +41857,43 @@ ${systemPrompt}`;
         let wpIdx = 0;
         const visitNext = () => {
           if (wpIdx >= waypoints.length) {
-            activeBot.animController.play("wagTail", 2);
+            if (anim) anim.play("wagTail", 2);
             activeBot.setEmotion(EMOTIONS.PROUD);
             this.addJournalEntry("Alerta", "\xA1Ronda de patrullaje perimetral completada sin novedades!");
             return;
           }
           const wp = waypoints[wpIdx++];
           this.navigateToward(wp, 4.2, "walk", () => {
-            activeBot.animController.play("patrolLook", 2.8);
+            if (anim) anim.play("patrolLook", 2.8);
             activeBot.setEmotion(EMOTIONS.ALERT);
             roboAudio.playBoop(1.2);
-            this.registerTimeout(visitNext, 2900);
+            this._timers.setTimeout(visitNext, 2900);
           });
         };
         visitNext();
         return;
       }
-      if (action === "chase_tail") {
+      if (resolvedAction === "chase_tail") {
         activeBot.setEmotion(EMOTIONS.EXCITED);
-        activeBot.animController.play("chaseTail", 3.8);
+        if (anim) anim.play("chaseTail", 3.6);
         roboAudio.playYip(1.4);
-        let spinTime = 0;
-        const spinInterval = this.registerInterval(() => {
-          spinTime += 0.05;
-          activeBot.group.rotation.y += 0.42;
-          if (spinTime >= 3.6) {
-            clearInterval(spinInterval);
-            activeBot.setEmotion(EMOTIONS.CONFUSED);
-            activeBot.animController.play("dizzy", 2.5);
-            if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "CONFUSED");
-            roboAudio.playConfused();
-            this.addJournalEntry("Juguet\xF3n", "\xA1Gir\xE9 tanto persigui\xE9ndome la cola que me mare\xE9 y ca\xED sentado!");
-          }
-        }, 50);
+        this._timers.setTimeout(() => {
+          activeBot.setEmotion(EMOTIONS.CONFUSED);
+          if (anim) anim.play("dizzy", 2.5);
+          if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "CONFUSED");
+          roboAudio.playConfused();
+          this.addJournalEntry("Juguet\xF3n", "\xA1Gir\xE9 tanto persigui\xE9ndome la cola que me mare\xE9 y ca\xED sentado!");
+        }, 3600);
         return;
       }
-      if (action === "slalom_rings") {
-        if (this.world.slalomRings && this.world.slalomRings.length > 0) {
+      if (resolvedAction === "slalom_rings") {
+        if (this.world?.slalomRings?.length > 0) {
           let rIdx = 0;
           const rings = this.world.slalomRings;
           const jumpThroughNext = () => {
             if (rIdx >= rings.length) {
               activeBot.setEmotion(EMOTIONS.PROUD);
-              activeBot.animController.play("backflip", 1.6);
+              if (anim) anim.play("backflip", 1.6);
               roboAudio.playGoalFanfare();
               this.addJournalEntry("Orgulloso", "\xA1Complet\xE9 el circuito de aros de agilidad con saltos perfectos!");
               return;
@@ -40222,15 +41901,14 @@ ${systemPrompt}`;
             const ring = rings[rIdx++];
             this.navigateToward(ring.entryPos, 6.2, "run", () => {
               roboAudio.playTrampoline();
-              activeBot.animController.play("jump", 1.2);
+              if (anim) anim.play("jump", 1.2);
               let p = 0;
-              const leapInterval = this.registerInterval(() => {
+              const leapId = this._timers.setInterval(() => {
                 p += 0.08;
                 activeBot.group.position.lerpVectors(ring.entryPos, ring.exitPos, p);
-                const leapH = 1.6 * (4 * p * (1 - p));
-                activeBot.group.position.y = ring.entryPos.y + leapH;
+                activeBot.group.position.y = ring.entryPos.y + 1.6 * (4 * p * (1 - p));
                 if (p >= 1) {
-                  clearInterval(leapInterval);
+                  this._timers.clear(leapId);
                   jumpThroughNext();
                 }
               }, 35);
@@ -40240,40 +41918,45 @@ ${systemPrompt}`;
         }
         return;
       }
-      if (action === "soccer_kick") {
-        const ball = this.world.soccerBall;
-        const goalPos = new Vector3(25, 1, 40);
+      if (resolvedAction === "soccer_kick") {
+        const ball = this.world?.soccerBall;
         if (ball) {
+          const goalPos = TMP.v5.set(25, 1, 40);
           const ballPos = ball.mesh.position;
-          const kickDir = new Vector3().subVectors(goalPos, ballPos).normalize();
-          const approachPos = new Vector3().subVectors(ballPos, kickDir.clone().multiplyScalar(2));
+          const kickDir = TMP.v6.subVectors(goalPos, ballPos).normalize();
+          const approachPos = new Vector3().subVectors(ballPos, kickDir).addScaledVector(kickDir, -1);
           approachPos.y = this.world.getHeightAt(approachPos.x, approachPos.z);
+          const savedKickDir = kickDir.clone();
           this.navigateToward(approachPos, 7, "run", () => {
-            activeBot.lookAt(goalPos);
-            activeBot.animController.play("jump", 1.2);
+            activeBot.lookAt(new Vector3(25, 1, 40));
+            if (anim) anim.play("jump", 1.2);
             roboAudio.playBark(1.3);
-            ball.velocity.copy(kickDir.multiplyScalar(26));
-            ball.velocity.y = 8.5;
+            if (typeof this.world.kickBall === "function") {
+              this.world.kickBall(ball, savedKickDir, 26);
+            } else {
+              ball.velocity.copy(savedKickDir).multiplyScalar(26);
+              ball.velocity.y = 8.5;
+            }
             activeBot.setEmotion(EMOTIONS.PROUD);
             this.addJournalEntry("Orgulloso", "\xA1Aline\xE9 el tiro y remat\xE9 el bal\xF3n directo al centro de la porter\xEDa!");
           });
         }
         return;
       }
-      if (action === "trampoline_trick") {
-        const trampPos = new Vector3(38, 0, 22);
+      if (resolvedAction === "trampoline_trick") {
+        const trampPos = this.world?.trampolinePos || new Vector3(38, 0, 22);
         this.navigateToward(trampPos, 6, "run", () => {
           let bounces = 0;
           const doBounce = () => {
             bounces++;
-            const force = 5.5 + bounces * 1.8;
-            activeBot.velocityY = force;
+            const force = 6.5 + bounces * 1.8;
+            this._setDogVelocityY(activeBot, force);
             activeBot.group.position.y += 0.25;
             roboAudio.playTrampoline();
-            activeBot.animController.play("backflip", 1.5);
+            if (anim) anim.play("backflip", 1.5);
             activeBot.setEmotion(EMOTIONS.EXCITED);
             if (bounces < 3) {
-              this.registerTimeout(doBounce, 1300);
+              this._timers.setTimeout(doBounce, 1300);
             } else {
               this.addJournalEntry("Juguet\xF3n", "\xA1Hice 3 rebotes consecutivos cada vez m\xE1s altos con piruetas 360\xB0!");
             }
@@ -40282,26 +41965,28 @@ ${systemPrompt}`;
         });
         return;
       }
-      if (action === "slide_down") {
+      if (resolvedAction === "slide_down" || resolvedAction === "go_slide") {
         const slidePos = new Vector3(-18, 0, -32);
         this.navigateToward(slidePos, 5.8, "run", () => {
-          if (this.world.slide) {
+          if (this.world?.slide) {
             activeBot.isSliding = true;
             activeBot.group.position.copy(this.world.slide.topPos);
             activeBot.lookAt(new Vector3(-18, 0, -20));
-            activeBot.animController.play("headTilt", 1.2);
-            this.registerTimeout(() => {
-              this.world.logActivity(`\u{1F3A2} \xA1${activeBot.name} se lanz\xF3 por el tobog\xE1n a gran velocidad!`);
+            if (anim) anim.play("headTilt", 1);
+            this._timers.setTimeout(() => {
+              this.eventBus.emit("world:activity", {
+                text: `\u{1F3A2} \xA1${activeBot.name} se lanz\xF3 por el tobog\xE1n a gran velocidad!`,
+                level: "info"
+              });
               let p = 0;
-              activeBot.animController.play("roll", 2);
-              const iv = this.registerInterval(() => {
+              if (anim) anim.play("roll", 2);
+              const slideId = this._timers.setInterval(() => {
                 p += 0.08;
-                activeBot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, p);
-                activeBot.group.position.y = MathUtils.lerp(this.world.slide.topPos.y, this.world.slide.endPos.y, p);
+                activeBot.group.position.lerpVectors(this.world.slide.topPos, this.world.slide.endPos, Math.min(1, p));
                 if (p >= 1) {
-                  clearInterval(iv);
+                  this._timers.clear(slideId);
                   activeBot.isSliding = false;
-                  activeBot.animController.play("backflip", 1.5);
+                  if (anim) anim.play("backflip", 1.5);
                   roboAudio.playHappyJingle();
                   this.addJournalEntry("Juguet\xF3n", "\xA1Me deslic\xE9 por el tobog\xE1n y aterric\xE9 en la colchoneta con estilo!");
                 }
@@ -40311,21 +41996,21 @@ ${systemPrompt}`;
         });
         return;
       }
-      if (action === "lake_swim" || action === "go_lake") {
+      if (resolvedAction === "lake_swim" || resolvedAction === "go_lake") {
         const beachPos = new Vector3(-55, 0, -55);
         this.navigateToward(beachPos, 5.2, "run", () => {
           const swimPos = new Vector3(-66, -0.52, -66);
           this.navigateToward(swimPos, 3.2, "swimming", () => {
             roboAudio.playSplash();
             activeBot.isInWater = true;
-            activeBot.animController.play("swimming");
+            if (anim) anim.play("swimming");
             activeBot.setEmotion(EMOTIONS.HAPPY);
             this.addJournalEntry("Feliz", "\xA1Nadando en el Lago de Cristal moviendo las patitas bajo la superficie!");
-            this.registerTimeout(() => {
+            this._timers.setTimeout(() => {
               this.navigateToward(beachPos, 3.5, "swimming", () => {
                 activeBot.isInWater = false;
                 activeBot.wasInWater = false;
-                activeBot.animController.play("shakeOff", 2);
+                if (anim) anim.play("shakeOff", 2);
                 roboAudio.playSplash();
                 if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "HAPPY");
                 this.addJournalEntry("Feliz", "\xA1Sal\xED del agua a tierra firme y me sacud\xED con fuerza para secarme!");
@@ -40335,37 +42020,46 @@ ${systemPrompt}`;
         });
         return;
       }
-      if (action === "play_tag") {
-        if (this.packManager && this.packManager.startTagGame) {
+      if (resolvedAction === "play_tag") {
+        if (this.packManager && typeof this.packManager.startTagGame === "function") {
           this.packManager.startTagGame(activeBot);
-          return;
+        } else {
+          this.eventBus.emit("pack:tagGame", { initiator: activeBot });
         }
+        return;
       }
-      if (action === "speed_race") {
-        if (this.packManager && this.packManager.startSpeedRace) {
-          const raceDest = this.packManager.startSpeedRace(activeBot);
-          if (raceDest) {
-            this.navigateToward(raceDest, 7.2, "run", () => {
-              activeBot.animController.play("backflip", 1.8);
-              activeBot.setEmotion(EMOTIONS.PROUD);
-            });
-          }
-          return;
+      if (resolvedAction === "speed_race") {
+        let raceDest = null;
+        if (this.packManager && typeof this.packManager.startSpeedRace === "function") {
+          raceDest = this.packManager.startSpeedRace(activeBot);
+        } else {
+          raceDest = new Vector3(25, 0, 40);
+          this.eventBus.emit("pack:speedRace", { initiator: activeBot, destination: raceDest });
         }
+        if (raceDest) {
+          this.navigateToward(raceDest, 7.2, "run", () => {
+            if (anim) anim.play("backflip", 1.8);
+            activeBot.setEmotion(EMOTIONS.PROUD);
+          });
+        }
+        return;
       }
-      if (action === "pack_gossip") {
-        if (this.packManager && this.packManager.startPackGossip) {
+      if (resolvedAction === "pack_gossip") {
+        if (this.packManager && typeof this.packManager.startPackGossip === "function") {
           this.packManager.startPackGossip(activeBot);
-          activeBot.animController.play("wagTail", 3);
-          return;
+        } else {
+          this.eventBus.emit("pack:gossip", { initiator: activeBot });
         }
+        if (anim) anim.play("wagTail", 3);
+        return;
       }
-      if (action === "dig_treasure") {
+      if (resolvedAction === "dig_treasure") {
         let nearestSpot = null;
         let minD = Infinity;
         const rPos = activeBot.group.position;
-        if (this.world.treasureSpots) {
-          this.world.treasureSpots.forEach((s) => {
+        if (this.world?.treasureSpots) {
+          for (let i = 0; i < this.world.treasureSpots.length; i++) {
+            const s = this.world.treasureSpots[i];
             if (!s.dug) {
               const d = Math.hypot(rPos.x - s.x, rPos.z - s.z);
               if (d < minD) {
@@ -40373,42 +42067,44 @@ ${systemPrompt}`;
                 nearestSpot = s;
               }
             }
-          });
+          }
         }
         const targetP = nearestSpot ? new Vector3(nearestSpot.x, 0, nearestSpot.z) : new Vector3(rPos.x + 2, 0, rPos.z + 2);
         this.navigateToward(targetP, 4.8, "run", () => {
-          activeBot.animController.play("dig", 3.2);
+          if (anim) anim.play("dig", 3.2);
           activeBot.setEmotion(EMOTIONS.CURIOUS);
           roboAudio.playBoop(1.2);
           if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "CURIOUS");
-          this.registerTimeout(() => {
-            if (nearestSpot && this.world.revealDugTreasure) {
+          this._timers.setTimeout(() => {
+            if (nearestSpot && this.world && typeof this.world.revealDugTreasure === "function") {
               this.world.revealDugTreasure(activeBot, nearestSpot);
             }
-            activeBot.animController.play("wagTail", 2);
+            if (anim) anim.play("wagTail", 2);
             activeBot.setEmotion(EMOTIONS.PROUD);
           }, 3200);
         });
         return;
       }
-      if (action === "hunt_butterfly") {
+      if (resolvedAction === "hunt_butterfly") {
         let targetBfly = null;
         let minD = Infinity;
         const rPos = activeBot.group.position;
-        if (this.world.butterflies && this.world.butterflies.length > 0) {
-          this.world.butterflies.forEach((b) => {
-            const d = rPos.distanceTo(b.sprite.position);
+        if (this.world?.butterflies?.length > 0) {
+          for (let i = 0; i < this.world.butterflies.length; i++) {
+            const b = this.world.butterflies[i];
+            const bPos = b.sprite ? b.sprite.position : b.position;
+            if (!bPos) continue;
+            const d = rPos.distanceTo(bPos);
             if (d < minD) {
               minD = d;
-              targetBfly = b;
+              targetBfly = bPos;
             }
-          });
+          }
         }
         if (targetBfly) {
-          const dest = new Vector3(targetBfly.sprite.position.x, 0, targetBfly.sprite.position.z);
-          this.navigateToward(dest, 3.2, "sneak", () => {
-            activeBot.animController.play("jump", 1.4);
-            activeBot.velocityY = 6.5;
+          this.navigateToward(new Vector3(targetBfly.x, 0, targetBfly.z), 3.2, "sneak", () => {
+            if (anim) anim.play("jump", 1.4);
+            this._setDogVelocityY(activeBot, 6.5);
             activeBot.group.position.y += 0.2;
             roboAudio.playYip(1.5);
             activeBot.setEmotion(EMOTIONS.EXCITED);
@@ -40417,275 +42113,302 @@ ${systemPrompt}`;
         }
         return;
       }
-      if (action === "shade_nap") {
-        const shadePos = new Vector3(-22, 0, 18);
-        this.navigateToward(shadePos, 4, "walk", () => {
-          let rotAngle = 0;
-          const circleIv = this.registerInterval(() => {
-            rotAngle += 0.25;
-            activeBot.group.rotation.y += 0.25;
-            if (rotAngle >= Math.PI * 4) {
-              clearInterval(circleIv);
-              activeBot.animController.play("lieDown", 6);
-              activeBot.setEmotion(EMOTIONS.SLEEPY);
-              if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "SLEEPY");
-              activeBot.energy = 100;
-              this.addJournalEntry("Somnoliento", "Di dos vueltas sobre m\xED mismo y me ech\xE9 a dormir una rica siesta bajo la sombra del pino.");
-            }
-          }, 50);
+      if (resolvedAction === "shade_nap") {
+        this.navigateToward(new Vector3(-22, 0, 18), 4, "walk", () => {
+          if (anim) anim.play("spin", 1.2);
+          this._timers.setTimeout(() => {
+            if (anim) anim.play("lieDown", 6);
+            activeBot.setEmotion(EMOTIONS.SLEEPY);
+            if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "SLEEPY");
+            activeBot.energy = 100;
+            this.addJournalEntry("Somnoliento", "Di dos vueltas sobre m\xED mismo y me ech\xE9 a dormir una rica siesta bajo la sombra del pino.");
+          }, 1250);
         });
         return;
       }
-      if (action === "beg_pets") {
+      if (resolvedAction === "beg_pets") {
         const curPos = activeBot.group.position;
         activeBot.lookAt(new Vector3(curPos.x + 1, curPos.y + 1, curPos.z + 2));
-        activeBot.animController.play("bellyRub", 4);
+        if (anim) anim.play("bellyRub", 4);
         activeBot.setEmotion(EMOTIONS.LOVING);
         if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "LOVING");
         roboAudio.playBoop(1.4);
         this.addJournalEntry("Cari\xF1oso", "\xA1Me puse panza arriba con las patitas al aire esperando tus caricias!");
         return;
       }
-      const directAnims = [
-        "walk",
-        "run",
-        "sit",
-        "lieDown",
-        "jump",
-        "wagTail",
-        "bark",
-        "sniff",
-        "scratch",
-        "backflip",
-        "spin",
-        "roll",
-        "wave",
-        "recharge",
-        "dig",
-        "howl",
-        "dance",
-        "sneak",
-        "playBow",
-        "headTilt",
-        "bellyRub",
-        "beg",
-        "shakeOff",
-        "nuzzle",
-        "dizzy",
-        "swimming",
-        "patrolLook",
-        "scentTrack"
-      ];
-      if (directAnims.includes(action)) {
-        if (activeBot.animController) {
-          if (action === "jump") {
-            activeBot.velocityY = 7;
-            activeBot.group.position.y += 0.15;
-          }
-          activeBot.animController.play(action, 2.5);
+      if (DIRECT_ANIMS.has(resolvedAction)) {
+        if (resolvedAction === "jump") {
+          this._setDogVelocityY(activeBot, 7);
+          activeBot.group.position.y += 0.15;
+          roboAudio.playJump(pitch);
+        } else if (resolvedAction === "bark") {
+          roboAudio.playBark(pitch);
         }
+        if (anim) anim.play(resolvedAction, 2.5);
         return;
       }
-      if (action === "go_playground") {
+      if (resolvedAction === "go_playground") {
         this.navigateToward(new Vector3(50, 0, 40), 5.5, "run", () => {
           activeBot.setEmotion(EMOTIONS.EXCITED);
-          activeBot.animController.play("wagTail", 2);
+          if (anim) anim.play("wagTail", 2);
         });
-      } else if (action === "go_trampoline") {
-        const trampPos = new Vector3(38, 0, 22);
+      } else if (resolvedAction === "go_trampoline") {
+        const trampPos = this.world?.trampolinePos || new Vector3(38, 0, 22);
         this.navigateToward(trampPos, 5.8, "run", () => {
-          this.world.launchTrampoline(activeBot);
-          activeBot.velocityY = 8.5;
+          if (this.world && typeof this.world.launchTrampoline === "function") {
+            this.world.launchTrampoline(activeBot);
+          }
+          this._setDogVelocityY(activeBot, 8.5);
           activeBot.setEmotion(EMOTIONS.EXCITED);
-          activeBot.animController.play("backflip", 1.8);
+          if (anim) anim.play("backflip", 1.8);
           this.addJournalEntry("Juguet\xF3n", "\xA1Rebot\xE9 s\xFAper alto en el trampol\xEDn cibern\xE9tico!");
         });
-      } else if (action === "go_carousel") {
-        const carouselPos = new Vector3(62, 0, 26);
+      } else if (resolvedAction === "go_carousel") {
+        const carouselPos = this.world?.carouselGroup?.position || new Vector3(62, 0, 26);
         this.navigateToward(carouselPos, 4.8, "walk", () => {
           activeBot.setEmotion(EMOTIONS.HAPPY);
-          activeBot.animController.play("spin", 3);
+          if (anim) anim.play("spin", 3);
           this.addJournalEntry("Feliz", "Me sub\xED al carrusel a dar alegres vueltas.");
         });
-      } else if (action === "go_ball") {
-        let ballPos = new Vector3(42, 0.5, 38);
-        if (this.world && this.world.soccerBall) {
-          ballPos = this.world.soccerBall.mesh.position;
-        }
+      } else if (resolvedAction === "go_ball") {
+        const ball = this.world?.soccerBall || this.world?.balls?.[0] || null;
+        const ballPos = ball ? ball.mesh.position : new Vector3(42, 0.5, 38);
         this.navigateToward(ballPos, 6.4, "run", () => {
-          if (this.world && this.world.soccerBall) {
-            const ball = this.world.soccerBall;
-            const goalPos = new Vector3(25, 1, 40);
-            const kickDir = new Vector3().subVectors(goalPos, ball.mesh.position).normalize();
-            ball.velocity.copy(kickDir.multiplyScalar(22));
-            ball.velocity.y = 7;
+          if (ball) {
+            const kickDir = new Vector3(25, 1, 40).sub(ball.mesh.position).normalize();
+            if (typeof this.world.kickBall === "function") {
+              this.world.kickBall(ball, kickDir, 22);
+            } else {
+              ball.velocity.copy(kickDir).multiplyScalar(22);
+              ball.velocity.y = 7;
+            }
             roboAudio.playBark(1.2);
-            activeBot.animController.play("jump", 1.2);
+            if (anim) anim.play("jump", 1.2);
             activeBot.setEmotion(EMOTIONS.PROUD);
             this.addJournalEntry("Orgulloso", "\xA1Pate\xE9 la pelota de f\xFAtbol con toda la potencia hacia la porter\xEDa!");
           }
         });
-      } else if (action === "go_disco") {
-        const discoPos = new Vector3(52, 0, 56);
-        this.navigateToward(discoPos, 5.4, "run", () => {
-          this.world.triggerDiscoParty();
+      } else if (resolvedAction === "go_disco") {
+        this.navigateToward(new Vector3(52, 0, 56), 5.4, "run", () => {
+          if (this.world && typeof this.world.triggerDiscoParty === "function") {
+            this.world.triggerDiscoParty();
+          }
           activeBot.setEmotion(EMOTIONS.PARTY);
-          activeBot.animController.play("dance", 3.5);
+          if (anim) anim.play("dance", 3.5);
           this.addJournalEntry("Fiestero", "\xA1Llegu\xE9 a la pista disco a poner el mejor ambiente!");
         });
-      } else if (action === "go_snack") {
-        let snackPos = new Vector3(46, 0, 48);
-        if (this.world.snacks && this.world.snacks.length > 0) {
-          snackPos = this.world.snacks[0].group.position;
-        }
+      } else if (resolvedAction === "go_snack") {
+        const snackPos = this.world?.snacks?.length > 0 ? this.world.snacks[0].group.position : new Vector3(46, 0, 48);
         this.navigateToward(snackPos, 5.8, "run", () => {
           activeBot.energy = 100;
           roboAudio.playSnackMunch();
           activeBot.setEmotion(EMOTIONS.HUNGRY);
-          activeBot.animController.play("sniff", 2);
+          if (anim) anim.play("sniff", 2);
           this.addJournalEntry("Glot\xF3n", "\xA1Me com\xED una rica ciborgalleta y recargu\xE9 mi energ\xEDa al 100%!");
         });
-      } else if (action === "go_doghouse") {
-        const housePos = new Vector3(72, 0, 52);
-        this.navigateToward(housePos, 4.2, "walk", () => {
+      } else if (resolvedAction === "go_doghouse") {
+        this.navigateToward(new Vector3(72, 0, 52), 4.2, "walk", () => {
           activeBot.energy = 100;
           activeBot.setEmotion(EMOTIONS.SLEEPY);
-          activeBot.animController.play("lieDown", 3);
+          if (anim) anim.play("lieDown", 3);
           this.addJournalEntry("Somnoliento", "Descansando pl\xE1cidamente en la estaci\xF3n de recarga.");
         });
-      } else if (action === "go_fountain") {
-        const fPos = new Vector3(12, 0, 10);
-        this.navigateToward(fPos, 5, "walk", () => {
-          if (activeBot.quenchThirst) activeBot.quenchThirst(40);
+      } else if (resolvedAction === "go_fountain") {
+        this.navigateToward(new Vector3(12, 0, 10), 5, "walk", () => {
+          if (typeof activeBot.quenchThirst === "function") activeBot.quenchThirst();
+          else activeBot.hydration = 100;
           roboAudio.playSplash();
           activeBot.setEmotion(EMOTIONS.HAPPY);
-          activeBot.animController.play("wagTail", 2.5);
+          if (anim) anim.play("wagTail", 2.5);
           this.addJournalEntry("Feliz", "Beb\xED agua fresca y deliciosa en la fuente cibern\xE9tica.");
         });
-      } else if (action === "go_bridge") {
-        const bPos = new Vector3(-46, 0, -48);
-        this.navigateToward(bPos, 4.8, "walk", () => {
+      } else if (resolvedAction === "go_bridge") {
+        this.navigateToward(new Vector3(-46, 0, -48), 4.8, "walk", () => {
           activeBot.setEmotion(EMOTIONS.CURIOUS);
-          activeBot.animController.play("headTilt", 2);
+          if (anim) anim.play("headTilt", 2);
           this.addJournalEntry("Curioso", "Cruc\xE9 el puente de madera sobre el arroyo del lago.");
         });
-      } else if (action === "go_seesaw") {
-        const sPos = new Vector3(48, 0, 32);
-        this.navigateToward(sPos, 5.2, "run", () => {
+      } else if (resolvedAction === "go_seesaw") {
+        this.navigateToward(new Vector3(48, 0, 32), 5.2, "run", () => {
           activeBot.setEmotion(EMOTIONS.EXCITED);
-          activeBot.animController.play("jump", 1.8);
+          if (anim) anim.play("playBow", 2.2);
           this.addJournalEntry("Juguet\xF3n", "Me sub\xED al balanc\xEDn cibern\xE9tico para balancearme con mis amigos.");
         });
-      } else if (action === "go_ballpit") {
-        const pitPos = new Vector3(-32, 0, 48);
-        this.navigateToward(pitPos, 5.6, "run", () => {
+      } else if (resolvedAction === "go_ballpit") {
+        this.navigateToward(new Vector3(-32, 0, 48), 5.6, "run", () => {
           activeBot.setEmotion(EMOTIONS.EXCITED);
-          activeBot.animController.play("jump", 1.8);
+          this._setDogVelocityY(activeBot, 6.2);
+          if (anim) anim.play("jump", 1.8);
+          roboAudio.playSplash();
+          if (this.particleSystem) this.particleSystem.spawnBurst(activeBot.group.position, "EXCITED");
           this.addJournalEntry("Juguet\xF3n", "\xA1Me zambull\xED de lleno en la piscina de pelotas!");
         });
-      } else if (action === "go_slide") {
-        this.executeAction("slide_down");
-      } else if (action === "go_tunnel") {
-        const tunnelPos = new Vector3(22, 0, -50);
-        this.navigateToward(tunnelPos, 5.4, "run", () => {
+      } else if (resolvedAction === "go_tunnel") {
+        this.navigateToward(new Vector3(22, 0, -50), 5.4, "run", () => {
           activeBot.setEmotion(EMOTIONS.CURIOUS);
-          activeBot.animController.play("sneak", 2);
+          if (anim) anim.play("sneak", 2);
           this.addJournalEntry("Curioso", "\xA1Pas\xE9 a toda velocidad por el t\xFAnel de agilidad!");
         });
-      } else if (action === "go_target") {
-        const targetPos = new Vector3(76, 0, 18);
-        this.navigateToward(targetPos, 5.6, "run", () => {
+      } else if (resolvedAction === "go_target") {
+        this.navigateToward(new Vector3(70, 0, 18), 5.6, "run", () => {
+          activeBot.lookAt(new Vector3(76, 3.2, 18));
           activeBot.setEmotion(EMOTIONS.PROUD);
-          activeBot.animController.play("bark", 2);
-          this.addJournalEntry("Orgulloso", "\xA1Llegu\xE9 a la diana de tiro al blanco a probar mi punter\xEDa!");
+          if (anim) anim.play("bark", 1.6);
+          const ball = this.world?.soccerBall || this.world?.balls?.[0];
+          if (ball && this.world) {
+            ball.mesh.position.set(68, 1.5, 18);
+            const dir = new Vector3(1, 0.25, 0).normalize();
+            if (typeof this.world.kickBall === "function") {
+              this.world.kickBall(ball, dir, 24);
+            } else {
+              ball.velocity.copy(dir).multiplyScalar(24);
+            }
+          }
+          this.addJournalEntry("Orgulloso", "\xA1Apunt\xE9 y lanc\xE9 el bal\xF3n hacia la diana de tiro!");
         });
-      } else if (action === "go_pinata") {
-        const pinataPos = new Vector3(-42, 0, 14);
-        this.navigateToward(pinataPos, 6, "run", () => {
+      } else if (resolvedAction === "go_pinata") {
+        this.navigateToward(new Vector3(-42, 0, 14), 6, "run", () => {
           activeBot.setEmotion(EMOTIONS.EXCITED);
-          activeBot.velocityY = 6.5;
+          this._setDogVelocityY(activeBot, 6.8);
           activeBot.group.position.y += 0.35;
-          activeBot.animController.play("jump", 1.5);
+          if (anim) anim.play("jump", 1.5);
           this.addJournalEntry("Juguet\xF3n", "\xA1Salt\xE9 a golpear la pi\xF1ata de galletas!");
         });
-      } else if (action.startsWith("go_robot_")) {
-        const targetName = action.replace("go_robot_", "");
-        if (this.packManager && this.packManager.allRobots[targetName]) {
-          const targetBot = this.packManager.allRobots[targetName];
+      } else if (resolvedAction.startsWith("go_robot_")) {
+        const targetName = resolvedAction.replace("go_robot_", "");
+        const targetBot = typeof this.packManager?.getDog === "function" ? this.packManager.getDog(targetName) : this.packManager?.allRobots?.[targetName];
+        if (targetBot) {
           this.navigateToward(targetBot.group.position, 5.2, "run", () => {
             activeBot.lookAt(targetBot.group.position);
-            activeBot.animController.play("wave", 2);
+            if (anim) anim.play("wave", 2);
             activeBot.setEmotion(EMOTIONS.LOVING);
             targetBot.lookAt(activeBot.group.position);
-            targetBot.animController.play("wagTail", 2);
+            const tAnim = this._getAnim(targetBot);
+            if (tAnim) tAnim.play("wagTail", 2);
             targetBot.setEmotion(EMOTIONS.HAPPY);
-            roboAudio.playBark(activeBot.profile.voicePitch || 1);
+            roboAudio.playBark(pitch);
             this.addJournalEntry("Cari\xF1oso", `Fui a saludar a mi amigo ${targetName} y jugamos juntos.`);
           });
         }
+      } else {
+        if (anim) anim.play("wagTail", 2);
       }
     }
     executeMovementSequence(sequence) {
-      if (this.robot.animController) {
-        this.robot.animController.playSequence(sequence, () => {
-          this.robot.setEmotion(EMOTIONS.HAPPY);
-          roboAudio.playHappyJingle();
-        });
+      const dog = this.getActiveRobot();
+      const anim = this._getAnim(dog);
+      if (!anim) return;
+      const onDone = () => {
+        dog.setEmotion(EMOTIONS.HAPPY);
+        roboAudio.playHappyJingle();
+      };
+      if (typeof anim.queueSequence === "function") {
+        anim.queueSequence(sequence, onDone);
+      } else if (typeof anim.playSequence === "function") {
+        anim.playSequence(sequence, onDone);
       }
     }
-    navigateToward(targetPos, speed = 4.8, anim = "walk", onArrival = null) {
-      if (this.robot.animController) this.robot.animController.play(anim);
-      this.navTarget = targetPos.clone();
-      this.navSpeed = speed * (this.robot.profile ? this.robot.profile.speedMultiplier : 1);
+    navigateToward(targetPos, speed = 4.8, animName = "walk", onArrival = null) {
+      const dog = this.getActiveRobot();
+      if (!dog || !targetPos) return;
+      const anim = this._getAnim(dog);
+      if (anim) anim.play(animName);
+      this._navTarget.copy(targetPos);
+      const mult = this._getProfile(dog).speedMultiplier || 1;
+      this.navSpeed = speed * mult;
       this.isNavigating = true;
       this.navTimer = 0;
       this.navMaxTime = 16;
       this.navStuckTime = 0;
-      this.navLastPos = this.robot.group.position.clone();
+      this._navLastPos.copy(dog.group.position);
       this.onArrivalCallback = onArrival;
-      this.robot.startMission(anim, anim, targetPos, 16, onArrival);
+      appState.navigation.active = true;
+      appState.navigation.target = this._navTarget;
+      appState.navigation.mode = animName;
+      if (typeof dog.startMission === "function") {
+        dog.startMission(animName, animName, this._navTarget, 16, onArrival);
+      }
     }
-    updateNavigation(delta) {
-      if (!this.isNavigating || !this.navTarget) return;
-      this.navTimer += delta;
+    // Zero-alloc steering helper using TMP.v3 / TMP.v4 and pre-allocated this._nearObstacles
+    _computeSteeringDir(pos, desiredDir) {
+      if (!this.world || typeof this.world.getNearObstacles !== "function") return desiredDir;
+      const lookAhead = 2.4;
+      const probeX = pos.x + desiredDir.x * lookAhead;
+      const probeZ = pos.z + desiredDir.z * lookAhead;
+      this._nearObstacles.length = 0;
+      this.world.getNearObstacles(probeX, probeZ, this._nearObstacles);
+      for (let i = 0; i < this._nearObstacles.length; i++) {
+        const obs = this._nearObstacles[i];
+        if (obs.yMin !== void 0 && obs.yMax !== void 0) {
+          if (pos.y + 1.1 < obs.yMin || pos.y > obs.yMax) continue;
+        }
+        const dx = probeX - obs.x;
+        const dz = probeZ - obs.z;
+        const r = (obs.radius || Math.max(obs.halfW || 1, obs.halfD || 1)) + 1.1;
+        const dist = Math.hypot(dx, dz);
+        if (dist < r && dist > 1e-3) {
+          TMP.v3.set(dx / dist, 0, dz / dist);
+          desiredDir.addScaledVector(TMP.v3, 1.35).normalize();
+          break;
+        }
+      }
+      return desiredDir;
+    }
+    updateNavigation(dt) {
+      if (!this.isNavigating || this._disposed) return;
+      const dog = this.getActiveRobot();
+      if (!dog) return;
+      const anim = this._getAnim(dog);
+      this.navTimer += dt;
       if (this.navTimer >= this.navMaxTime) {
         this.isNavigating = false;
-        this.robot.clearMission();
-        if (this.robot.animController) this.robot.animController.play("idle");
-        this.world.logActivity(`\u{1F43E} ${this.robot.name} complet\xF3 su misi\xF3n y queda libre para explorar.`);
+        appState.navigation.active = false;
+        appState.navigation.target = null;
+        appState.navigation.mode = null;
+        if (typeof dog.clearMission === "function") dog.clearMission();
+        if (anim) anim.play("idle");
+        this.eventBus.emit("world:activity", {
+          text: `\u{1F43E} ${dog.name} complet\xF3 su misi\xF3n y queda libre para explorar.`,
+          level: "info"
+        });
         return;
       }
-      const curPos = this.robot.group.position;
-      const diff = new Vector3().subVectors(this.navTarget, curPos);
+      const curPos = dog.group.position;
+      const diff = TMP.v1.subVectors(this._navTarget, curPos);
       diff.y = 0;
       const dist = diff.length();
-      if (this.navLastPos) {
-        const moved = Math.hypot(curPos.x - this.navLastPos.x, curPos.z - this.navLastPos.z);
-        this.navLastPos.copy(curPos);
-        if (moved < 0.045) {
-          this.navStuckTime += delta;
-          if (this.navStuckTime > 0.65) {
-            const tangent = new Vector3(-diff.z, 0, diff.x).normalize();
-            curPos.addScaledVector(tangent, delta * 4.2);
-          }
-          if (this.navStuckTime > 2.2) {
-            this.isNavigating = false;
-            this.robot.clearMission();
-            if (this.onArrivalCallback) {
-              const cb = this.onArrivalCallback;
-              this.onArrivalCallback = null;
-              cb();
-            }
-            return;
-          }
-        } else {
-          this.navStuckTime = Math.max(0, this.navStuckTime - delta * 2);
+      const moved = Math.hypot(curPos.x - this._navLastPos.x, curPos.z - this._navLastPos.z);
+      this._navLastPos.copy(curPos);
+      const actualSpeed = moved / Math.max(dt, 1e-3);
+      if (actualSpeed < this.navSpeed * 0.25) {
+        this.navStuckTime += dt;
+        if (this.navStuckTime > 0.65 && dist > 1e-3) {
+          TMP.v2.set(-diff.z, 0, diff.x).normalize();
+          curPos.addScaledVector(TMP.v2, dt * 4.2);
         }
+        if (this.navStuckTime > 2.2) {
+          this.isNavigating = false;
+          appState.navigation.active = false;
+          appState.navigation.target = null;
+          appState.navigation.mode = null;
+          if (typeof dog.clearMission === "function") dog.clearMission();
+          if (this.onArrivalCallback) {
+            const cb = this.onArrivalCallback;
+            this.onArrivalCallback = null;
+            cb();
+          }
+          return;
+        }
+      } else {
+        this.navStuckTime = Math.max(0, this.navStuckTime - dt * 2);
       }
       if (dist < 2) {
         this.isNavigating = false;
-        this.robot.clearMission();
-        if (this.robot.animController) this.robot.animController.play("idle");
+        appState.navigation.active = false;
+        appState.navigation.target = null;
+        appState.navigation.mode = null;
+        if (typeof dog.clearMission === "function") dog.clearMission();
+        if (anim) anim.play("idle");
         if (this.onArrivalCallback) {
           const cb = this.onArrivalCallback;
           this.onArrivalCallback = null;
@@ -40693,71 +42416,103 @@ ${systemPrompt}`;
         }
         return;
       }
-      diff.normalize();
-      if (this.packManager && this.packManager.computeAvoidanceDir) {
-        const steered = this.packManager.computeAvoidanceDir(curPos, diff);
-        diff.copy(steered);
-      }
+      diff.divideScalar(dist);
+      this._computeSteeringDir(curPos, diff);
       const targetAngle = Math.atan2(diff.x, diff.z);
-      this.robot.group.rotation.y = lerpAngle2(this.robot.group.rotation.y, targetAngle, delta * 7);
-      curPos.addScaledVector(diff, this.navSpeed * delta);
+      dog.group.rotation.y = dampAngle(dog.group.rotation.y, targetAngle, 7, dt);
+      curPos.addScaledVector(diff, this.navSpeed * dt);
       if (this.world) {
-        if (this.world.resolveObstacleCollisions) {
+        if (typeof this.world.resolveObstacleCollisions === "function") {
           this.world.resolveObstacleCollisions(curPos, 0.75, 1.2);
         }
-        const MAP_LIMIT = 110;
-        curPos.x = MathUtils.clamp(curPos.x, -MAP_LIMIT, MAP_LIMIT);
-        curPos.z = MathUtils.clamp(curPos.z, -MAP_LIMIT, MAP_LIMIT);
-        if (!this.robot.isInWater) {
+        if (typeof this.world.clampToWorld === "function") {
+          this.world.clampToWorld(curPos, 0.75);
+        } else {
+          curPos.x = MathUtils.clamp(curPos.x, -110, 110);
+          curPos.z = MathUtils.clamp(curPos.z, -110, 110);
+        }
+        const vy = dog.physics ? dog.physics.velocityY : dog.velocityY || 0;
+        if (!dog.isInWater && !(vy > 0) && (!dog.physics || dog.physics.isGrounded !== false)) {
           curPos.y = this.world.getHeightAt(curPos.x, curPos.z);
         }
-        this.world.handleRobotInteractions(this.robot);
+        if (typeof this.world.handleRobotInteractions === "function") {
+          this.world.handleRobotInteractions(dog, anim, dt);
+        }
       }
+    }
+    dispose() {
+      this._disposed = true;
+      this.cancelNavigation();
+      this._timers.clearAll();
+      for (let i = 0; i < this._unsubs.length; i++) {
+        this._unsubs[i]();
+      }
+      this._unsubs.length = 0;
+      try {
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      } catch (e) {
+      }
+      this._nearObstacles.length = 0;
+      this.onArrivalCallback = null;
     }
   };
 
   // public/js/multiplayer.js
   var MultiplayerClient = class {
-    constructor(options = {}) {
-      this.onCommandReceived = options.onCommandReceived || null;
-      this.onUserJoined = options.onUserJoined || null;
-      this.onUserLeft = options.onUserLeft || null;
-      this.onUsersListUpdated = options.onUsersListUpdated || null;
-      this.onRobotActionReceived = options.onRobotActionReceived || null;
-      this.onStatusChange = options.onStatusChange || null;
+    constructor(eventBus2 = eventBus, appState2 = appState) {
+      this.eventBus = eventBus2;
+      this.appState = appState2;
       this.socket = null;
       this.connected = false;
       this.currentUser = null;
       this.onlineUsers = [];
-      this.pingInterval = null;
-      this.reconnectTimer = null;
       this.reconnectAttempts = 0;
       this.pendingQueue = [];
-      window.addEventListener("online", () => {
-        if (!this.connected && this.currentUser) {
-          this.reconnectAttempts = 0;
-          this.connect();
-        }
-      });
+      this._timers = new TimerRegistry();
+      this._pingTimer = null;
+      this._reconnectTimer = null;
+      this._lastPosSentMs = 0;
+      this._disposed = false;
+      this._abortController = new AbortController();
+      window.addEventListener(
+        "online",
+        () => {
+          if (!this._disposed && !this.connected && this.currentUser) {
+            this.reconnectAttempts = 0;
+            this._openSocket();
+          }
+        },
+        { signal: this._abortController.signal }
+      );
+    }
+    connect(user) {
+      if (this._disposed) return;
+      if (user) {
+        this.currentUser = { ...this.currentUser, ...user };
+        this.appState.net.user = this.currentUser;
+      }
+      this._openSocket();
     }
     init(user) {
-      this.currentUser = user;
-      this.connect();
+      this.connect(user);
     }
     updateUser(newUser) {
       this.currentUser = { ...this.currentUser, ...newUser };
-      this.sendRaw({
+      this.appState.net.user = this.currentUser;
+      this._sendRaw({
         type: "JOIN",
         username: this.currentUser.username,
         avatar: this.currentUser.avatar || "\u{1F43E}"
       });
     }
-    cleanupSocket() {
-      clearInterval(this.pingInterval);
-      this.pingInterval = null;
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
+    _cleanupSocket() {
+      if (this._pingTimer !== null) {
+        this._timers.clear(this._pingTimer);
+        this._pingTimer = null;
+      }
+      if (this._reconnectTimer !== null) {
+        this._timers.clear(this._reconnectTimer);
+        this._reconnectTimer = null;
       }
       if (this.socket) {
         this.socket.onopen = null;
@@ -40773,950 +42528,605 @@ ${systemPrompt}`;
         this.socket = null;
       }
     }
-    scheduleReconnect() {
-      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    _scheduleReconnect() {
+      if (this._disposed) return;
+      if (this._reconnectTimer !== null) {
+        this._timers.clear(this._reconnectTimer);
+      }
       this.reconnectAttempts = Math.min(this.reconnectAttempts + 1, 8);
       const delay = Math.min(12e3, 2500 * Math.pow(1.3, this.reconnectAttempts - 1));
-      this.reconnectTimer = setTimeout(() => {
-        this.reconnectTimer = null;
-        this.connect();
+      this._reconnectTimer = this._timers.setTimeout(() => {
+        this._reconnectTimer = null;
+        this._openSocket();
       }, delay);
     }
-    connect() {
-      this.cleanupSocket();
+    _openSocket() {
+      if (this._disposed) return;
+      this._cleanupSocket();
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host || "localhost:3000";
       const wsUrl = `${protocol}//${host}`;
       try {
         this.socket = new WebSocket(wsUrl);
         this.socket.onopen = () => {
+          if (this._disposed) return;
           this.connected = true;
           this.reconnectAttempts = 0;
-          console.log("\u{1F7E2} [Multiplayer] Conectado exitosamente al WebSocket del servidor.");
-          if (this.onStatusChange) this.onStatusChange(true);
+          this.appState.net.connected = true;
+          this.eventBus.emit("net:status", { connected: true, users: this.onlineUsers });
           if (this.currentUser) {
-            this.socket.send(JSON.stringify({
-              type: "JOIN",
-              username: this.currentUser.username,
-              avatar: this.currentUser.avatar || "\u{1F43E}"
-            }));
+            this.socket.send(
+              JSON.stringify({
+                type: "JOIN",
+                username: this.currentUser.username,
+                avatar: this.currentUser.avatar || "\u{1F43E}"
+              })
+            );
           }
           while (this.pendingQueue.length > 0 && this.socket && this.socket.readyState === WebSocket.OPEN) {
             const payload = this.pendingQueue.shift();
             this.socket.send(JSON.stringify(payload));
           }
-          clearInterval(this.pingInterval);
-          this.pingInterval = setInterval(() => {
+          this._pingTimer = this._timers.setInterval(() => {
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
               this.socket.send(JSON.stringify({ type: "PING" }));
             }
           }, 15e3);
         };
         this.socket.onmessage = (event) => {
+          if (this._disposed) return;
           try {
             const msg = JSON.parse(event.data);
-            this.handleMessage(msg);
+            this._handleMessage(msg);
           } catch (e) {
-            console.warn("Error leyendo mensaje de servidor:", e);
+            console.warn("[Multiplayer] Error leyendo mensaje:", e);
           }
         };
         this.socket.onclose = () => {
           this.connected = false;
-          clearInterval(this.pingInterval);
-          if (this.onStatusChange) this.onStatusChange(false);
-          console.log("\u{1F534} [Multiplayer] Desconectado. Reintentando conexi\xF3n...");
-          this.scheduleReconnect();
+          if (this._pingTimer !== null) {
+            this._timers.clear(this._pingTimer);
+            this._pingTimer = null;
+          }
+          this.appState.net.connected = false;
+          this.eventBus.emit("net:status", { connected: false, users: this.onlineUsers });
+          if (!this._disposed) {
+            this._scheduleReconnect();
+          }
         };
-        this.socket.onerror = (err) => {
-          console.warn("\u26A0\uFE0F [Multiplayer] WebSocket aviso:", err);
+        this.socket.onerror = () => {
         };
       } catch (e) {
-        console.error("Error iniciando WebSocket:", e);
-        this.scheduleReconnect();
+        console.error("[Multiplayer] Error iniciando WebSocket:", e);
+        this._scheduleReconnect();
       }
     }
-    sendRaw(payload) {
+    _sendRaw(payload, queueIfOffline = true) {
+      if (this._disposed) return false;
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         this.socket.send(JSON.stringify(payload));
         return true;
       }
-      if (this.pendingQueue.length < 25) {
+      if (queueIfOffline && this.pendingQueue.length < 25) {
         this.pendingQueue.push(payload);
       }
       return false;
     }
-    handleMessage(msg) {
+    _handleMessage(msg) {
       if (!msg || !msg.type) return;
       if (msg.type === "JOIN_ACK") {
         if (msg.user && msg.user.id) {
           this.currentUser = { ...this.currentUser, id: msg.user.id };
+          this.appState.net.user = this.currentUser;
         }
         this.onlineUsers = Array.isArray(msg.onlineUsers) ? msg.onlineUsers : [];
-        if (this.onUsersListUpdated) this.onUsersListUpdated(this.onlineUsers, this.currentUser);
+        this.appState.net.onlineUsers = this.onlineUsers;
+        this.eventBus.emit("net:status", { connected: this.connected, users: this.onlineUsers });
       } else if (msg.type === "USER_JOINED") {
         this.onlineUsers = Array.isArray(msg.onlineUsers) ? msg.onlineUsers : [];
-        if (msg.user && this.onUserJoined) this.onUserJoined(msg.user);
-        if (this.onUsersListUpdated) this.onUsersListUpdated(this.onlineUsers, this.currentUser);
+        this.appState.net.onlineUsers = this.onlineUsers;
+        this.eventBus.emit("net:status", { connected: this.connected, users: this.onlineUsers });
+        if (msg.user) {
+          this.eventBus.emit("chat:message", {
+            author: "Sistema",
+            message: `\u{1F44B} ${msg.user.avatar || "\u{1F43E}"} <strong>${msg.user.username}</strong> se ha unido al mundo virtual.`,
+            role: "system",
+            targetDog: "ALL",
+            time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          });
+          this.eventBus.emit("world:activity", { text: `\u{1F44B} ${msg.user.username} se uni\xF3 a la sesi\xF3n.`, level: "info" });
+        }
       } else if (msg.type === "USER_LEFT") {
         this.onlineUsers = Array.isArray(msg.onlineUsers) ? msg.onlineUsers : [];
-        if (msg.user && this.onUserLeft) this.onUserLeft(msg.user);
-        if (this.onUsersListUpdated) this.onUsersListUpdated(this.onlineUsers, this.currentUser);
+        this.appState.net.onlineUsers = this.onlineUsers;
+        this.eventBus.emit("net:status", { connected: this.connected, users: this.onlineUsers });
+        if (msg.user) {
+          this.eventBus.emit("chat:message", {
+            author: "Sistema",
+            message: `\u{1F6AA} ${msg.user.avatar || "\u{1F43E}"} <strong>${msg.user.username}</strong> sali\xF3 de la sesi\xF3n.`,
+            role: "system",
+            targetDog: "ALL",
+            time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          });
+          this.eventBus.emit("world:activity", { text: `\u{1F6AA} ${msg.user.username} sali\xF3 del mundo.`, level: "info" });
+        }
       } else if (msg.type === "CHAT_COMMAND") {
-        if (this.onCommandReceived && msg.sender && msg.text) {
-          this.onCommandReceived(msg.sender, msg.text, msg.targetRobot);
+        if (msg.sender && msg.text) {
+          const isSelf = this.currentUser && msg.sender.username === this.currentUser.username;
+          if (!isSelf) {
+            this.eventBus.emit("chat:message", {
+              author: `${msg.sender.avatar || "\u{1F464}"} ${msg.sender.username}`,
+              message: msg.text,
+              role: "user",
+              targetDog: msg.targetRobot || this.appState.activeRobotName,
+              time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            });
+            this.eventBus.emit("world:activity", { text: `\u{1F4AC} ${msg.sender.username} orden\xF3: "${msg.text}"`, level: "info" });
+            this.eventBus.emit("input:action", {
+              action: "remote_chat_command",
+              payload: { text: msg.text, targetRobot: msg.targetRobot || null, sender: msg.sender }
+            });
+          }
         }
       } else if (msg.type === "ROBOT_ACTION") {
-        if (this.onRobotActionReceived) {
-          this.onRobotActionReceived(msg.robotName, msg.action, msg.emotion, msg.thought, msg.sender);
-        }
-      } else if (msg.type === "TUNNEL_URL") {
-        const tunInput = document.getElementById("share-tunnel-url");
-        if (tunInput && msg.tunnelUrl) {
-          tunInput.value = msg.tunnelUrl;
-        }
+        this.eventBus.emit("net:robotAction", msg);
+      } else if (msg.type === "BALL_THROW") {
+        this.eventBus.emit("net:ballThrow", msg);
+      } else if (msg.type === "TUNNEL_URL" && msg.tunnelUrl) {
+        this.eventBus.emit("net:tunnelUrl", { tunnelUrl: msg.tunnelUrl });
       }
     }
-    sendChatCommand(text, targetRobot = null) {
-      if (!text) return false;
-      return this.sendRaw({
+    sendPosition(dog) {
+      if (!dog || !dog.group || !this.connected) return false;
+      const now = performance.now();
+      if (now - this._lastPosSentMs < 120) return false;
+      this._lastPosSentMs = now;
+      const p = dog.group.position;
+      return this._sendRaw(
+        {
+          type: "ROBOT_ACTION",
+          robotName: dog.name || this.appState.activeRobotName,
+          action: "sync_pose",
+          emotion: dog.currentEmotion ? dog.currentEmotion.id : null,
+          thought: `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)},${dog.group.rotation.y.toFixed(2)}`
+        },
+        false
+      );
+    }
+    sendChat(msg, targetDog = null) {
+      if (!msg) return false;
+      return this._sendRaw({
         type: "CHAT_COMMAND",
-        text,
-        targetRobot,
+        text: msg,
+        targetRobot: targetDog,
         username: this.currentUser ? this.currentUser.username : "Humano",
         avatar: this.currentUser ? this.currentUser.avatar : "\u{1F43E}"
       });
     }
-    sendRobotAction(robotName, action, emotion, thought) {
-      this.sendRaw({
+    sendAction(action, data = {}) {
+      if (!action) return false;
+      return this._sendRaw({
         type: "ROBOT_ACTION",
-        robotName,
+        robotName: data.robotName || this.appState.activeRobotName,
         action,
-        emotion,
-        thought
+        emotion: data.emotion || null,
+        thought: data.thought || null
       });
+    }
+    sendBallState(ball) {
+      if (!ball || !ball.mesh) return false;
+      const p = ball.mesh.position;
+      const v = ball.velocity;
+      return this._sendRaw(
+        {
+          type: "BALL_THROW",
+          origin: { x: p.x, y: p.y, z: p.z },
+          direction: v ? { x: v.x, y: v.y, z: v.z } : { x: 0, y: 0, z: 0 },
+          force: 1
+        },
+        false
+      );
+    }
+    dispose() {
+      this._disposed = true;
+      this._abortController.abort();
+      this._timers.clearAll();
+      this._cleanupSocket();
+      this.pendingQueue.length = 0;
+      this.onlineUsers = [];
+      this.connected = false;
+      this.appState.net.connected = false;
+      this.appState.net.onlineUsers = [];
     }
   };
 
-  // public/js/main.js
-  function lerpAngle3(current, target, t) {
-    const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
-    return current + diff * Math.min(1, t);
-  }
-  var App = class {
-    constructor() {
-      this.container = document.getElementById("canvas-container");
-      this.clock = new Clock();
-      this.cameraMode = "diagonal";
-      this.keys = {};
-      this.droneAngle = 0;
-      this.minimapScale = 0.55;
-      this.radarAngle = 0;
-      this.pingRadius = 0;
-      this.targetWaypoint = null;
-      this.isFreeWillActive = false;
-      this.freeWillTimer = 0;
-      this.joystickInput = null;
-      this.touchControlsInitialized = false;
-      this.isHandToolActive = false;
-      this.grabbedRobot = null;
-      this.chatFilterDog = "ALL";
-      this.allChatHistory = [];
-      this.timeOfDay = "day";
-      this.initScene();
-      this.initLights();
-      this.initSkyCelestials();
-      this.initWorld();
-      this.initWaypointBeacon3D();
-      this.initPackAndPlayer();
-      this.initVisionAndBrain();
-      this.initMinimap();
-      this.initUI();
-      this.initTouchControls();
-      this.initEventListeners();
-      this.initLoginAndMultiplayer();
-      this.initShareModal();
-      this.animate = this.animate.bind(this);
-      requestAnimationFrame(this.animate);
+  // public/js/ui_hud.js
+  var WEATHER_MODES = ["CLEAR", "CYBER_RAIN", "FIREFLIES", "STARDUST"];
+  var WEATHER_LABELS = {
+    CLEAR: "\u2600\uFE0F Clima Despejado",
+    CYBER_RAIN: "\u{1F327}\uFE0F Lluvia Ne\xF3n",
+    FIREFLIES: "\u2728 Luci\xE9rnagas",
+    STARDUST: "\u2744\uFE0F Polvo Estelar"
+  };
+  var VISION_MODES = ["", "fx-crt", "fx-nightvision", "fx-thermal", "fx-cinema"];
+  var VISION_LABELS = [
+    "\u{1F576}\uFE0F \xD3ptica: Est\xE1ndar",
+    "\u{1F4FA} \xD3ptica: CRT",
+    "\u{1F7E2} \xD3ptica: Nocturna",
+    "\u{1F525} \xD3ptica: T\xE9rmica",
+    "\u{1F3AC} \xD3ptica: Cine"
+  ];
+  var CAM_LABELS = {
+    follow: "Seguir",
+    diagonal: "Diag",
+    orbit: "\xD3rbita",
+    free: "Vuelo",
+    eye: "Ojos",
+    drone: "Drone"
+  };
+  var CAM_CYCLE_ORDER = ["follow", "diagonal", "orbit", "drone", "eye", "free"];
+  var TIME_ORDER = ["day", "sunset", "night"];
+  var STATIC_ATTRACTIONS = [
+    [38, 22, "\u{1F3AA}"],
+    [62, 26, "\u{1F3A0}"],
+    [52, 56, "\u{1FAA9}"],
+    [72, 52, "\u{1F3E0}"],
+    [12, 10, "\u{1F4A7}"],
+    [-46, -48, "\u{1F309}"],
+    [-32, 48, "\u{1F7E3}"],
+    [-18, -32, "\u{1F3A2}"],
+    [22, -50, "\u{1F300}"],
+    [76, 18, "\u{1F3AF}"],
+    [-42, 14, "\u{1FA85}"]
+  ];
+  var UiHud = class {
+    constructor(eventBus2, appState2, world, packManager, brain, vision, multiplayer) {
+      this.eventBus = eventBus2;
+      this.appState = appState2;
+      this.world = world;
+      this.packManager = packManager;
+      this.brain = brain;
+      this.vision = vision;
+      this.multiplayer = multiplayer;
+      this._ac = new AbortController();
+      this._unsubs = [];
+      this._timers = /* @__PURE__ */ new Set();
+      this._speechVec = new Vector3();
+      this._lastBubbleX = -9999;
+      this._lastBubbleY = -9999;
+      this._bubbleVisible = false;
+      this._speechHideTimer = null;
+      this._minimapAccum = 0;
+      this._minimapScale = 0.55;
+      this._radarAngle = 0;
+      this._pingRadius = 0;
+      this._targetWaypoint = null;
+      this._minimapSnapshot = { soccerBallPos: null, ballPositions: [], snackPositions: [] };
+      this._fpsHistory = new Float32Array(48);
+      this._fpsHistory.fill(60);
+      this._fpsHead = 0;
+      this._telemetryOpen = false;
+      this._lastTelemetryMs = 0;
+      this._lastStats = { nrg: -1, cur: -1, aff: -1, hyd: -1, emo: "", loc: "" };
+      this._chatFilterDog = "ALL";
+      this._allChatHistory = [];
+      this._macroQueue = [
+        { id: "btn-anim-playBow", label: "\u{1F647} Reverencia" },
+        { id: "btn-anim-spin", label: "\u{1F504} Girar" },
+        { id: "btn-anim-backflip", label: "\u{1F938} Voltereta" },
+        { id: "btn-emo-happy", label: "\u{1F60A} Feliz" }
+      ];
+      this._macroLoop = false;
+      this._macroRunning = false;
+      this._cacheElements();
+      this._initMinimapCanvas();
+      this._bindControls();
+      this._bindModalsAndExtras();
+      this._bindEventBus();
+      this._initResponsiveDefaults();
+      this._initSavedUser();
+      this._renderMacroTimeline(-1);
     }
-    initScene() {
-      this.scene = new Scene();
-      this.scene.background = new Color(8900331);
-      this.scene.fog = new FogExp2(8900331, 28e-4);
-      const aspect2 = window.innerWidth / window.innerHeight || 1.6;
-      this.camera = new PerspectiveCamera(50, aspect2, 0.25, 1e3);
-      this.camera.position.set(32 + 18, 16, 32 + 18);
-      this.renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = PCFSoftShadowMap;
-      if (this.container) {
-        this.container.appendChild(this.renderer.domElement);
-      } else {
-        document.body.appendChild(this.renderer.domElement);
-      }
-      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-      this.controls.enableDamping = true;
-      this.controls.dampingFactor = 0.06;
-      this.controls.maxPolarAngle = Math.PI / 2 - 0.03;
-      this.controls.minDistance = 3;
-      this.controls.maxDistance = 160;
+    _trackTimer(id) {
+      this._timers.add(id);
+      return id;
     }
-    initLights() {
-      this.hemiLight = new HemisphereLight(14742270, 3706428, 0.75);
-      this.scene.add(this.hemiLight);
-      this.sunLight = new DirectionalLight(16775149, 1.35);
-      this.sunLight.position.set(120, 160, 90);
-      this.sunLight.castShadow = true;
-      this.sunLight.shadow.mapSize.width = 1024;
-      this.sunLight.shadow.mapSize.height = 1024;
-      this.sunLight.shadow.camera.near = 10;
-      this.sunLight.shadow.camera.far = 420;
-      const d = 110;
-      this.sunLight.shadow.camera.left = -d;
-      this.sunLight.shadow.camera.right = d;
-      this.sunLight.shadow.camera.top = d;
-      this.sunLight.shadow.camera.bottom = -d;
-      this.sunLight.shadow.bias = -5e-4;
-      this.scene.add(this.sunLight);
-      this.fillLight = new DirectionalLight(165063, 0.35);
-      this.fillLight.position.set(-80, 60, -80);
-      this.scene.add(this.fillLight);
+    _setTimeout(fn, ms) {
+      const id = setTimeout(() => {
+        this._timers.delete(id);
+        fn();
+      }, ms);
+      return this._trackTimer(id);
     }
-    // 3D Celestial Sun, Glowing Moon & Night Starfield Dome
-    initSkyCelestials() {
-      this.skyGroup = new Group();
-      this.scene.add(this.skyGroup);
-      const sunMat = new MeshBasicMaterial({ color: 16776171, fog: false });
-      this.sunOrb = new Mesh(new SphereGeometry(14, 24, 24), sunMat);
-      this.sunOrb.position.set(150, 185, 110);
-      this.skyGroup.add(this.sunOrb);
-      const moonMat = new MeshBasicMaterial({ color: 14742270, fog: false });
-      this.moonOrb = new Mesh(new SphereGeometry(11, 24, 24), moonMat);
-      this.moonOrb.position.set(-140, 175, -120);
-      this.moonOrb.visible = false;
-      this.skyGroup.add(this.moonOrb);
-      const starCount = 320;
-      const starGeo = new BufferGeometry();
-      const starPos = new Float32Array(starCount * 3);
-      for (let i = 0; i < starCount; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.random() * (Math.PI * 0.44);
-        const r = 310;
-        starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-        starPos[i * 3 + 1] = Math.max(35, r * Math.cos(phi));
-        starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-      }
-      starGeo.setAttribute("position", new BufferAttribute(starPos, 3));
-      const starMat = new PointsMaterial({
-        color: 14742270,
-        size: 1.6,
-        transparent: true,
-        opacity: 0.9,
-        fog: false
-      });
-      this.starField = new Points(starGeo, starMat);
-      this.starField.visible = false;
-      this.skyGroup.add(this.starField);
+    _setInterval(fn, ms) {
+      const id = setInterval(fn, ms);
+      return this._trackTimer(id);
     }
-    // 3D Tactical Waypoint Ring shown in the 3D world when navigating via Minimap
-    initWaypointBeacon3D() {
-      this.waypointBeaconGroup = new Group();
-      this.waypointBeaconGroup.visible = false;
-      const ringMat = new MeshBasicMaterial({
-        color: 2293640,
-        side: DoubleSide,
-        transparent: true,
-        opacity: 0.85
-      });
-      const ring = new Mesh(new RingGeometry(0.9, 1.25, 32), ringMat);
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.12;
-      this.waypointBeaconGroup.add(ring);
-      const beamMat = new MeshBasicMaterial({
-        color: 2293640,
-        transparent: true,
-        opacity: 0.28,
-        side: DoubleSide
-      });
-      const beam = new Mesh(new CylinderGeometry(0.85, 0.85, 4.5, 24, 1, true), beamMat);
-      beam.position.y = 2.25;
-      this.waypointBeaconGroup.add(beam);
-      this.scene.add(this.waypointBeaconGroup);
+    _clearTimer(id) {
+      if (id === null || id === void 0) return;
+      clearTimeout(id);
+      clearInterval(id);
+      this._timers.delete(id);
     }
-    setTimeOfDay(time) {
-      this.timeOfDay = time;
-      if (time === "day") {
-        this.scene.background.setHex(8900331);
-        this.scene.fog.color.setHex(8900331);
-        this.hemiLight.color.setHex(14742270);
-        this.hemiLight.groundColor.setHex(3706428);
-        this.sunLight.color.setHex(16775149);
-        this.sunLight.intensity = 1.35;
-        this.sunLight.position.set(120, 160, 90);
-        this.fillLight.color.setHex(165063);
-        if (this.sunOrb) {
-          this.sunOrb.visible = true;
-          this.sunOrb.material.color.setHex(16776171);
-          this.sunOrb.position.set(150, 185, 110);
-        }
-        if (this.moonOrb) this.moonOrb.visible = false;
-        if (this.starField) this.starField.visible = false;
-        this.pushActivity("\u2600\uFE0F Es mediod\xEDa brillante en el prado.");
-      } else if (time === "sunset") {
-        this.scene.background.setHex(16612884);
-        this.scene.fog.color.setHex(16612884);
-        this.hemiLight.color.setHex(16701354);
-        this.hemiLight.groundColor.setHex(8138002);
-        this.sunLight.color.setHex(16772565);
-        this.sunLight.intensity = 1.1;
-        this.sunLight.position.set(-160, 65, 90);
-        this.fillLight.color.setHex(14251782);
-        if (this.sunOrb) {
-          this.sunOrb.visible = true;
-          this.sunOrb.material.color.setHex(16740419);
-          this.sunOrb.position.set(-210, 68, 110);
-        }
-        if (this.moonOrb) this.moonOrb.visible = false;
-        if (this.starField) this.starField.visible = false;
-        this.pushActivity("\u{1F305} El atardecer ti\xF1e el cielo de oro y naranja.");
-      } else if (time === "night") {
-        this.scene.background.setHex(461593);
-        this.scene.fog.color.setHex(461593);
-        this.hemiLight.color.setHex(1976635);
-        this.hemiLight.groundColor.setHex(142370);
-        this.sunLight.color.setHex(3718648);
-        this.sunLight.intensity = 0.55;
-        this.sunLight.position.set(-120, 150, -100);
-        this.fillLight.color.setHex(6514417);
-        if (this.sunOrb) this.sunOrb.visible = false;
-        if (this.moonOrb) this.moonOrb.visible = true;
-        if (this.starField) this.starField.visible = true;
-        this.pushActivity("\u{1F319} Cae la noche cibern\xE9tica; las estrellas y luces de ne\xF3n brillan.");
+    _emitAction(action, payload = null) {
+      this._pulseHaptic(15);
+      if (this.eventBus) {
+        this.eventBus.emit("input:action", { action, payload });
       }
     }
-    initWorld() {
-      this.world = new WorldManager(
-        this.scene,
-        (score) => {
-          const goalEl = document.getElementById("soccer-score-num");
-          if (goalEl) goalEl.textContent = score;
-        },
-        (msg) => {
-          this.pushActivity(msg);
-        }
-      );
-      this.world.onTargetHit = (score) => {
-        const targetEl = document.getElementById("target-score-num");
-        if (targetEl) targetEl.textContent = score;
-      };
-      this.particleSystem = new EmotionParticleSystem(this.scene);
-    }
-    initPackAndPlayer() {
-      this.packManager = new RobotPackManager(this.scene, this.world, (msg) => {
-        this.pushActivity(msg);
-      });
-      this.playerRobot = this.packManager.allRobots["Sparky"];
-      this.playerRobot.velocityY = 0;
-    }
-    initVisionAndBrain() {
-      this.vision = new RobotVisionSystem(this.playerRobot, this.scene, this.world);
-      const pipCanvas = document.getElementById("pip-canvas");
-      if (pipCanvas) {
-        this.vision.initPIP(pipCanvas);
-      }
-      this.brain = new RobotBrain(
-        this.playerRobot,
-        this.vision,
-        this.world,
-        this.packManager,
-        this.particleSystem
-      );
-      this.brain.onChatResponse = (author, message, action) => {
-        this.addChatMessage(author, message, "robot");
-      };
-    }
-    initMinimap() {
-      this.minimapCanvas = document.getElementById("minimap-canvas");
-      if (this.minimapCanvas) {
-        this.minimapCtx = this.minimapCanvas.getContext("2d");
-        this.minimapCanvas.addEventListener("click", (e) => {
-          const rect = this.minimapCanvas.getBoundingClientRect();
-          const clickX = (e.clientX - rect.left) * (this.minimapCanvas.width / rect.width);
-          const clickY = (e.clientY - rect.top) * (this.minimapCanvas.height / rect.height);
-          const centerX = this.minimapCanvas.width / 2;
-          const centerY = this.minimapCanvas.height / 2;
-          const pPos = this.playerRobot.group.position;
-          const worldX = pPos.x + (clickX - centerX) / this.minimapScale;
-          const worldZ = pPos.z + (clickY - centerY) / this.minimapScale;
-          const groundY = this.world.getHeightAt(worldX, worldZ);
-          this.targetWaypoint = new Vector3(worldX, groundY, worldZ);
-          if (this.waypointBeaconGroup) {
-            this.waypointBeaconGroup.position.copy(this.targetWaypoint);
-            this.waypointBeaconGroup.visible = true;
-          }
-          this.brain.navigateToward(this.targetWaypoint, 5.8, "run", () => {
-            this.targetWaypoint = null;
-            if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
-          });
-          this.pushActivity(`\u{1F3AF} Navegando hacia punto t\xE1ctico (${Math.round(worldX)}, ${Math.round(worldZ)})`);
-          roboAudio.playBoop(1.3);
-        });
-      }
-      document.getElementById("btn-minimap-zoom-in")?.addEventListener("click", () => {
-        this.minimapScale = Math.min(1.2, this.minimapScale + 0.15);
-      });
-      document.getElementById("btn-minimap-zoom-out")?.addEventListener("click", () => {
-        this.minimapScale = Math.max(0.25, this.minimapScale - 0.15);
-      });
-      document.getElementById("btn-minimap-recenter")?.addEventListener("click", () => {
-        this.minimapScale = 0.55;
-        this.targetWaypoint = null;
-        if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
-      });
-    }
-    pushActivity(text) {
-      const list = document.getElementById("activity-ticker-content");
-      if (!list) return;
-      const item = document.createElement("div");
-      item.className = "activity-item";
-      item.textContent = text;
-      list.prepend(item);
-      while (list.children.length > 6) {
-        list.removeChild(list.lastChild);
+    _pulseHaptic(pattern = 15) {
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(pattern);
       }
     }
-    switchToRobot(name) {
-      const newPlayer = this.packManager.switchToRobot(name);
-      if (!newPlayer) return;
-      this.playerRobot = newPlayer;
-      this.targetWaypoint = null;
-      if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
-      this.vision.attachToRobot(newPlayer);
-      this.brain.setRobot(newPlayer);
-      const nameEl = document.getElementById("robot-name");
-      const titleEl = document.getElementById("robot-title-tag");
-      const avatarEl = document.querySelector(".robot-avatar");
-      const headerAvatarEl = document.getElementById("header-robot-avatar");
-      if (nameEl) nameEl.textContent = newPlayer.name;
-      if (titleEl) titleEl.textContent = newPlayer.profile.title;
-      if (avatarEl) avatarEl.textContent = newPlayer.profile.avatarIcon || "\u{1F43E}";
-      if (headerAvatarEl) headerAvatarEl.textContent = newPlayer.profile.avatarIcon || "\u{1F43E}";
-      document.querySelectorAll(".robo-switch-card").forEach((card) => {
-        if (card.dataset.robot === name) card.classList.add("active");
-        else card.classList.remove("active");
-      });
-      const switcherStrip = document.getElementById("robot-switcher-strip");
-      if (switcherStrip) {
-        switcherStrip.classList.add("hidden");
-        switcherStrip.classList.remove("popup-open");
-        document.getElementById("btn-open-pet-switcher")?.classList.remove("open");
-      }
-      this.updateHUDStats();
+    _cacheElements() {
+      this.el = {
+        hudOverlay: document.getElementById("hud-overlay"),
+        speechBubble: document.getElementById("world-speech-bubble"),
+        toastContainer: document.getElementById("cyber-toast-container"),
+        robotName: document.getElementById("robot-name"),
+        robotTitle: document.getElementById("robot-title-tag"),
+        headerAvatar: document.getElementById("header-robot-avatar"),
+        thinkStatus: document.getElementById("think-status"),
+        statLocation: document.getElementById("stat-location"),
+        statEmotion: document.getElementById("stat-emotion"),
+        statEnergy: document.getElementById("stat-energy"),
+        statCuriosity: document.getElementById("stat-curiosity"),
+        statAffection: document.getElementById("stat-affection"),
+        statHydration: document.getElementById("stat-hydration"),
+        barEnergy: document.getElementById("bar-energy"),
+        barCuriosity: document.getElementById("bar-curiosity"),
+        barAffection: document.getElementById("bar-affection"),
+        barHydration: document.getElementById("bar-hydration"),
+        soccerScore: document.getElementById("soccer-score-num"),
+        targetScore: document.getElementById("target-score-num"),
+        perfPill: document.getElementById("cyber-perf-pill"),
+        perfDot: document.getElementById("perf-status-dot"),
+        hudFps: document.getElementById("hud-fps-counter"),
+        hudCalls: document.getElementById("hud-calls-counter"),
+        hudAiPing: document.getElementById("hud-ai-ping"),
+        telemetryWidget: document.getElementById("telemetry-widget"),
+        telemetryBudgetBadge: document.getElementById("telemetry-budget-badge"),
+        twFps: document.getElementById("tw-fps"),
+        twMs: document.getElementById("tw-ms"),
+        twCalls: document.getElementById("tw-calls"),
+        twTris: document.getElementById("tw-tris"),
+        twGeos: document.getElementById("tw-geos"),
+        twTexs: document.getElementById("tw-texs"),
+        twHeap: document.getElementById("tw-heap"),
+        twPing: document.getElementById("tw-ping"),
+        twChart: document.getElementById("telemetry-widget-chart"),
+        tValFps: document.getElementById("t-val-fps"),
+        tValMs: document.getElementById("t-val-ms"),
+        tValCalls: document.getElementById("t-val-calls"),
+        tValTris: document.getElementById("t-val-tris"),
+        tValGeos: document.getElementById("t-val-geos"),
+        tValTexs: document.getElementById("t-val-texs"),
+        tValPing: document.getElementById("t-val-ping"),
+        tValApiCalls: document.getElementById("t-val-api-calls"),
+        tHeapLabel: document.getElementById("telemetry-heap-label"),
+        tChart: document.getElementById("telemetry-chart-canvas"),
+        llmLog: document.getElementById("llm-inspector-log"),
+        camCurrentName: document.getElementById("cam-current-name"),
+        thoughtText: document.getElementById("thought-bubble-text"),
+        activityList: document.getElementById("activity-ticker-content"),
+        chatFeed: document.getElementById("chat-history-feed"),
+        chatInput: document.getElementById("chat-input"),
+        bottomDock: document.getElementById("bottom-dock"),
+        dockToggleIcon: document.getElementById("dock-toggle-icon"),
+        quickBar: document.getElementById("roblox-quick-bar"),
+        minimapPanel: document.getElementById("minimap-panel"),
+        minimapCanvas: document.getElementById("minimap-canvas"),
+        pipPanel: document.getElementById("pip-panel"),
+        usersPanel: document.getElementById("online-users-panel"),
+        usersCount: document.getElementById("online-users-count"),
+        usersList: document.getElementById("online-users-list"),
+        headerUserAvatar: document.getElementById("header-user-avatar"),
+        headerUserName: document.getElementById("header-user-name")
+      };
+      this.twCtx = this.el.twChart ? this.el.twChart.getContext("2d") : null;
+      this.tCtx = this.el.tChart ? this.el.tChart.getContext("2d") : null;
     }
-    triggerPlayerJump(boost = 7.2) {
-      if (!this.playerRobot) return;
-      const groundY = this.world.getHeightAt(this.playerRobot.group.position.x, this.playerRobot.group.position.z);
-      if (this.playerRobot.group.position.y <= groundY + 0.25) {
-        this.playerRobot.velocityY = boost;
-        this.playerRobot.animController.play("jump", 1.2);
-        roboAudio.playJump();
-      }
-    }
-    initUI() {
-      const nameEl = document.getElementById("robot-name");
-      if (nameEl) nameEl.textContent = this.playerRobot.name;
-      this.updateHUDStats();
-      document.querySelectorAll(".robo-switch-card").forEach((card) => {
-        card.addEventListener("click", () => {
-          const botName = card.dataset.robot;
-          if (botName) this.switchToRobot(botName);
-        });
-      });
-      ["day", "sunset", "night"].forEach((t) => {
-        document.getElementById(`btn-time-${t}`)?.addEventListener("click", () => {
-          this.setTimeOfDay(t);
-          document.querySelectorAll(".time-btn").forEach((b) => b.classList.remove("active"));
-          document.getElementById(`btn-time-${t}`)?.classList.add("active");
-        });
-      });
-      document.getElementById("btn-spawn-snack")?.addEventListener("click", () => {
-        const pos = this.playerRobot.group.position.clone();
-        const fwd = new Vector3(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.playerRobot.group.rotation.y);
-        pos.addScaledVector(fwd, 2);
-        this.world.spawnCyberSnack(pos);
-      });
-      document.getElementById("btn-trigger-disco")?.addEventListener("click", () => {
-        this.world.triggerDiscoParty();
-      });
-      document.getElementById("btn-call-pack")?.addEventListener("click", () => {
-        this.brain.executeAction("call_pack");
-        this.pushActivity("\u{1F4E3} \xA1Llamaste con un silbido a toda la manada!");
-      });
-      document.getElementById("btn-throw-fetch")?.addEventListener("click", () => {
-        this.throwFetchBall();
-      });
-      document.getElementById("btn-praise-dog")?.addEventListener("click", () => {
-        this.brain.executeAction("praise_burst");
-        this.pushActivity(`\u2764\uFE0F Le dijiste: "\xA1Buen chico!" a ${this.playerRobot.name}`);
-      });
-      document.getElementById("btn-drink-water")?.addEventListener("click", () => {
-        this.pushActivity(`\u{1F4A7} Llevando a ${this.playerRobot.name} a la fuente de agua fresca...`);
-        this.brain.executeAction("go_fountain");
-      });
-      document.getElementById("btn-slalom-rings")?.addEventListener("click", () => {
-        this.brain.executeAction("slalom_rings");
-        this.pushActivity(`\u2B55 ${this.playerRobot.name} va a cruzar el circuito de aros de agilidad.`);
-      });
-      document.getElementById("btn-lake-swim")?.addEventListener("click", () => {
-        this.brain.executeAction("lake_swim");
-        this.pushActivity(`\u{1F3CA} ${this.playerRobot.name} va a nadar al Lago de Cristal.`);
-      });
-      document.getElementById("btn-dig-treasure")?.addEventListener("click", () => {
-        this.brain.executeAction("dig_treasure");
-        this.pushActivity(`\u{1F48E} ${this.playerRobot.name} busca tesoros bajo la tierra.`);
-      });
-      document.getElementById("btn-speed-race")?.addEventListener("click", () => {
-        this.brain.executeAction("speed_race");
-        this.pushActivity(`\u{1F3C1} \xA1Iniciando carrera de velocidad con la manada!`);
-      });
-      const toggleHandTool = () => {
-        this.isHandToolActive = !this.isHandToolActive;
-        const pill = document.getElementById("pill-toggle-hand");
-        const btn = document.getElementById("btn-hand-tool");
-        const qbBtn = document.getElementById("quick-bar-hand");
-        if (pill) pill.classList.toggle("active", this.isHandToolActive);
-        if (btn) btn.classList.toggle("active", this.isHandToolActive);
-        if (qbBtn) qbBtn.classList.toggle("active", this.isHandToolActive);
-        document.body.classList.toggle("hand-tool-active", this.isHandToolActive);
-        this.pushActivity(this.isHandToolActive ? "\u270B Modo Mano Activo: Haz clic y arrastra cualquier perrito para moverlo por los aires." : "\u270B Modo Mano Desactivado.");
-        roboAudio.playBoop(this.isHandToolActive ? 1.6 : 0.9);
-      };
-      document.getElementById("pill-toggle-hand")?.addEventListener("click", toggleHandTool);
-      document.getElementById("btn-hand-tool")?.addEventListener("click", toggleHandTool);
-      document.querySelectorAll(".chat-dog-pill").forEach((pill) => {
-        pill.addEventListener("click", () => {
-          document.querySelectorAll(".chat-dog-pill").forEach((p) => p.classList.remove("active"));
-          pill.classList.add("active");
-          this.chatFilterDog = pill.getAttribute("data-dog") || "ALL";
-          this.renderChatFeed();
-        });
-      });
-      const bottomDock = document.getElementById("bottom-dock");
-      const toggleIcon = document.getElementById("dock-toggle-icon");
-      const quickBar = document.getElementById("roblox-quick-bar");
-      const updateDockUI = () => {
-        if (!bottomDock) return;
-        const isCollapsed = bottomDock.classList.contains("collapsed");
-        if (toggleIcon) toggleIcon.textContent = isCollapsed ? "\u25B2" : "\u25BC";
-        if (quickBar) quickBar.classList.toggle("hidden-by-dock", !isCollapsed);
-      };
-      document.querySelectorAll(".dock-tab").forEach((tabBtn) => {
-        tabBtn.addEventListener("click", () => {
-          const tab = tabBtn.dataset.tab;
-          if (!tab) return;
-          document.querySelectorAll(".dock-tab").forEach((b) => b.classList.remove("active"));
-          document.querySelectorAll(".tab-pane").forEach((p) => p.classList.remove("active"));
-          tabBtn.classList.add("active");
-          const pane = document.getElementById(`tab-pane-${tab}`);
-          if (pane) pane.classList.add("active");
-          if (bottomDock && bottomDock.classList.contains("collapsed")) {
-            bottomDock.classList.remove("collapsed");
-            updateDockUI();
-          }
-        });
-      });
-      const toggleDockBtn = document.getElementById("btn-toggle-bottom-dock");
-      const closeDockBtn = document.getElementById("btn-close-bottom-dock");
-      toggleDockBtn?.addEventListener("click", () => {
-        if (!bottomDock) return;
-        bottomDock.classList.toggle("collapsed");
-        updateDockUI();
-      });
-      closeDockBtn?.addEventListener("click", () => {
-        if (!bottomDock) return;
-        bottomDock.classList.add("collapsed");
-        updateDockUI();
-      });
-      document.getElementById("quick-bar-more")?.addEventListener("click", () => {
-        if (!bottomDock) return;
-        bottomDock.classList.toggle("collapsed");
-        updateDockUI();
-      });
-      document.getElementById("quick-bar-hand")?.addEventListener("click", () => {
-        toggleHandTool();
-      });
-      document.getElementById("quick-bar-fetch")?.addEventListener("click", () => {
-        document.getElementById("btn-throw-fetch")?.click();
-      });
-      document.getElementById("quick-bar-snack")?.addEventListener("click", () => {
-        document.getElementById("btn-spawn-snack")?.click();
-      });
-      document.getElementById("quick-bar-pet")?.addEventListener("click", () => {
-        document.getElementById("btn-pet-robot")?.click();
-      });
-      const openChatTab = () => {
-        const chatTab = document.querySelector('.dock-tab[data-tab="chat"]');
-        if (chatTab) chatTab.click();
-        if (bottomDock) {
-          bottomDock.classList.remove("collapsed");
-          updateDockUI();
-        }
-        setTimeout(() => document.getElementById("chat-input")?.focus(), 250);
-      };
-      document.getElementById("quick-bar-chat")?.addEventListener("click", openChatTab);
-      document.getElementById("btn-toggle-chat")?.addEventListener("click", () => {
-        if (!bottomDock || bottomDock.classList.contains("collapsed")) {
-          openChatTab();
-        } else {
-          bottomDock.classList.add("collapsed");
-          updateDockUI();
-        }
-      });
-      const petSwitcherBtn = document.getElementById("btn-open-pet-switcher");
-      const switcherStrip = document.getElementById("robot-switcher-strip");
-      const closeSwitcherBtn = document.getElementById("btn-close-switcher");
-      petSwitcherBtn?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (!switcherStrip) return;
-        const willOpen = switcherStrip.classList.contains("hidden");
-        switcherStrip.classList.toggle("hidden", !willOpen);
-        switcherStrip.classList.toggle("popup-open", willOpen);
-        petSwitcherBtn.classList.toggle("open", willOpen);
-      });
-      closeSwitcherBtn?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (!switcherStrip) return;
-        switcherStrip.classList.add("hidden");
-        switcherStrip.classList.remove("popup-open");
-        petSwitcherBtn?.classList.remove("open");
-      });
-      document.addEventListener("click", (e) => {
-        if (switcherStrip && !switcherStrip.contains(e.target) && !petSwitcherBtn?.contains(e.target)) {
-          switcherStrip.classList.add("hidden");
-          switcherStrip.classList.remove("popup-open");
-          petSwitcherBtn?.classList.remove("open");
-        }
-      });
-      const isFsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-      const updateFsUI = () => {
-        const active = isFsActive();
-        const fsBtn = document.getElementById("btn-toggle-fullscreen");
-        const menuFsBtn = document.getElementById("menu-btn-fullscreen");
-        if (fsBtn) {
-          fsBtn.classList.toggle("active", active);
-          fsBtn.innerHTML = `${active ? "\u{1F5D7}" : "\u26F6"} <span class="btn-text-label">${active ? "Salir" : "Completa"}</span>`;
-          fsBtn.title = active ? "Salir de pantalla completa" : "Pantalla Completa (F11 / M\xF3vil)";
-        }
-        if (menuFsBtn) {
-          const strong = menuFsBtn.querySelector("strong");
-          const small = menuFsBtn.querySelector("small");
-          if (strong) strong.textContent = active ? "Salir Pantalla Completa" : "Pantalla Completa";
-          if (small) small.textContent = active ? "Restaurar ventana" : "Ocultar barras del navegador";
-        }
-      };
-      const toggleFullscreenMode = () => {
-        const doc = document;
-        const docEl = document.documentElement;
-        if (!isFsActive()) {
-          if (docEl.requestFullscreen) {
-            docEl.requestFullscreen().catch((err) => console.warn("FS error:", err));
-          } else if (docEl.webkitRequestFullscreen) {
-            docEl.webkitRequestFullscreen();
-          } else if (docEl.mozRequestFullScreen) {
-            docEl.mozRequestFullScreen();
-          } else if (docEl.msRequestFullscreen) {
-            docEl.msRequestFullscreen();
-          }
-        } else {
-          if (doc.exitFullscreen) {
-            doc.exitFullscreen().catch((err) => console.warn("Exit FS error:", err));
-          } else if (doc.webkitExitFullscreen) {
-            doc.webkitExitFullscreen();
-          } else if (doc.mozCancelFullScreen) {
-            doc.mozCancelFullScreen();
-          } else if (doc.msExitFullscreen) {
-            doc.msExitFullscreen();
-          }
-        }
-      };
-      document.getElementById("btn-toggle-fullscreen")?.addEventListener("click", toggleFullscreenMode);
-      document.getElementById("menu-btn-fullscreen")?.addEventListener("click", () => {
-        toggleFullscreenMode();
-        document.getElementById("modal-game-menu")?.classList.add("hidden");
-      });
-      ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"].forEach((evt) => {
-        document.addEventListener(evt, updateFsUI);
-      });
-      const gameMenuModal = document.getElementById("modal-game-menu");
-      const openMenuBtn = document.getElementById("btn-open-game-menu");
-      const closeMenuBtn = document.getElementById("btn-close-game-menu");
-      openMenuBtn?.addEventListener("click", () => {
-        if (!gameMenuModal) return;
-        gameMenuModal.classList.remove("hidden");
-        const usrCount = document.getElementById("mobile-menu-users-count");
-        const onlineCount = document.getElementById("online-users-count");
-        if (usrCount && onlineCount) usrCount.textContent = onlineCount.textContent;
-        const userNameEl = document.getElementById("mobile-menu-user-name");
-        const headerUser = document.getElementById("header-user-name");
-        if (userNameEl && headerUser) userNameEl.textContent = headerUser.textContent;
-      });
-      closeMenuBtn?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-      });
-      document.getElementById("menu-btn-profile")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        document.getElementById("modal-login")?.classList.remove("hidden");
-      });
-      document.getElementById("menu-btn-pip")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        const pipPanel = document.getElementById("pip-panel");
-        if (!pipPanel) return;
-        pipPanel.classList.toggle("hidden");
-        const isShown = !pipPanel.classList.contains("hidden");
-        document.getElementById("pill-toggle-pip")?.classList.toggle("active", isShown);
-      });
-      document.getElementById("menu-btn-share")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        document.getElementById("btn-open-share")?.click();
-      });
-      document.getElementById("menu-btn-zen")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        this.toggleZenMode();
-      });
-      document.getElementById("menu-btn-touch")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        document.getElementById("btn-toggle-touch")?.click();
-      });
-      document.getElementById("menu-btn-memory")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        document.getElementById("btn-open-memory")?.click();
-      });
-      document.getElementById("menu-btn-settings")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        document.getElementById("btn-open-settings")?.click();
-      });
-      document.getElementById("menu-btn-users")?.addEventListener("click", () => {
-        gameMenuModal?.classList.add("hidden");
-        document.getElementById("pill-toggle-users")?.click();
-      });
-      document.getElementById("btn-toggle-zen")?.addEventListener("click", () => this.toggleZenMode());
-      document.getElementById("btn-exit-zen")?.addEventListener("click", () => this.toggleZenMode());
-      const wirePill = (pillId, panelId) => {
-        const pill = document.getElementById(pillId);
-        const panel = document.getElementById(panelId);
-        if (!pill || !panel) return;
-        pill.addEventListener("click", () => {
-          panel.classList.toggle("hidden");
-          const isShown = !panel.classList.contains("hidden");
-          pill.classList.toggle("active", isShown);
-        });
-      };
-      wirePill("pill-toggle-minimap", "minimap-panel");
-      wirePill("pill-toggle-pip", "pip-panel");
-      wirePill("pill-toggle-users", "online-users-panel");
-      const setupMinimize = (btnId, panelId) => {
-        const btn = document.getElementById(btnId);
-        const panel = document.getElementById(panelId);
-        if (!btn || !panel) return;
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          panel.classList.toggle("minimized");
-          const isMin = panel.classList.contains("minimized");
-          btn.textContent = isMin ? "\u25A2" : "\u2014";
-          btn.title = isMin ? "Expandir" : "Minimizar";
-        });
-      };
-      setupMinimize("btn-min-upperleft", "thought-panel");
-      setupMinimize("btn-min-ticker", "ticker-panel");
-      setupMinimize("btn-min-minimap", "minimap-panel");
-      setupMinimize("btn-min-pip", "pip-panel");
-      document.getElementById("btn-close-minimap")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        document.getElementById("minimap-panel")?.classList.add("hidden");
-        document.getElementById("pill-toggle-minimap")?.classList.remove("active");
-      });
-      document.getElementById("btn-close-pip")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        document.getElementById("pip-panel")?.classList.add("hidden");
-        document.getElementById("pill-toggle-pip")?.classList.remove("active");
-      });
+    _initResponsiveDefaults() {
       if (window.innerWidth <= 900) {
         const thoughtPanel = document.getElementById("thought-panel");
         const minBtn = document.getElementById("btn-min-upperleft");
         if (thoughtPanel) thoughtPanel.classList.add("minimized");
         if (minBtn) minBtn.textContent = "\u25A2";
       }
-      document.getElementById("btn-clear-chat-log")?.addEventListener("click", () => {
-        this.allChatHistory = [];
-        const feed = document.getElementById("chat-history-feed");
-        if (feed) {
-          feed.innerHTML = `<div class="chat-bubble chat-system"><span class="chat-author">\u{1F916} Sistema:</span> Historial reiniciado.</div>`;
-        }
-      });
-      const freewillBtn = document.getElementById("btn-toggle-freewill");
-      freewillBtn?.addEventListener("click", () => {
-        this.isFreeWillActive = !this.isFreeWillActive;
-        if (this.isFreeWillActive) {
-          freewillBtn.textContent = "\u{1F43E} Modo Libre: ON";
-          freewillBtn.classList.add("active");
-          this.pushActivity(`\u{1F43E} Modo Libre Activado: ${this.playerRobot.name} explorar\xE1 por su cuenta.`);
-        } else {
-          freewillBtn.textContent = "\u{1F43E} Modo Libre: OFF";
-          freewillBtn.classList.remove("active");
-          this.pushActivity(`\u{1F3AE} Control Manual Activado.`);
-        }
-      });
-      document.getElementById("btn-toggle-touch")?.addEventListener("click", () => {
-        const touchOverlay = document.getElementById("virtual-touch-controls");
-        if (touchOverlay) {
-          touchOverlay.classList.toggle("hidden");
-          const isShown = !touchOverlay.classList.contains("hidden");
-          this.pushActivity(isShown ? "\u{1F4F1} Joystick t\xE1ctil din\xE1mico activado." : "\u{1F4F1} Controles t\xE1ctiles ocultados.");
-        }
-      });
-      const endpointInput = document.getElementById("cfg-endpoint");
-      const apikeyInput = document.getElementById("cfg-apikey");
-      const modelSelect = document.getElementById("cfg-model-select");
-      const modelCustom = document.getElementById("cfg-model-custom");
-      const systemPromptInput = document.getElementById("cfg-system-prompt");
-      const intervalInput = document.getElementById("cfg-interval");
-      const intervalVal = document.getElementById("cfg-interval-val");
-      const autoThinkCheck = document.getElementById("cfg-autothink");
-      if (endpointInput) {
-        endpointInput.value = this.brain.config.endpoint || "http://127.0.0.1:31415/v1/chat/completions";
+    }
+    _initSavedUser() {
+      let savedUser = null;
+      try {
+        savedUser = JSON.parse(localStorage.getItem("robochibi_user"));
+      } catch {
       }
-      if (apikeyInput) {
-        apikeyInput.value = this.brain.config.apiKey || "freellmapi-dc6415f70139118055e4065b767a1d8acb930795eb3d1384";
+      if (savedUser && savedUser.username) {
+        this._applyUserLogin(savedUser);
+      } else {
+        document.getElementById("modal-login")?.classList.remove("hidden");
       }
-      if (systemPromptInput) {
-        systemPromptInput.value = this.brain.config.systemPrompt || "";
+    }
+    _applyUserLogin(user) {
+      if (!user) return;
+      if (this.appState?.net) this.appState.net.user = user;
+      if (this.el.headerUserAvatar) this.el.headerUserAvatar.textContent = user.avatar || "\u{1F43E}";
+      if (this.el.headerUserName) this.el.headerUserName.textContent = user.username || "Humano";
+      if (this.multiplayer) {
+        if (this.appState?.net?.connected && this.multiplayer.updateUser) {
+          this.multiplayer.updateUser(user);
+        } else if (this.multiplayer.connect) {
+          this.multiplayer.connect(user);
+        }
       }
-      if (modelSelect) {
-        const savedModel = this.brain.config.model || "auto";
-        let found = false;
-        for (let opt of modelSelect.options) {
-          if (opt.value === savedModel) {
-            modelSelect.value = savedModel;
-            found = true;
-            break;
-          }
+    }
+    _initMinimapCanvas() {
+      this.minimapCtx = this.el.minimapCanvas ? this.el.minimapCanvas.getContext("2d") : null;
+      if (!this.el.minimapCanvas) return;
+      const sig = { signal: this._ac.signal };
+      this.el.minimapCanvas.addEventListener("click", (e) => {
+        const playerDog = this.packManager?.playerDog || this.packManager?.getDog?.(this.appState?.activeRobotName);
+        if (!playerDog) return;
+        const rect = this.el.minimapCanvas.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) * (this.el.minimapCanvas.width / rect.width);
+        const clickY = (e.clientY - rect.top) * (this.el.minimapCanvas.height / rect.height);
+        const centerX = this.el.minimapCanvas.width * 0.5;
+        const centerY = this.el.minimapCanvas.height * 0.5;
+        const pPos = playerDog.group.position;
+        const worldX = pPos.x + (clickX - centerX) / this._minimapScale;
+        const worldZ = pPos.z + (clickY - centerY) / this._minimapScale;
+        this._targetWaypoint = { x: worldX, z: worldZ };
+        this._emitAction("navigateTo", { x: worldX, z: worldZ });
+      }, sig);
+      document.getElementById("btn-minimap-zoom-in")?.addEventListener("click", () => {
+        this._minimapScale = Math.min(1.2, this._minimapScale + 0.15);
+      }, sig);
+      document.getElementById("btn-minimap-zoom-out")?.addEventListener("click", () => {
+        this._minimapScale = Math.max(0.25, this._minimapScale - 0.15);
+      }, sig);
+      document.getElementById("btn-minimap-recenter")?.addEventListener("click", () => {
+        this._minimapScale = 0.55;
+        this._targetWaypoint = null;
+        this._emitAction("cancelNavigation");
+      }, sig);
+    }
+    _bindControls() {
+      const sig = { signal: this._ac.signal };
+      const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn, sig);
+      const petBtn = document.getElementById("btn-open-pet-switcher");
+      const switcher = document.getElementById("robot-switcher-strip");
+      on("btn-open-pet-switcher", (e) => {
+        e.stopPropagation();
+        if (!switcher) return;
+        const open = switcher.classList.contains("hidden");
+        switcher.classList.toggle("hidden", !open);
+        petBtn?.classList.toggle("open", open);
+      });
+      on("btn-close-switcher", (e) => {
+        e.stopPropagation();
+        switcher?.classList.add("hidden");
+        petBtn?.classList.remove("open");
+      });
+      document.addEventListener("click", (e) => {
+        if (switcher && !switcher.classList.contains("hidden") && !switcher.contains(e.target) && !petBtn?.contains(e.target)) {
+          switcher.classList.add("hidden");
+          petBtn?.classList.remove("open");
         }
-        if (!found && savedModel !== "auto") {
-          modelSelect.value = "custom";
-          if (modelCustom) {
-            modelCustom.value = savedModel;
-            modelCustom.classList.remove("hidden");
+      }, sig);
+      const cards = document.querySelectorAll(".robo-switch-card");
+      for (let i = 0; i < cards.length; i++) {
+        cards[i].addEventListener("click", () => {
+          const botName = cards[i].dataset.robot;
+          if (botName) {
+            this._emitAction("switchRobot", { name: botName });
+            switcher?.classList.add("hidden");
+            petBtn?.classList.remove("open");
           }
-        }
-        modelSelect.addEventListener("change", (e) => {
-          if (e.target.value === "custom") {
-            modelCustom?.classList.remove("hidden");
-          } else {
-            modelCustom?.classList.add("hidden");
-          }
+        }, sig);
+      }
+      for (let i = 0; i < TIME_ORDER.length; i++) {
+        const t = TIME_ORDER[i];
+        on(`btn-time-${t}`, () => this._emitAction("setTimeOfDay", { timeOfDay: t }));
+      }
+      on("btn-cycle-weather", () => {
+        const cur = this.appState?.weatherMode || "CLEAR";
+        const next = WEATHER_MODES[(WEATHER_MODES.indexOf(cur) + 1) % WEATHER_MODES.length];
+        this._emitAction("setWeatherMode", { mode: next });
+      });
+      on("btn-cycle-vision", () => {
+        const cur = this.appState?.visionMode || "";
+        const next = VISION_MODES[(VISION_MODES.indexOf(cur) + 1) % VISION_MODES.length];
+        this._emitAction("setVisionMode", { mode: next });
+      });
+      on("cyber-perf-pill", () => {
+        this._telemetryOpen = !this._telemetryOpen;
+        this.el.telemetryWidget?.classList.toggle("collapsed", !this._telemetryOpen);
+        this._pulseHaptic(10);
+      });
+      on("btn-close-telemetry-widget", () => {
+        this._telemetryOpen = false;
+        this.el.telemetryWidget?.classList.add("collapsed");
+      });
+      const busActions = {
+        "btn-throw-fetch": "throwBall",
+        "quick-bar-fetch": "throwBall",
+        "btn-spawn-snack": "spawnSnack",
+        "quick-bar-snack": "spawnSnack",
+        "btn-praise-dog": "praise",
+        "btn-pet-robot": "pet",
+        "quick-bar-pet": "pet",
+        "btn-trigger-disco": "disco"
+      };
+      const busKeys = Object.keys(busActions);
+      for (let i = 0; i < busKeys.length; i++) {
+        const id = busKeys[i];
+        const act = busActions[id];
+        on(id, () => this._emitAction(act));
+      }
+      const brainActions = {
+        "btn-call-pack": "call_pack",
+        "btn-drink-water": "go_fountain",
+        "btn-slalom-rings": "slalom_rings",
+        "btn-lake-swim": "lake_swim",
+        "btn-dig-treasure": "dig_treasure",
+        "btn-speed-race": "speed_race"
+      };
+      const brainKeys = Object.keys(brainActions);
+      for (let i = 0; i < brainKeys.length; i++) {
+        const id = brainKeys[i];
+        const act = brainActions[id];
+        on(id, () => {
+          this._pulseHaptic(15);
+          this.brain?.executeAction?.(act);
         });
       }
-      if (intervalInput) {
-        intervalInput.value = this.brain.config.intervalSeconds;
-        if (intervalVal) intervalVal.textContent = `${this.brain.config.intervalSeconds}s`;
-        intervalInput.oninput = (e) => {
-          if (intervalVal) intervalVal.textContent = `${e.target.value}s`;
-          this.brain.config.intervalSeconds = parseInt(e.target.value, 10);
-        };
-      }
-      if (autoThinkCheck) autoThinkCheck.checked = this.brain.config.autoThink;
-      const sanitizeUrl = (raw) => {
-        if (!raw) return "http://127.0.0.1:31415/v1/chat/completions";
-        const m = raw.match(/https?:\/\/[^\s"']+/i);
-        let u = m ? m[0] : raw.trim();
-        u = u.replace(/\/+$/, "");
-        if (!u.endsWith("/chat/completions")) {
-          if (u.endsWith("/v1")) u += "/chat/completions";
-          else u += "/v1/chat/completions";
-        }
-        return u;
+      on("btn-manual-think", () => {
+        this._pulseHaptic(12);
+        this.brain?.triggerFreeWillThought?.();
+      });
+      const syncHandUI = () => {
+        const active = !!this.appState?.isHandToolActive;
+        document.getElementById("btn-hand-tool")?.classList.toggle("active", active);
+        document.getElementById("pill-toggle-hand")?.classList.toggle("active", active);
+        document.getElementById("quick-bar-hand")?.classList.toggle("active", active);
+        document.body.classList.toggle("hand-tool-active", active);
       };
-      document.getElementById("btn-save-settings")?.addEventListener("click", () => {
-        const cleanEp = sanitizeUrl(endpointInput?.value || "");
-        if (endpointInput) endpointInput.value = cleanEp;
-        let chosenModel = modelSelect ? modelSelect.value : "auto";
-        if (chosenModel === "custom" && modelCustom && modelCustom.value.trim()) {
-          chosenModel = modelCustom.value.trim();
+      const toggleHand = () => {
+        this._emitAction("toggleHandTool");
+        syncHandUI();
+      };
+      on("btn-hand-tool", toggleHand);
+      on("pill-toggle-hand", toggleHand);
+      on("quick-bar-hand", toggleHand);
+      on("btn-toggle-freewill", () => {
+        this._emitAction("toggleFreeWill");
+        const active = !!this.appState?.isFreeWill;
+        const btn = document.getElementById("btn-toggle-freewill");
+        if (btn) {
+          btn.classList.toggle("active", active);
+          btn.textContent = active ? "\u{1F43E} Modo Libre: ON" : "\u{1F43E} Modo Libre: OFF";
         }
-        this.brain.config.endpoint = cleanEp;
-        this.brain.config.apiKey = apikeyInput ? apikeyInput.value.trim() : "";
-        this.brain.config.model = chosenModel;
-        this.brain.config.systemPrompt = systemPromptInput ? systemPromptInput.value.trim() : "";
-        if (autoThinkCheck) this.brain.config.autoThink = autoThinkCheck.checked;
-        this.brain.saveConfig();
-        this.pushActivity(`\u2699\uFE0F FreeLLMAPI guardado: ${chosenModel}`);
-        alert(`Configuraci\xF3n guardada exitosamente.
-Modelo: ${chosenModel}
-Endpoint: ${cleanEp}`);
-        document.getElementById("modal-settings")?.classList.add("hidden");
+        this.showToast(active ? "\u{1F43E} Modo Libre Activado" : "\u{1F3AE} Control Manual");
       });
-      document.getElementById("btn-test-connection")?.addEventListener("click", async () => {
-        const statusEl = document.getElementById("api-test-status");
-        if (!statusEl) return;
-        statusEl.textContent = "Probando conexi\xF3n con FreeLLMAPI...";
-        try {
-          const cleanEp = sanitizeUrl(endpointInput?.value || "");
-          const key = apikeyInput ? apikeyInput.value.trim() : "";
-          let mdl = modelSelect ? modelSelect.value : "auto";
-          if (mdl === "custom" && modelCustom && modelCustom.value.trim()) {
-            mdl = modelCustom.value.trim();
-          }
-          const res = await fetch("/api/llm/proxy", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              endpoint: cleanEp,
-              apiKey: key,
-              model: mdl,
-              messages: [{ role: "user", content: 'Di "Conexi\xF3n Exitosa con FreeLLMAPI" en 5 palabras' }],
-              max_tokens: 20
-            })
-          });
-          const data = await res.json();
-          if (res.ok && data.choices && data.choices.length > 0) {
-            const reply = data.choices[0].message?.content || "Conectado";
-            statusEl.textContent = `\u2705 \xC9xito [${data.model || mdl}]: ${reply}`;
-            statusEl.style.color = "#22ff88";
-            this.pushActivity(`\u2705 Conexi\xF3n exitosa con FreeLLMAPI (${data.model || mdl})`);
-          } else {
-            statusEl.textContent = `\u274C Error: ${data.error?.message || data.error || "Fallo de autenticaci\xF3n o endpoint"}`;
-            statusEl.style.color = "#ff3d00";
-          }
-        } catch (err) {
-          statusEl.textContent = `\u274C Error de red: ${err.message}`;
-          statusEl.style.color = "#ff3d00";
-        }
+      on("btn-toggle-sfx", () => {
+        this._pulseHaptic(10);
+        const nextMuted = !(this.appState?.isMuted ?? false);
+        if (this.appState) this.appState.isMuted = nextMuted;
+        roboAudio?.setMuted?.(nextMuted);
+        const btn = document.getElementById("btn-toggle-sfx");
+        if (btn) btn.textContent = nextMuted ? "\u{1F507}" : "\u{1F50A}";
+        this.showToast(nextMuted ? "\u{1F507} Audio silenciado" : "\u{1F50A} Audio activado");
       });
-      document.getElementById("btn-open-settings")?.addEventListener("click", () => {
-        document.getElementById("modal-settings")?.classList.remove("hidden");
+      on("btn-toggle-touch", () => {
+        this._pulseHaptic(10);
+        const overlay = document.getElementById("virtual-touch-controls");
+        if (!overlay) return;
+        const nextVis = overlay.classList.contains("hidden");
+        overlay.classList.toggle("hidden", !nextVis);
+        if (this.appState) this.appState.isTouchVisible = nextVis;
+        this.showToast(nextVis ? "\u{1F4F1} Joystick t\xE1ctil visible" : "\u{1F4F1} Joystick oculto");
       });
-      document.getElementById("btn-close-settings")?.addEventListener("click", () => {
-        document.getElementById("modal-settings")?.classList.add("hidden");
-      });
-      document.getElementById("btn-open-memory")?.addEventListener("click", () => {
-        this.brain.loadMemoryFromDisk();
-        document.getElementById("modal-memory")?.classList.remove("hidden");
-      });
-      document.getElementById("btn-close-memory")?.addEventListener("click", () => {
-        document.getElementById("modal-memory")?.classList.add("hidden");
-      });
-      document.getElementById("btn-download-memory")?.addEventListener("click", () => {
-        if (!this.brain.memoryData) return;
-        const blob = new Blob([JSON.stringify(this.brain.memoryData, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${this.playerRobot.name}_RoboMemory.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      });
-      const actions = [
+      const animList = [
         "walk",
         "run",
         "sit",
@@ -41742,1051 +43152,2002 @@ Endpoint: ${cleanEp}`);
         "shakeOff",
         "nuzzle"
       ];
-      actions.forEach((action) => {
-        document.getElementById(`btn-anim-${action}`)?.addEventListener("click", () => {
-          if (action === "jump") {
-            this.triggerPlayerJump(7.2);
-          } else {
-            this.playerRobot.animController.play(action, 2.5);
-          }
+      for (let i = 0; i < animList.length; i++) {
+        const anim = animList[i];
+        on(`btn-anim-${anim}`, () => {
+          if (anim === "jump") this._emitAction("jump");
+          else this._emitAction("playAnim", { anim, duration: 2.5 });
         });
-      });
-      Object.keys(EMOTIONS).forEach((key) => {
-        document.getElementById(`btn-emo-${key.toLowerCase()}`)?.addEventListener("click", () => {
-          this.playerRobot.setEmotion(EMOTIONS[key]);
-          this.particleSystem.spawnBurst(this.playerRobot.group.position, key);
-          this.brain.addJournalEntry(EMOTIONS[key].name, `Cambi\xE9 mi emoci\xF3n a ${EMOTIONS[key].name}`);
-        });
-      });
-      document.getElementById("btn-pet-robot")?.addEventListener("click", () => {
-        this.playerRobot.petRobot();
-        this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-        this.pushActivity(`\u{1F496} \xA1Acariciaste a ${this.playerRobot.name}!`);
-      });
-      const chatInput = document.getElementById("chat-input");
-      const chatBtn = document.getElementById("chat-btn");
-      const sendChat = () => {
-        if (!chatInput) return;
-        const text = chatInput.value.trim();
-        if (!text) return;
-        chatInput.value = "";
-        const userName = this.currentUser && this.currentUser.username ? this.currentUser.username : "T\xFA";
-        const targetDog = this.chatFilterDog && this.chatFilterDog !== "ALL" ? this.chatFilterDog : this.playerRobot.name;
-        if (targetDog !== this.playerRobot.name && this.packManager && this.packManager.allRobots[targetDog]) {
-          this.switchToRobot(targetDog);
-        }
-        this.pushActivity(`\u{1F4AC} ${userName} a ${this.playerRobot.name}: "${text}"`);
-        this.addChatMessage(userName, text, "user", this.playerRobot.name);
-        if (this.multiplayer) {
-          this.multiplayer.sendChatCommand(text, this.playerRobot.name);
-        }
-        this.brain.think(text);
-      };
-      chatBtn?.addEventListener("click", sendChat);
-      chatInput?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") sendChat();
-      });
-      document.getElementById("btn-manual-think")?.addEventListener("click", () => {
-        this.brain.think();
-      });
-      const camModes = ["diagonal", "follow", "orbit", "free", "eye", "drone"];
-      camModes.forEach((mode) => {
-        document.getElementById(`btn-cam-${mode}`)?.addEventListener("click", () => {
-          this.cameraMode = mode;
-          this.updateCamBtnState();
-          if (mode === "free") {
-            this.pushActivity("\u{1F6F8} Modo Libre Activo: Vuela con W/A/S/D y rat\xF3n.");
-          }
-        });
-      });
-      const camCycleOrder = ["follow", "diagonal", "orbit", "drone", "eye", "free"];
-      document.getElementById("btn-cam-cycle")?.addEventListener("click", () => {
-        const idx = camCycleOrder.indexOf(this.cameraMode);
-        const next = camCycleOrder[(idx + 1) % camCycleOrder.length];
-        this.cameraMode = next;
-        this.updateCamBtnState();
-        this.pushActivity(`\u{1F3A5} C\xE1mara cambiada a: ${next.toUpperCase()}`);
-      });
-      this.updateCamBtnState();
-    }
-    toggleZenMode() {
-      const hud = document.getElementById("hud-overlay");
-      const exitBtn = document.getElementById("btn-exit-zen");
-      if (!hud) return;
-      hud.classList.toggle("zen-mode");
-      const isZen = hud.classList.contains("zen-mode");
-      if (exitBtn) {
-        if (isZen) exitBtn.classList.remove("hidden");
-        else exitBtn.classList.add("hidden");
       }
-      this.pushActivity(isZen ? "\u{1F441}\uFE0F Modo Zen activado (Inmersi\xF3n 3D completa)." : "\u{1F441}\uFE0F Modo Zen desactivado.");
-    }
-    // Guarded with touchControlsInitialized so listeners are never registered twice
-    initTouchControls() {
-      if (this.touchControlsInitialized) return;
-      this.touchControlsInitialized = true;
-      const joystickZone = document.getElementById("joystick-zone");
-      const joystickBase = document.getElementById("joystick-base");
-      const joystickStick = document.getElementById("joystick-stick");
-      if (!joystickZone || !joystickBase || !joystickStick) return;
-      let touchId = null;
-      let centerX = 0;
-      let centerY = 0;
-      const maxRadius = 45;
-      const onTouchStart2 = (e) => {
-        const touch = e.changedTouches ? e.changedTouches[0] : e;
-        touchId = touch.identifier !== void 0 ? touch.identifier : "mouse";
-        centerX = touch.clientX;
-        centerY = touch.clientY;
-        joystickBase.style.left = `${centerX}px`;
-        joystickBase.style.top = `${centerY}px`;
-        joystickStick.style.transform = `translate(-50%, -50%)`;
-        joystickBase.classList.remove("hidden");
-        this.joystickInput = { x: 0, z: 0, isRunning: false };
+      const emoKeys = Object.keys(EMOTIONS);
+      for (let i = 0; i < emoKeys.length; i++) {
+        const key = emoKeys[i];
+        on(`btn-emo-${key.toLowerCase()}`, () => this._emitAction("setEmotion", { emotionKey: key }));
+      }
+      on("btn-cam-cycle", () => this._emitAction("cycleCamera"));
+      on("quick-bar-cam", () => this._emitAction("cycleCamera"));
+      for (let i = 0; i < CAM_CYCLE_ORDER.length; i++) {
+        const mode = CAM_CYCLE_ORDER[i];
+        on(`btn-cam-${mode}`, () => this._emitAction("setCamera", { mode }));
+      }
+      const updateDockUI = () => {
+        if (!this.el.bottomDock) return;
+        const isCollapsed = this.el.bottomDock.classList.contains("collapsed");
+        if (this.el.dockToggleIcon) this.el.dockToggleIcon.textContent = isCollapsed ? "\u25B2" : "\u25BC";
+        this.el.quickBar?.classList.toggle("hidden-by-dock", !isCollapsed);
       };
-      const onTouchMove2 = (e) => {
-        if (touchId === null) return;
-        let touch = null;
-        if (e.changedTouches) {
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) {
-              touch = e.changedTouches[i];
-              break;
-            }
-          }
+      const dockTabs = document.querySelectorAll(".dock-tab");
+      const tabPanes = document.querySelectorAll(".tab-pane");
+      for (let i = 0; i < dockTabs.length; i++) {
+        const tabBtn = dockTabs[i];
+        tabBtn.addEventListener("click", () => {
+          const target = tabBtn.dataset.tab;
+          if (!target) return;
+          for (let j = 0; j < dockTabs.length; j++) dockTabs[j].classList.toggle("active", dockTabs[j] === tabBtn);
+          for (let j = 0; j < tabPanes.length; j++) tabPanes[j].classList.toggle("active", tabPanes[j].id === `tab-pane-${target}`);
+          this.el.bottomDock?.classList.remove("collapsed");
+          updateDockUI();
+        }, sig);
+      }
+      on("btn-toggle-bottom-dock", () => {
+        this.el.bottomDock?.classList.toggle("collapsed");
+        updateDockUI();
+      });
+      on("btn-close-bottom-dock", () => {
+        this.el.bottomDock?.classList.add("collapsed");
+        updateDockUI();
+      });
+      on("quick-bar-more", () => {
+        this.el.bottomDock?.classList.toggle("collapsed");
+        updateDockUI();
+      });
+      const openChatTab = () => {
+        document.querySelector('.dock-tab[data-tab="chat"]')?.click();
+        this._setTimeout(() => this.el.chatInput?.focus(), 180);
+      };
+      on("quick-bar-chat", openChatTab);
+      on("btn-toggle-chat", () => {
+        if (!this.el.bottomDock || this.el.bottomDock.classList.contains("collapsed")) {
+          openChatTab();
         } else {
-          touch = e;
+          this.el.bottomDock.classList.add("collapsed");
+          updateDockUI();
         }
-        if (!touch) return;
-        const dx = touch.clientX - centerX;
-        const dy = touch.clientY - centerY;
-        const dist = Math.hypot(dx, dy);
-        const angle = Math.atan2(dy, dx);
-        const clampedDist = Math.min(dist, maxRadius);
-        const stickX = Math.cos(angle) * clampedDist;
-        const stickY = Math.sin(angle) * clampedDist;
-        joystickStick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
-        const normDist = clampedDist / maxRadius;
-        this.joystickInput = {
-          x: stickX / maxRadius,
-          z: stickY / maxRadius,
-          isRunning: normDist > 0.72 || !!this.keys["shift"]
-        };
+      });
+      const wirePill = (pillId, panel) => {
+        const pill = document.getElementById(pillId);
+        if (!pill || !panel) return;
+        pill.addEventListener("click", () => {
+          panel.classList.toggle("hidden");
+          pill.classList.toggle("active", !panel.classList.contains("hidden"));
+        }, sig);
       };
-      const onTouchEnd = () => {
-        touchId = null;
-        joystickBase.classList.add("hidden");
-        this.joystickInput = null;
-      };
-      joystickZone.addEventListener("touchstart", onTouchStart2, { passive: false });
-      window.addEventListener("touchmove", onTouchMove2, { passive: false });
-      window.addEventListener("touchend", onTouchEnd);
-      window.addEventListener("touchcancel", onTouchEnd);
-      document.querySelectorAll(".touch-act-btn").forEach((btn) => {
-        const key = btn.dataset.key;
-        let lastTrigger = 0;
-        const trigger = () => {
-          const now = Date.now();
-          if (now - lastTrigger < 180) return;
-          lastTrigger = now;
-          if (key === "shift") {
-            this.keys["shift"] = !this.keys["shift"];
-            btn.classList.toggle("pressed", this.keys["shift"]);
-          } else if (key === " ") {
-            this.triggerPlayerJump(7.2);
-          } else if (key === "b") {
-            this.playerRobot.animController.play("bark", 1);
-            roboAudio.playBark(this.playerRobot.profile ? this.playerRobot.profile.voicePitch : 1);
-          } else if (key === "g") {
-            this.throwFetchBall();
-          } else if (key === "p") {
-            this.playerRobot.petRobot();
-            if (this.particleSystem) this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-          }
-        };
-        btn.addEventListener("touchstart", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          trigger();
-        });
+      wirePill("pill-toggle-minimap", this.el.minimapPanel);
+      wirePill("pill-toggle-pip", this.el.pipPanel);
+      wirePill("pill-toggle-users", this.el.usersPanel);
+      const setupMinimize = (btnId, panelId) => {
+        const btn = document.getElementById(btnId);
+        const panel = document.getElementById(panelId);
+        if (!btn || !panel) return;
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
-          trigger();
-        });
-      });
-      if ("ontouchstart" in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768) {
-        document.getElementById("virtual-touch-controls")?.classList.remove("hidden");
-      }
-    }
-    updateCamBtnState() {
-      const camLabels = {
-        follow: "Seguir",
-        diagonal: "Diag",
-        orbit: "\xD3rbita",
-        free: "Vuelo",
-        eye: "Ojos",
-        drone: "Drone"
+          panel.classList.toggle("minimized");
+          btn.textContent = panel.classList.contains("minimized") ? "\u25A2" : "\u2014";
+        }, sig);
       };
-      ["diagonal", "follow", "orbit", "free", "eye", "drone"].forEach((m) => {
-        const btn = document.getElementById(`btn-cam-${m}`);
-        if (btn) {
-          if (m === this.cameraMode) btn.classList.add("active");
-          else btn.classList.remove("active");
+      setupMinimize("btn-min-upperleft", "thought-panel");
+      setupMinimize("btn-min-ticker", "ticker-panel");
+      setupMinimize("btn-min-minimap", "minimap-panel");
+      setupMinimize("btn-min-pip", "pip-panel");
+      on("btn-close-minimap", (e) => {
+        e.stopPropagation();
+        this.el.minimapPanel?.classList.add("hidden");
+        document.getElementById("pill-toggle-minimap")?.classList.remove("active");
+      });
+      on("btn-close-pip", (e) => {
+        e.stopPropagation();
+        this.el.pipPanel?.classList.add("hidden");
+        document.getElementById("pill-toggle-pip")?.classList.remove("active");
+      });
+      on("btn-toggle-zen", () => this._emitAction("toggleZen"));
+      on("btn-exit-zen", () => this._emitAction("toggleZen"));
+      const toggleFullscreen = () => {
+        const docEl = document.documentElement;
+        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!isFs) {
+          (docEl.requestFullscreen || docEl.webkitRequestFullscreen)?.call(docEl)?.catch?.(() => {
+          });
+        } else {
+          (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {
+          });
+        }
+      };
+      on("btn-toggle-fullscreen", toggleFullscreen);
+      const filterPills = document.querySelectorAll(".chat-dog-pill");
+      for (let i = 0; i < filterPills.length; i++) {
+        const pill = filterPills[i];
+        pill.addEventListener("click", () => {
+          for (let j = 0; j < filterPills.length; j++) filterPills[j].classList.remove("active");
+          pill.classList.add("active");
+          this._chatFilterDog = pill.getAttribute("data-dog") || "ALL";
+          this._renderChatFeed();
+        }, sig);
+      }
+      const sendChat = () => {
+        if (!this.el.chatInput) return;
+        const text = this.el.chatInput.value.trim();
+        if (!text) return;
+        this.el.chatInput.value = "";
+        this._pulseHaptic(12);
+        const targetDog = this._chatFilterDog && this._chatFilterDog !== "ALL" ? this._chatFilterDog : this.appState?.activeRobotName || "Sparky";
+        if (targetDog !== this.appState?.activeRobotName) {
+          this._emitAction("switchRobot", { name: targetDog });
+        }
+        const userName = this.appState?.net?.user?.username || "T\xFA";
+        const msgEntry = {
+          author: userName,
+          message: text,
+          role: "user",
+          targetDog,
+          time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        };
+        this.eventBus?.emit("chat:message", msgEntry);
+        this.multiplayer?.sendChat?.(text, targetDog);
+        this.brain?.handleUserCommand?.(text, targetDog);
+      };
+      on("chat-btn", sendChat);
+      this.el.chatInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendChat();
+      }, sig);
+      on("btn-clear-chat-log", () => {
+        this._allChatHistory = [];
+        if (this.el.chatFeed) {
+          this.el.chatFeed.innerHTML = '<div class="chat-bubble chat-system"><span class="chat-author">\u{1F916} Sistema:</span> Historial reiniciado.</div>';
         }
       });
-      const camCycleText = document.getElementById("cam-current-name");
-      if (camCycleText) {
-        camCycleText.textContent = camLabels[this.cameraMode] || this.cameraMode;
+      on("btn-toggle-voice", () => {
+        const btn = document.getElementById("btn-toggle-voice");
+        const next = !(this.appState?.isVoiceEnabled ?? true);
+        if (this.appState) this.appState.isVoiceEnabled = next;
+        if (this.brain) this.brain.isVoiceEnabled = next;
+        if (btn) {
+          btn.classList.toggle("active", next);
+          btn.textContent = next ? "\u{1F50A} Voz: ON" : "\u{1F507} Voz: OFF";
+        }
+      });
+    }
+    _bindModalsAndExtras() {
+      const sig = { signal: this._ac.signal };
+      const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn, sig);
+      const gameMenu = document.getElementById("modal-game-menu");
+      on("btn-open-game-menu", () => {
+        if (!gameMenu) return;
+        gameMenu.classList.remove("hidden");
+        const mc = document.getElementById("mobile-menu-users-count");
+        if (mc && this.el.usersCount) mc.textContent = this.el.usersCount.textContent;
+        const mn = document.getElementById("mobile-menu-user-name");
+        if (mn && this.el.headerUserName) mn.textContent = this.el.headerUserName.textContent;
+      });
+      on("btn-close-game-menu", () => gameMenu?.classList.add("hidden"));
+      const closeMenuThen = (fn) => {
+        gameMenu?.classList.add("hidden");
+        fn();
+      };
+      on("menu-btn-fullscreen", () => closeMenuThen(() => document.getElementById("btn-toggle-fullscreen")?.click()));
+      on("menu-btn-time", () => closeMenuThen(() => {
+        const cur = this.appState?.timeOfDay || "day";
+        const next = TIME_ORDER[(TIME_ORDER.indexOf(cur) + 1) % TIME_ORDER.length];
+        this._emitAction("setTimeOfDay", { timeOfDay: next });
+      }));
+      on("menu-btn-weather", () => closeMenuThen(() => document.getElementById("btn-cycle-weather")?.click()));
+      on("menu-btn-vision", () => closeMenuThen(() => document.getElementById("btn-cycle-vision")?.click()));
+      on("menu-btn-radar", () => closeMenuThen(() => document.getElementById("pill-toggle-minimap")?.click()));
+      on("menu-btn-pip", () => closeMenuThen(() => document.getElementById("pill-toggle-pip")?.click()));
+      on("menu-btn-telemetry", () => closeMenuThen(() => {
+        this._telemetryOpen = true;
+        this.el.telemetryWidget?.classList.remove("collapsed");
+      }));
+      on("menu-btn-profile", () => closeMenuThen(() => document.getElementById("modal-login")?.classList.remove("hidden")));
+      on("menu-btn-share", () => closeMenuThen(() => document.getElementById("btn-open-share")?.click()));
+      on("menu-btn-zen", () => closeMenuThen(() => this._emitAction("toggleZen")));
+      on("menu-btn-touch", () => closeMenuThen(() => document.getElementById("btn-toggle-touch")?.click()));
+      on("menu-btn-memory", () => closeMenuThen(() => document.getElementById("btn-open-memory")?.click()));
+      on("menu-btn-settings", () => closeMenuThen(() => document.getElementById("btn-open-settings")?.click()));
+      on("menu-btn-users", () => closeMenuThen(() => document.getElementById("pill-toggle-users")?.click()));
+      const epInput = document.getElementById("cfg-endpoint");
+      const keyInput = document.getElementById("cfg-apikey");
+      const modelSel = document.getElementById("cfg-model-select");
+      const modelCustom = document.getElementById("cfg-model-custom");
+      const sysInput = document.getElementById("cfg-system-prompt");
+      const intInput = document.getElementById("cfg-interval");
+      const intVal = document.getElementById("cfg-interval-val");
+      const autoCheck = document.getElementById("cfg-autothink");
+      if (this.brain && this.brain.config) {
+        if (epInput) epInput.value = this.brain.config.endpoint || "";
+        if (keyInput) keyInput.value = this.brain.config.apiKey || "";
+        if (sysInput) sysInput.value = this.brain.config.systemPrompt || "";
+        if (intInput) {
+          intInput.value = this.brain.config.intervalSeconds || 10;
+          if (intVal) intVal.textContent = `${intInput.value}s`;
+        }
+        if (autoCheck) autoCheck.checked = !!this.brain.config.autoThink;
+      }
+      intInput?.addEventListener("input", (e) => {
+        if (intVal) intVal.textContent = `${e.target.value}s`;
+      }, sig);
+      modelSel?.addEventListener("change", (e) => {
+        modelCustom?.classList.toggle("hidden", e.target.value !== "custom");
+      }, sig);
+      on("btn-open-settings", () => document.getElementById("modal-settings")?.classList.remove("hidden"));
+      on("btn-close-settings", () => document.getElementById("modal-settings")?.classList.add("hidden"));
+      on("btn-save-settings", () => {
+        if (this.brain && this.brain.config) {
+          this.brain.config.endpoint = epInput?.value.trim() || this.brain.config.endpoint;
+          this.brain.config.apiKey = keyInput?.value.trim() || "";
+          const chosen = modelSel?.value === "custom" && modelCustom?.value.trim() ? modelCustom.value.trim() : modelSel?.value || "auto";
+          this.brain.config.model = chosen;
+          this.brain.config.systemPrompt = sysInput?.value.trim() || "";
+          this.brain.config.intervalSeconds = parseInt(intInput?.value || "10", 10);
+          this.brain.config.autoThink = !!autoCheck?.checked;
+          this.brain.saveConfig?.();
+        }
+        document.getElementById("modal-settings")?.classList.add("hidden");
+        this.showToast("\u2699\uFE0F Configuraci\xF3n FreeLLMAPI guardada");
+      });
+      const pingRouter = async () => {
+        const statusEl = document.getElementById("api-test-status");
+        if (this.brain?.pingLlm) {
+          await this.brain.pingLlm();
+          return;
+        }
+        if (statusEl) statusEl.textContent = "Probando conexi\xF3n...";
+        try {
+          const res = await fetch("/api/llm/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              endpoint: epInput?.value.trim() || "http://127.0.0.1:31415/v1/chat/completions",
+              apiKey: keyInput?.value.trim() || "",
+              model: modelSel?.value || "auto",
+              messages: [{ role: "user", content: "Responde OK" }],
+              max_tokens: 12
+            })
+          });
+          const data = await res.json();
+          if (res.ok && data.choices?.length) {
+            if (statusEl) statusEl.textContent = `\u2705 Conectado (${data.model || "auto"})`;
+            this.showToast("\u2705 Router FreeLLMAPI operativo");
+          } else if (statusEl) {
+            statusEl.textContent = `\u274C ${data.error?.message || data.error || "Error de conexi\xF3n"}`;
+          }
+        } catch (err) {
+          if (statusEl) statusEl.textContent = `\u274C ${err.message}`;
+        }
+      };
+      on("btn-test-connection", pingRouter);
+      on("btn-ping-llm-now", pingRouter);
+      on("btn-open-memory", () => {
+        this.brain?.loadMemoryFromDisk?.();
+        const memPre = document.getElementById("memory-display");
+        if (memPre && this.brain?.memoryData) {
+          memPre.textContent = JSON.stringify(this.brain.memoryData, null, 2);
+        }
+        document.getElementById("modal-memory")?.classList.remove("hidden");
+      });
+      on("btn-close-memory", () => document.getElementById("modal-memory")?.classList.add("hidden"));
+      on("btn-download-memory", () => {
+        if (!this.brain?.memoryData) return;
+        const blob = new Blob([JSON.stringify(this.brain.memoryData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${this.appState?.activeRobotName || "RoboChibi"}_Memory.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      let sharePollerId = null;
+      const shareModal = document.getElementById("modal-share");
+      const closeShare = () => {
+        shareModal?.classList.add("hidden");
+        if (sharePollerId !== null) {
+          this._clearTimer(sharePollerId);
+          sharePollerId = null;
+        }
+      };
+      const openShare = async () => {
+        shareModal?.classList.remove("hidden");
+        const fetchNet = async () => {
+          try {
+            const res = await fetch("/api/network-info");
+            if (!res.ok) return false;
+            const data = await res.json();
+            const tun = document.getElementById("share-tunnel-url");
+            const lan = document.getElementById("share-lan-url");
+            if (tun && data.tunnelUrl) tun.value = data.tunnelUrl;
+            if (lan && data.lanUrl) lan.value = data.lanUrl;
+            return Boolean(data.tunnelUrl && !data.tunnelUrl.includes("Generando"));
+          } catch {
+            return true;
+          }
+        };
+        const done = await fetchNet();
+        if (!done && sharePollerId === null) {
+          let tries = 0;
+          sharePollerId = this._setInterval(async () => {
+            tries++;
+            if (await fetchNet() || tries >= 6) {
+              this._clearTimer(sharePollerId);
+              sharePollerId = null;
+            }
+          }, 2e3);
+        }
+      };
+      on("btn-open-share", openShare);
+      on("btn-share-server", openShare);
+      on("btn-close-share", closeShare);
+      on("btn-close-share-bottom", closeShare);
+      const copyBtns = document.querySelectorAll(".copy-btn");
+      for (let i = 0; i < copyBtns.length; i++) {
+        copyBtns[i].addEventListener("click", () => {
+          const input = document.getElementById(copyBtns[i].getAttribute("data-target"));
+          if (!input || !navigator.clipboard) return;
+          navigator.clipboard.writeText(input.value).then(() => this.showToast("\u{1F4CB} Enlace copiado"));
+        }, sig);
+      }
+      const loginModal = document.getElementById("modal-login");
+      const userInput = document.getElementById("login-username-input");
+      const avatarOpts = document.querySelectorAll(".avatar-opt");
+      let selectedAvatar = this.appState?.net?.user?.avatar || "\u{1F43E}";
+      for (let i = 0; i < avatarOpts.length; i++) {
+        avatarOpts[i].addEventListener("click", () => {
+          for (let j = 0; j < avatarOpts.length; j++) avatarOpts[j].classList.remove("active");
+          avatarOpts[i].classList.add("active");
+          selectedAvatar = avatarOpts[i].getAttribute("data-avatar") || "\u{1F43E}";
+        }, sig);
+      }
+      const submitLogin = () => {
+        const username = userInput?.value.trim() || `Explorador_${Math.floor(100 + Math.random() * 900)}`;
+        const user = { username, avatar: selectedAvatar };
+        try {
+          localStorage.setItem("robochibi_user", JSON.stringify(user));
+        } catch {
+        }
+        loginModal?.classList.add("hidden");
+        this._applyUserLogin(user);
+        this.showToast(`\u{1F389} \xA1Bienvenido, ${username}!`);
+      };
+      on("btn-login-submit", submitLogin);
+      on("user-profile-badge", () => {
+        if (userInput && this.appState?.net?.user?.username) userInput.value = this.appState.net.user.username;
+        loginModal?.classList.remove("hidden");
+      });
+      userInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitLogin();
+      }, sig);
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const micBtn = document.getElementById("btn-voice-stt");
+      const quickMic = document.getElementById("pill-quick-mic");
+      if (SpeechRec) {
+        const rec = new SpeechRec();
+        rec.lang = "es-ES";
+        rec.interimResults = true;
+        rec.continuous = false;
+        let recording = false;
+        const toggleStt = () => {
+          if (recording) rec.stop();
+          else {
+            try {
+              rec.start();
+              recording = true;
+              micBtn?.classList.add("recording");
+              this.showToast("\u{1F399}\uFE0F Escuchando orden...");
+            } catch {
+            }
+          }
+        };
+        rec.onresult = (ev) => {
+          let txt = "";
+          for (let i = ev.resultIndex; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+          if (this.el.chatInput) this.el.chatInput.value = txt;
+          if (ev.results[0]?.isFinal) {
+            this._setTimeout(() => document.getElementById("chat-btn")?.click(), 160);
+          }
+        };
+        rec.onend = () => {
+          recording = false;
+          micBtn?.classList.remove("recording");
+        };
+        micBtn?.addEventListener("click", toggleStt, sig);
+        quickMic?.addEventListener("click", toggleStt, sig);
+      }
+      const macroAddBtns = document.querySelectorAll("[data-macro-add]");
+      for (let i = 0; i < macroAddBtns.length; i++) {
+        macroAddBtns[i].addEventListener("click", () => {
+          const id = macroAddBtns[i].getAttribute("data-macro-add");
+          this._macroQueue.push({ id, label: macroAddBtns[i].textContent.replace("+ ", "") });
+          this._renderMacroTimeline(-1);
+        }, sig);
+      }
+      on("btn-macro-play", () => this._runMacroSequence());
+      on("btn-macro-loop", () => {
+        this._macroLoop = !this._macroLoop;
+        const b = document.getElementById("btn-macro-loop");
+        if (b) b.textContent = `\u{1F501} Bucle: ${this._macroLoop ? "ON" : "OFF"}`;
+      });
+      on("btn-macro-clear", () => {
+        this._macroRunning = false;
+        this._macroQueue.length = 0;
+        this._renderMacroTimeline(-1);
+      });
+      const loadPreset = (steps, name) => {
+        this._macroRunning = false;
+        this._macroQueue = steps;
+        this._renderMacroTimeline(-1);
+        this.showToast(`\u26A1 Protocolo: ${name}`);
+        this._runMacroSequence();
+      };
+      on("preset-macro-show", () => loadPreset([
+        { id: "btn-call-pack", label: "\u{1F4E3} Manada" },
+        { id: "btn-anim-playBow", label: "\u{1F647} Reverencia" },
+        { id: "btn-anim-backflip", label: "\u{1F938} Voltereta" },
+        { id: "btn-anim-dance", label: "\u{1FAA9} Bailar" }
+      ], "Show Acrob\xE1tico"));
+      on("preset-macro-guard", () => loadPreset([
+        { id: "btn-emo-alert", label: "\u26A0\uFE0F Alerta" },
+        { id: "btn-anim-sniff", label: "\u{1F50D} Olfatear" },
+        { id: "btn-anim-sneak", label: "\u{1F575}\uFE0F Sigilo" },
+        { id: "btn-anim-bark", label: "\u{1F5E3}\uFE0F Ladrar" }
+      ], "Patrulla T\xE1ctica"));
+      on("preset-macro-fiesta", () => loadPreset([
+        { id: "btn-trigger-disco", label: "\u{1FAA9} Disco" },
+        { id: "btn-emo-party", label: "\u{1F389} Fiestero" },
+        { id: "btn-anim-dance", label: "\u{1F57A} Bailar" },
+        { id: "btn-anim-howl", label: "\u{1F43A} Aullar" }
+      ], "Fiesta Total"));
+      on("preset-macro-training", () => loadPreset([
+        { id: "btn-slalom-rings", label: "\u2B55 Aros" },
+        { id: "btn-anim-jump", label: "\u{1F998} Saltar" },
+        { id: "btn-throw-fetch", label: "\u{1F3BE} Pelota" },
+        { id: "btn-praise-dog", label: "\u2764\uFE0F Elogiar" }
+      ], "Entrenamiento"));
+      const cmdModal = document.getElementById("modal-cmd-palette");
+      const cmdInput = document.getElementById("cmd-palette-input");
+      const cmdResults = document.getElementById("cmd-palette-results");
+      const catalog = [
+        { name: "\u{1F43E} Poseer a Sparky", tag: "Robot", run: () => this._emitAction("switchRobot", { name: "Sparky" }) },
+        { name: "\u26A1 Poseer a Bolt", tag: "Robot", run: () => this._emitAction("switchRobot", { name: "Bolt" }) },
+        { name: "\u{1F50D} Poseer a Pixel", tag: "Robot", run: () => this._emitAction("switchRobot", { name: "Pixel" }) },
+        { name: "\u{1F496} Poseer a Luna", tag: "Robot", run: () => this._emitAction("switchRobot", { name: "Luna" }) },
+        { name: "\u{1F938} Poseer a Rusty", tag: "Robot", run: () => this._emitAction("switchRobot", { name: "Rusty" }) },
+        { name: "\u{1F3BE} Lanzar Pelota", tag: "G", run: () => this._emitAction("throwBall") },
+        { name: "\u{1FAA9} Activar Fiesta Disco", tag: "Evento", run: () => this._emitAction("disco") },
+        { name: "\u{1F938} Hacer Voltereta", tag: "F", run: () => this._emitAction("playAnim", { anim: "backflip", duration: 1.6 }) },
+        { name: "\u{1F326}\uFE0F Cambiar Clima", tag: "Clima", run: () => document.getElementById("btn-cycle-weather")?.click() },
+        { name: "\u{1F576}\uFE0F Cambiar \xD3ptica", tag: "FX", run: () => document.getElementById("btn-cycle-vision")?.click() },
+        { name: "\u{1F4CA} Abrir Telemetr\xEDa GPU", tag: "GPU", run: () => document.getElementById("cyber-perf-pill")?.click() }
+      ];
+      const renderCmd = (q = "") => {
+        if (!cmdResults) return;
+        cmdResults.innerHTML = "";
+        const lower = q.toLowerCase().trim();
+        for (let i = 0; i < catalog.length; i++) {
+          const c = catalog[i];
+          if (lower && !c.name.toLowerCase().includes(lower) && !c.tag.toLowerCase().includes(lower)) continue;
+          const item = document.createElement("div");
+          item.className = "cmd-result-item";
+          item.innerHTML = `<span>${c.name}</span><span class="cmd-shortcut-kbd">${c.tag}</span>`;
+          item.addEventListener("click", () => {
+            c.run();
+            cmdModal?.classList.add("hidden");
+          });
+          cmdResults.appendChild(item);
+        }
+      };
+      on("btn-open-cmd-palette", () => {
+        cmdModal?.classList.remove("hidden");
+        if (cmdInput) {
+          cmdInput.value = "";
+          renderCmd("");
+          cmdInput.focus();
+        }
+      });
+      on("btn-close-cmd-palette", () => cmdModal?.classList.add("hidden"));
+      cmdInput?.addEventListener("input", () => renderCmd(cmdInput.value), sig);
+      window.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          if (cmdModal?.classList.contains("hidden")) {
+            cmdModal.classList.remove("hidden");
+            if (cmdInput) {
+              cmdInput.value = "";
+              renderCmd("");
+              cmdInput.focus();
+            }
+          } else {
+            cmdModal?.classList.add("hidden");
+          }
+        }
+      }, sig);
+    }
+    _renderMacroTimeline(activeIdx) {
+      const el = document.getElementById("macro-timeline");
+      if (!el) return;
+      el.innerHTML = "";
+      if (this._macroQueue.length === 0) {
+        el.innerHTML = '<small style="color:#64748b;">Cola vac\xEDa...</small>';
+        return;
+      }
+      for (let i = 0; i < this._macroQueue.length; i++) {
+        const chip = document.createElement("span");
+        chip.className = "macro-step-chip" + (i === activeIdx ? " active-step" : "");
+        chip.textContent = `${i + 1}. ${this._macroQueue[i].label}`;
+        chip.addEventListener("click", () => {
+          if (!this._macroRunning) {
+            this._macroQueue.splice(i, 1);
+            this._renderMacroTimeline(-1);
+          }
+        });
+        el.appendChild(chip);
       }
     }
-    initEventListeners() {
-      window.addEventListener("resize", () => {
-        const aspect2 = window.innerWidth / window.innerHeight || 1.6;
-        this.camera.aspect = aspect2;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        const pipCanvas = document.getElementById("pip-canvas");
-        if (pipCanvas && this.vision.pipRenderer) {
-          const w = Math.max(pipCanvas.clientWidth || 220, 100);
-          const h = Math.max(pipCanvas.clientHeight || 130, 60);
-          this.vision.pipRenderer.setSize(w, h, false);
+    _runMacroSequence() {
+      if (this._macroRunning || this._macroQueue.length === 0) return;
+      this._macroRunning = true;
+      const badge = document.getElementById("macro-status-badge");
+      if (badge) badge.textContent = "EJECUTANDO";
+      let step = 0;
+      const tick = () => {
+        if (!this._macroRunning) {
+          this._renderMacroTimeline(-1);
+          if (badge) badge.textContent = "LISTO";
+          return;
         }
-      });
-      window.addEventListener("keydown", (e) => {
-        if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
-        this.keys[e.key.toLowerCase()] = true;
-        roboAudio.ensureContext();
-        if (e.key === " ") {
-          this.triggerPlayerJump(7.2);
-        } else if (e.key.toLowerCase() === "p") {
-          this.playerRobot.petRobot();
-          this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-          this.pushActivity(`\u{1F496} \xA1Mimos para ${this.playerRobot.name}!`);
-        } else if (e.key.toLowerCase() === "b") {
-          this.playerRobot.animController.play("bark", 1);
-        } else if (e.key.toLowerCase() === "f") {
-          this.playerRobot.animController.play("backflip", 1.6);
-        } else if (e.key.toLowerCase() === "g") {
-          this.throwFetchBall();
-        } else if (e.key.toLowerCase() === "t") {
-          this.playerRobot.animController.play("headTilt", 2.5);
-        } else if (e.key.toLowerCase() === "l") {
-          this.cameraMode = this.cameraMode === "free" ? "diagonal" : "free";
-          this.updateCamBtnState();
-          this.pushActivity(this.cameraMode === "free" ? "\u{1F6F8} Modo Libre C\xE1mara: Vuela libremente con W/A/S/D y rat\xF3n" : "\u{1F4D0} C\xE1mara fijada en el robot");
-        } else if (e.key.toLowerCase() === "h") {
-          this.toggleZenMode();
-        } else if (e.key === "Tab") {
-          e.preventDefault();
-          const order = ["Sparky", "Bolt", "Pixel", "Luna", "Rusty"];
-          const curIdx = order.indexOf(this.playerRobot.name);
-          const nextName = order[(curIdx + 1) % order.length];
-          this.switchToRobot(nextName);
-        }
-      });
-      window.addEventListener("keyup", (e) => {
-        this.keys[e.key.toLowerCase()] = false;
-      });
-      const raycaster = new Raycaster();
-      const mouse = new Vector2();
-      let pointerDownTime = 0;
-      let pointerDownPos = { x: 0, y: 0 };
-      let candidateRobot = null;
-      const groundPlane = new Plane(new Vector3(0, 1, 0), 0);
-      const planeIntersect = new Vector3();
-      this.renderer.domElement.addEventListener("pointerdown", (e) => {
-        mouse.x = e.clientX / window.innerWidth * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, this.camera);
-        pointerDownTime = Date.now();
-        pointerDownPos = { x: e.clientX, y: e.clientY };
-        const allMeshes = Object.values(this.packManager.allRobots).map((r) => r.group);
-        const intersects2 = raycaster.intersectObjects(allMeshes, true);
-        if (intersects2.length > 0) {
-          let hitGroup = intersects2[0].object;
-          while (hitGroup.parent && !hitGroup.name.startsWith("ChibiRobot_")) {
-            hitGroup = hitGroup.parent;
+        if (step >= this._macroQueue.length) {
+          if (this._macroLoop) step = 0;
+          else {
+            this._macroRunning = false;
+            this._renderMacroTimeline(-1);
+            if (badge) badge.textContent = "LISTO";
+            return;
           }
-          if (hitGroup && hitGroup.name.startsWith("ChibiRobot_")) {
-            const clickedName = hitGroup.name.replace("ChibiRobot_", "");
-            candidateRobot = this.packManager.allRobots[clickedName];
-            if (this.isHandToolActive && candidateRobot) {
-              this.grabRobot(candidateRobot);
+        }
+        this._renderMacroTimeline(step);
+        document.getElementById(this._macroQueue[step].id)?.click();
+        step++;
+        this._setTimeout(tick, 1750);
+      };
+      tick();
+    }
+    _bindEventBus() {
+      if (!this.eventBus) return;
+      const sub = (ev, fn) => this._unsubs.push(this.eventBus.on(ev, fn));
+      sub("robot:switched", ({ robot, name }) => {
+        if (this.el.robotName) this.el.robotName.textContent = name || robot?.name || "Sparky";
+        if (this.el.robotTitle && robot?.profile) this.el.robotTitle.textContent = robot.profile.title;
+        if (this.el.headerAvatar && robot?.profile) this.el.headerAvatar.textContent = robot.profile.avatarIcon || "\u{1F43E}";
+        const cards = document.querySelectorAll(".robo-switch-card");
+        for (let i = 0; i < cards.length; i++) {
+          cards[i].classList.toggle("active", cards[i].dataset.robot === (name || robot?.name));
+        }
+        this._lastStats.nrg = -1;
+        this._targetWaypoint = null;
+        this._pulseHaptic(15);
+      });
+      sub("robot:stats", (s) => {
+        if (!s) return;
+        const nrg = Math.round(s.energy ?? 100);
+        const cur = Math.round(s.curiosity ?? 85);
+        const aff = Math.round(s.affection ?? 88);
+        const hyd = Math.round(s.hydration ?? 90);
+        if (nrg !== this._lastStats.nrg) {
+          this._lastStats.nrg = nrg;
+          if (this.el.statEnergy) this.el.statEnergy.textContent = `${nrg}%`;
+          if (this.el.barEnergy) this.el.barEnergy.style.transform = `scaleX(${Math.max(0, Math.min(1, nrg / 100))})`;
+        }
+        if (cur !== this._lastStats.cur) {
+          this._lastStats.cur = cur;
+          if (this.el.statCuriosity) this.el.statCuriosity.textContent = `${cur}%`;
+          if (this.el.barCuriosity) this.el.barCuriosity.style.transform = `scaleX(${Math.max(0, Math.min(1, cur / 100))})`;
+        }
+        if (aff !== this._lastStats.aff) {
+          this._lastStats.aff = aff;
+          if (this.el.statAffection) this.el.statAffection.textContent = `${aff}%`;
+          if (this.el.barAffection) this.el.barAffection.style.transform = `scaleX(${Math.max(0, Math.min(1, aff / 100))})`;
+        }
+        if (hyd !== this._lastStats.hyd) {
+          this._lastStats.hyd = hyd;
+          if (this.el.statHydration) this.el.statHydration.textContent = `${hyd}%`;
+          if (this.el.barHydration) this.el.barHydration.style.transform = `scaleX(${Math.max(0, Math.min(1, hyd / 100))})`;
+        }
+        if (s.location && s.location !== this._lastStats.loc) {
+          this._lastStats.loc = s.location;
+          if (this.el.statLocation) this.el.statLocation.textContent = s.location;
+        }
+        const emoKey = s.emotion ? `${s.emotion.icon || ""}${s.emotion.name || s.emotion}` : "";
+        if (emoKey && emoKey !== this._lastStats.emo && this.el.statEmotion) {
+          this._lastStats.emo = emoKey;
+          this.el.statEmotion.textContent = `${s.emotion.icon || ""} ${s.emotion.name || s.emotion}`.trim();
+          if (s.emotion.cssColor) this.el.statEmotion.style.color = s.emotion.cssColor;
+        }
+      });
+      sub("robot:thought", ({ thought }) => {
+        if (this.el.thoughtText && thought) this.el.thoughtText.textContent = thought;
+        if (this.el.speechBubble && thought) {
+          this.el.speechBubble.textContent = thought;
+          this.el.speechBubble.classList.remove("hidden");
+          this._bubbleVisible = true;
+          if (this._speechHideTimer !== null) this._clearTimer(this._speechHideTimer);
+          this._speechHideTimer = this._setTimeout(() => {
+            this.el.speechBubble?.classList.add("hidden");
+            this._bubbleVisible = false;
+            this._speechHideTimer = null;
+          }, 4200);
+        }
+      });
+      sub("camera:modeChanged", ({ mode, label }) => {
+        if (this.el.camCurrentName) this.el.camCurrentName.textContent = label || CAM_LABELS[mode] || mode;
+        for (let i = 0; i < CAM_CYCLE_ORDER.length; i++) {
+          const m = CAM_CYCLE_ORDER[i];
+          document.getElementById(`btn-cam-${m}`)?.classList.toggle("active", m === mode);
+        }
+      });
+      sub("world:timeChanged", ({ timeOfDay }) => {
+        for (let i = 0; i < TIME_ORDER.length; i++) {
+          const t = TIME_ORDER[i];
+          document.getElementById(`btn-time-${t}`)?.classList.toggle("active", t === timeOfDay);
+        }
+      });
+      sub("world:weatherChanged", ({ mode }) => {
+        if (WEATHER_LABELS[mode]) this.showToast(WEATHER_LABELS[mode]);
+      });
+      sub("world:visionChanged", ({ mode }) => {
+        for (let i = 0; i < VISION_MODES.length; i++) {
+          if (VISION_MODES[i]) document.body.classList.remove(VISION_MODES[i]);
+        }
+        if (mode) document.body.classList.add(mode);
+        const idx = Math.max(0, VISION_MODES.indexOf(mode || ""));
+        this.showToast(VISION_LABELS[idx]);
+      });
+      sub("world:scoreGoal", ({ score }) => {
+        if (this.el.soccerScore) this.el.soccerScore.textContent = score;
+        this._pulseHaptic([15, 30, 20]);
+      });
+      sub("world:scoreTarget", ({ score }) => {
+        if (this.el.targetScore) this.el.targetScore.textContent = score;
+        this._pulseHaptic([12, 20, 15]);
+      });
+      sub("world:activity", ({ text }) => this._pushActivity(text));
+      sub("chat:message", (entry) => {
+        this._allChatHistory.push(entry);
+        if (this._allChatHistory.length > 80) this._allChatHistory.shift();
+        this._renderChatFeed();
+      });
+      sub("telemetry:llm", ({ latencyMs, model, ok, preview, totalCalls }) => {
+        const pingText = ok ? `${latencyMs}ms` : "OFFLINE";
+        if (this.el.hudAiPing) this.el.hudAiPing.textContent = `IA: ${pingText}`;
+        if (this.el.tValPing) this.el.tValPing.textContent = ok ? `${latencyMs} ms` : "ERR";
+        if (this.el.twPing) this.el.twPing.textContent = ok ? `${latencyMs}` : "ERR";
+        if (this.el.tValApiCalls && totalCalls !== void 0) this.el.tValApiCalls.textContent = totalCalls;
+        if (this.el.llmLog && preview) {
+          this.el.llmLog.textContent = `[${model || "auto"} | ${pingText}]
+${preview}`;
+        }
+      });
+      sub("ui:toast", ({ message, durationMs }) => this.showToast(message, durationMs));
+      sub("haptic:pulse", ({ pattern }) => this._pulseHaptic(pattern));
+      sub("net:status", ({ connected, users }) => {
+        const dot = document.querySelector(".online-green-dot");
+        if (dot) dot.style.backgroundColor = connected ? "#22c55e" : "#ef4444";
+        if (!Array.isArray(users)) return;
+        if (this.el.usersCount) this.el.usersCount.textContent = users.length;
+        if (this.el.usersList) {
+          this.el.usersList.innerHTML = users.map((u) => {
+            const isMe = this.appState?.net?.user && u.username === this.appState.net.user.username;
+            return `<div class="user-pill-item ${isMe ? "current-user" : ""}"><span class="user-pill-avatar">${u.avatar || "\u{1F43E}"}</span><span class="user-pill-name">${u.username}</span>${isMe ? '<span class="user-pill-tag">T\xFA</span>' : ""}</div>`;
+          }).join("");
+        }
+      });
+    }
+    _pushActivity(text) {
+      if (!this.el.activityList || !text) return;
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.textContent = text;
+      this.el.activityList.prepend(item);
+      while (this.el.activityList.children.length > 5) {
+        this.el.activityList.removeChild(this.el.activityList.lastChild);
+      }
+    }
+    _renderChatFeed() {
+      if (!this.el.chatFeed) return;
+      this.el.chatFeed.innerHTML = "";
+      const filter = this._chatFilterDog;
+      for (let i = 0; i < this._allChatHistory.length; i++) {
+        const e = this._allChatHistory[i];
+        if (filter !== "ALL" && e.role !== "system" && e.author !== filter && e.targetDog !== filter) continue;
+        const bubble = document.createElement("div");
+        bubble.className = `chat-bubble chat-${e.role}`;
+        const icon = e.role === "user" ? "\u{1F464}" : e.role === "system" ? "\u{1F916}" : "\u{1F43E}";
+        bubble.innerHTML = `<span class="chat-author">${icon} ${e.author}:</span> ${e.message}`;
+        this.el.chatFeed.appendChild(bubble);
+      }
+      this.el.chatFeed.scrollTop = this.el.chatFeed.scrollHeight;
+    }
+    updateTelemetry(data) {
+      if (!data) return;
+      const now = performance.now();
+      if (now - this._lastTelemetryMs < 80) return;
+      this._lastTelemetryMs = now;
+      const fps = Math.round(data.fps ?? 60);
+      const frameMs = (data.frameMs ?? 16.6).toFixed(1);
+      const calls = data.drawCalls ?? 0;
+      const tris = data.triangles ?? 0;
+      const geos = data.geometries ?? 0;
+      const texs = data.textures ?? 0;
+      const heapMB = data.heapMB ? `${data.heapMB}` : "--";
+      this._fpsHistory[this._fpsHead] = fps;
+      this._fpsHead = (this._fpsHead + 1) % this._fpsHistory.length;
+      if (this.el.hudFps) this.el.hudFps.textContent = `${fps} FPS`;
+      if (this.el.hudCalls) this.el.hudCalls.textContent = `${calls} DC`;
+      const isCrit = calls > 45 || fps < 35;
+      const isWarn = !isCrit && (calls > 38 || fps < 52);
+      if (this.el.perfDot) {
+        this.el.perfDot.classList.toggle("crit", isCrit);
+        this.el.perfDot.classList.toggle("warn", isWarn);
+      }
+      if (this.el.telemetryBudgetBadge) {
+        this.el.telemetryBudgetBadge.textContent = `${calls}/45 DC`;
+        this.el.telemetryBudgetBadge.classList.toggle("crit", isCrit);
+        this.el.telemetryBudgetBadge.classList.toggle("warn", isWarn);
+      }
+      if (this._telemetryOpen) {
+        if (this.el.twFps) this.el.twFps.textContent = fps;
+        if (this.el.twMs) this.el.twMs.textContent = frameMs;
+        if (this.el.twCalls) this.el.twCalls.textContent = calls;
+        if (this.el.twTris) this.el.twTris.textContent = tris > 999 ? `${(tris / 1e3).toFixed(1)}k` : tris;
+        if (this.el.twGeos) this.el.twGeos.textContent = geos;
+        if (this.el.twTexs) this.el.twTexs.textContent = texs;
+        if (this.el.twHeap) this.el.twHeap.textContent = heapMB;
+        this._drawSparkline(this.twCtx, this.el.twChart);
+      }
+      if (this.el.tValFps) this.el.tValFps.textContent = fps;
+      if (this.el.tValMs) this.el.tValMs.textContent = frameMs;
+      if (this.el.tValCalls) this.el.tValCalls.textContent = calls;
+      if (this.el.tValTris) this.el.tValTris.textContent = tris;
+      if (this.el.tValGeos) this.el.tValGeos.textContent = geos;
+      if (this.el.tValTexs) this.el.tValTexs.textContent = texs;
+      if (this.el.tHeapLabel) this.el.tHeapLabel.textContent = `MEM: ${heapMB} MB`;
+      if (this.el.bottomDock && !this.el.bottomDock.classList.contains("collapsed")) {
+        this._drawSparkline(this.tCtx, this.el.tChart);
+      }
+    }
+    _drawSparkline(ctx, canvas) {
+      if (!ctx || !canvas) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      const len = this._fpsHistory.length;
+      ctx.clearRect(0, 0, w, h);
+      const y60 = h - 60 / 90 * (h - 8) - 4;
+      ctx.strokeStyle = "rgba(34, 255, 136, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, y60);
+      ctx.lineTo(w, y60);
+      ctx.stroke();
+      ctx.strokeStyle = "#00e5ff";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      for (let i = 0; i < len; i++) {
+        const idx = (this._fpsHead + i) % len;
+        const v = this._fpsHistory[idx];
+        const x = i / (len - 1) * w;
+        const y = h - Math.min(1, v / 90) * (h - 8) - 4;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    updateSpeechBubble(dog, camera) {
+      const bubble = this.el.speechBubble;
+      if (!bubble || !this._bubbleVisible || !dog || !dog.nodes || !dog.nodes.overheadAnchor || !camera) return;
+      dog.nodes.overheadAnchor.getWorldPosition(this._speechVec);
+      this._speechVec.project(camera);
+      if (this._speechVec.z > 1) {
+        if (bubble.style.opacity !== "0") bubble.style.opacity = "0";
+        return;
+      }
+      if (bubble.style.opacity !== "1") bubble.style.opacity = "1";
+      const x = Math.round((this._speechVec.x * 0.5 + 0.5) * window.innerWidth);
+      const y = Math.round((-(this._speechVec.y * 0.5) + 0.5) * window.innerHeight);
+      if (Math.abs(x - this._lastBubbleX) >= 1 || Math.abs(y - this._lastBubbleY) >= 1) {
+        this._lastBubbleX = x;
+        this._lastBubbleY = y;
+        bubble.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+      }
+    }
+    updateMinimap(playerDog, dogs) {
+      if (!this.minimapCtx || !this.el.minimapCanvas || !this.el.minimapPanel) return;
+      if (this.el.minimapPanel.classList.contains("hidden") || this.el.minimapPanel.classList.contains("minimized")) return;
+      if (!playerDog) return;
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - this._minimapAccum) * 1e-3);
+      this._minimapAccum = now;
+      const ctx = this.minimapCtx;
+      const w = this.el.minimapCanvas.width;
+      const h = this.el.minimapCanvas.height;
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = this._minimapScale;
+      const pPos = playerDog.group.position;
+      this._radarAngle = (this._radarAngle + dt * 2.2) % (Math.PI * 2);
+      this._pingRadius = (this._pingRadius + dt * 28) % 45;
+      ctx.fillStyle = "#060a14";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "rgba(0, 229, 255, 0.1)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 25 * scale, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 50 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      const lx = cx + (-80 - pPos.x) * scale;
+      const ly = cy + (-80 - pPos.z) * scale;
+      ctx.fillStyle = "rgba(2, 132, 199, 0.55)";
+      ctx.beginPath();
+      ctx.arc(lx, ly, 65 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      const px2 = cx + (50 - pPos.x) * scale;
+      const py2 = cy + (40 - pPos.z) * scale;
+      ctx.fillStyle = "rgba(234, 88, 12, 0.22)";
+      ctx.beginPath();
+      ctx.arc(px2, py2, 36 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = "10px sans-serif";
+      for (let i = 0; i < STATIC_ATTRACTIONS.length; i++) {
+        const a = STATIC_ATTRACTIONS[i];
+        const ax = cx + (a[0] - pPos.x) * scale;
+        const ay = cy + (a[1] - pPos.z) * scale;
+        if (ax > -12 && ax < w + 12 && ay > -12 && ay < h + 12) {
+          ctx.fillText(a[2], ax - 5, ay + 4);
+        }
+      }
+      if (this.world && this.world.getMinimapSnapshot) {
+        this.world.getMinimapSnapshot(this._minimapSnapshot);
+        const sb = this._minimapSnapshot.soccerBallPos;
+        if (sb) {
+          ctx.fillText("\u26BD", cx + (sb.x - pPos.x) * scale - 5, cy + (sb.z - pPos.z) * scale + 4);
+        }
+        const balls = this._minimapSnapshot.ballPositions;
+        if (balls) {
+          ctx.fillStyle = "#00e5ff";
+          for (let i = 0; i < balls.length; i++) {
+            const b = balls[i];
+            ctx.beginPath();
+            ctx.arc(cx + (b.x - pPos.x) * scale, cy + (b.z - pPos.z) * scale, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        const snacks = this._minimapSnapshot.snackPositions;
+        if (snacks) {
+          ctx.fillStyle = "#facc15";
+          for (let i = 0; i < snacks.length; i++) {
+            const s = snacks[i];
+            ctx.beginPath();
+            ctx.arc(cx + (s.x - pPos.x) * scale, cy + (s.z - pPos.z) * scale, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      if (this._targetWaypoint) {
+        const wx = cx + (this._targetWaypoint.x - pPos.x) * scale;
+        const wy = cy + (this._targetWaypoint.z - pPos.z) * scale;
+        ctx.strokeStyle = "#22c55e";
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(wx, wy);
+        ctx.stroke();
+        ctx.fillText("\u{1F3AF}", wx - 6, wy + 4);
+      }
+      if (dogs) {
+        if (Array.isArray(dogs)) {
+          for (let i = 0; i < dogs.length; i++) {
+            this._drawBotDot(ctx, dogs[i], playerDog, pPos, cx, cy, scale);
+          }
+        } else {
+          for (const k in dogs) {
+            if (Object.prototype.hasOwnProperty.call(dogs, k)) {
+              this._drawBotDot(ctx, dogs[k], playerDog, pPos, cx, cy, scale);
             }
           }
         }
+      }
+      ctx.strokeStyle = `rgba(34, 255, 136, ${Math.max(0, 1 - this._pingRadius / 45)})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, this._pingRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(playerDog.group.rotation.y);
+      ctx.fillStyle = "#22ff88";
+      ctx.beginPath();
+      ctx.moveTo(0, 8);
+      ctx.lineTo(6, -6);
+      ctx.lineTo(-6, -6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    _drawBotDot(ctx, bot, playerDog, pPos, cx, cy, scale) {
+      if (!bot || bot === playerDog) return;
+      const bx = cx + (bot.group.position.x - pPos.x) * scale;
+      const by = cy + (bot.group.position.z - pPos.z) * scale;
+      ctx.fillStyle = bot.currentEmotion ? bot.currentEmotion.cssColor : "#00e5ff";
+      ctx.beginPath();
+      ctx.arc(bx, by, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    showToast(msg, durationMs = 2600) {
+      if (!this.el.toastContainer || !msg) return;
+      const toast = document.createElement("div");
+      toast.className = "cyber-toast";
+      toast.textContent = msg;
+      this.el.toastContainer.appendChild(toast);
+      while (this.el.toastContainer.children.length > 4) {
+        this.el.toastContainer.removeChild(this.el.toastContainer.firstChild);
+      }
+      this._setTimeout(() => {
+        toast.style.opacity = "0";
+        this._setTimeout(() => toast.remove(), 220);
+      }, durationMs);
+    }
+    dispose() {
+      this._macroRunning = false;
+      this._ac.abort();
+      for (let i = 0; i < this._unsubs.length; i++) {
+        if (typeof this._unsubs[i] === "function") this._unsubs[i]();
+      }
+      this._unsubs.length = 0;
+      this._timers.forEach((id) => {
+        clearTimeout(id);
+        clearInterval(id);
       });
-      this.renderer.domElement.addEventListener("pointermove", (e) => {
-        mouse.x = e.clientX / window.innerWidth * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, this.camera);
-        if (candidateRobot && !this.grabbedRobot && Date.now() - pointerDownTime > 110) {
-          const moved = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-          if (moved > 6) {
-            this.grabRobot(candidateRobot);
+      this._timers.clear();
+    }
+  };
+
+  // public/js/touch_controls.js
+  var TouchControls = class {
+    constructor(canvasElement, cameraController, eventBus2, appState2) {
+      this.canvas = canvasElement || null;
+      this.cameraController = cameraController || null;
+      this.eventBus = eventBus2 || null;
+      this.appState = appState2 || null;
+      this._ac = new AbortController();
+      this._visible = false;
+      this._moveX = 0;
+      this._moveY = 0;
+      this._runByStick = false;
+      this._runToggle = false;
+      this._joyTouchId = null;
+      this._joyCenterX = 0;
+      this._joyCenterY = 0;
+      this._joyRadius = 44;
+      this._camPrimaryId = null;
+      this._camPrevX = 0;
+      this._camPrevY = 0;
+      this._camSecondaryId = null;
+      this._camSecX = 0;
+      this._camSecY = 0;
+      this._prevPinchDist = 0;
+      this._overlay = document.getElementById("virtual-touch-controls");
+      this._zone = document.getElementById("joystick-zone");
+      this._base = document.getElementById("joystick-base");
+      this._stick = document.getElementById("joystick-stick");
+      this._bindEvents();
+      const isTouchCapable = "ontouchstart" in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 900;
+      this.setVisible(isTouchCapable);
+    }
+    _haptic(pattern = 15) {
+      if (this.eventBus) {
+        this.eventBus.emit("haptic:pulse", { pattern });
+      } else if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
+    }
+    _bindEvents() {
+      const sig = { signal: this._ac.signal };
+      if (this._zone) {
+        this._zone.addEventListener("touchstart", (e) => this._onJoyTouchStart(e), { passive: false, signal: this._ac.signal });
+        this._zone.addEventListener("mousedown", (e) => this._onJoyMouseDown(e), sig);
+      }
+      window.addEventListener("touchmove", (e) => this._onWindowTouchMove(e), { passive: false, signal: this._ac.signal });
+      window.addEventListener("touchend", (e) => this._onWindowTouchEnd(e), sig);
+      window.addEventListener("touchcancel", (e) => this._onWindowTouchEnd(e), sig);
+      window.addEventListener("mousemove", (e) => this._onJoyMouseMove(e), sig);
+      window.addEventListener("mouseup", () => this._onJoyMouseUp(), sig);
+      if (this.canvas) {
+        this.canvas.addEventListener("touchstart", (e) => this._onCanvasTouchStart(e), { passive: true, signal: this._ac.signal });
+        this.canvas.addEventListener("touchmove", (e) => this._onCanvasTouchMove(e), { passive: false, signal: this._ac.signal });
+        this.canvas.addEventListener("touchend", (e) => this._onCanvasTouchEnd(e), sig);
+        this.canvas.addEventListener("touchcancel", (e) => this._onCanvasTouchEnd(e), sig);
+      }
+      const actionButtons = document.querySelectorAll(".touch-act-btn");
+      for (let i = 0; i < actionButtons.length; i++) {
+        const btn = actionButtons[i];
+        const key = btn.dataset.key;
+        let lastTapMs = 0;
+        const fireAction = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const now = performance.now();
+          if (now - lastTapMs < 140) return;
+          lastTapMs = now;
+          this._haptic(15);
+          if (key === "shift") {
+            this._runToggle = !this._runToggle;
+            btn.classList.toggle("pressed", this._runToggle);
+            return;
+          }
+          let action = null;
+          if (key === " ") action = "jump";
+          else if (key === "b") action = "bark";
+          else if (key === "g") action = "throwBall";
+          else if (key === "p") action = "pet";
+          if (action && this.eventBus) {
+            this.eventBus.emit("input:action", { action, source: "touch" });
+          }
+        };
+        btn.addEventListener("pointerdown", fireAction, sig);
+      }
+    }
+    _showJoystickAt(cx, cy) {
+      this._joyCenterX = cx;
+      this._joyCenterY = cy;
+      if (this._base) {
+        this._base.style.transform = `translate3d(${cx - 52}px, ${cy - 52}px, 0)`;
+        this._base.classList.remove("hidden");
+      }
+      if (this._stick) {
+        this._stick.style.transform = "translate3d(0px, 0px, 0)";
+      }
+    }
+    _updateJoystickTo(px2, py2) {
+      const dx = px2 - this._joyCenterX;
+      const dy = py2 - this._joyCenterY;
+      const dist = Math.hypot(dx, dy);
+      const maxR = this._joyRadius;
+      let sx = dx;
+      let sy = dy;
+      if (dist > maxR && dist > 1e-4) {
+        const inv = maxR / dist;
+        sx = dx * inv;
+        sy = dy * inv;
+      }
+      if (this._stick) {
+        this._stick.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0)`;
+      }
+      this._moveX = sx / maxR;
+      this._moveY = sy / maxR;
+      this._runByStick = Math.min(dist, maxR) / maxR > 0.72;
+    }
+    _resetJoystick() {
+      this._joyTouchId = null;
+      this._moveX = 0;
+      this._moveY = 0;
+      this._runByStick = false;
+      if (this._base) {
+        this._base.classList.add("hidden");
+      }
+      if (this._stick) {
+        this._stick.style.transform = "translate3d(0px, 0px, 0)";
+      }
+    }
+    _onJoyTouchStart(e) {
+      if (this._joyTouchId !== null) return;
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const t = e.changedTouches[0];
+      this._joyTouchId = t.identifier;
+      this._showJoystickAt(t.clientX, t.clientY);
+      this._haptic(10);
+    }
+    _onJoyMouseDown(e) {
+      if (e.button !== 0 || this._joyTouchId !== null) return;
+      e.stopPropagation();
+      this._joyTouchId = "mouse";
+      this._showJoystickAt(e.clientX, e.clientY);
+    }
+    _onJoyMouseMove(e) {
+      if (this._joyTouchId !== "mouse") return;
+      this._updateJoystickTo(e.clientX, e.clientY);
+    }
+    _onJoyMouseUp() {
+      if (this._joyTouchId !== "mouse") return;
+      this._resetJoystick();
+    }
+    _onWindowTouchMove(e) {
+      if (this._joyTouchId === null || this._joyTouchId === "mouse") return;
+      const touches = e.changedTouches;
+      for (let i = 0; i < touches.length; i++) {
+        if (touches[i].identifier === this._joyTouchId) {
+          e.preventDefault();
+          this._updateJoystickTo(touches[i].clientX, touches[i].clientY);
+          break;
+        }
+      }
+    }
+    _onWindowTouchEnd(e) {
+      if (this._joyTouchId === null || this._joyTouchId === "mouse") return;
+      const touches = e.changedTouches;
+      for (let i = 0; i < touches.length; i++) {
+        if (touches[i].identifier === this._joyTouchId) {
+          this._resetJoystick();
+          break;
+        }
+      }
+    }
+    _onCanvasTouchStart(e) {
+      const touches = e.changedTouches;
+      for (let i = 0; i < touches.length; i++) {
+        const t = touches[i];
+        if (t.identifier === this._joyTouchId) continue;
+        if (this._camPrimaryId === null) {
+          this._camPrimaryId = t.identifier;
+          this._camPrevX = t.clientX;
+          this._camPrevY = t.clientY;
+        } else if (this._camSecondaryId === null && t.identifier !== this._camPrimaryId) {
+          this._camSecondaryId = t.identifier;
+          this._camSecX = t.clientX;
+          this._camSecY = t.clientY;
+          this._prevPinchDist = Math.hypot(this._camPrevX - this._camSecX, this._camPrevY - this._camSecY);
+        }
+      }
+    }
+    _onCanvasTouchMove(e) {
+      const touches = e.changedTouches;
+      let movedPrimary = false;
+      let movedSecondary = false;
+      for (let i = 0; i < touches.length; i++) {
+        const t = touches[i];
+        if (t.identifier === this._joyTouchId) continue;
+        if (t.identifier === this._camPrimaryId) {
+          const dx = t.clientX - this._camPrevX;
+          const dy = t.clientY - this._camPrevY;
+          this._camPrevX = t.clientX;
+          this._camPrevY = t.clientY;
+          movedPrimary = true;
+          if (this._camSecondaryId === null && !(this.appState && this.appState.isHandToolActive)) {
+            if (this.cameraController && this.cameraController.addOrbitDelta) {
+              this.cameraController.addOrbitDelta(dx, dy);
+            }
+          }
+        } else if (t.identifier === this._camSecondaryId) {
+          this._camSecX = t.clientX;
+          this._camSecY = t.clientY;
+          movedSecondary = true;
+        }
+      }
+      if ((movedPrimary || movedSecondary) && this._camPrimaryId !== null && this._camSecondaryId !== null) {
+        e.preventDefault();
+        const newDist = Math.hypot(this._camPrevX - this._camSecX, this._camPrevY - this._camSecY);
+        const pinchDelta = this._prevPinchDist - newDist;
+        this._prevPinchDist = newDist;
+        if (this.cameraController && this.cameraController.addZoomDelta) {
+          this.cameraController.addZoomDelta(pinchDelta * 2.5);
+        }
+      } else if (movedPrimary && !(this.appState && this.appState.isHandToolActive)) {
+        e.preventDefault();
+      }
+    }
+    _onCanvasTouchEnd(e) {
+      const touches = e.changedTouches;
+      for (let i = 0; i < touches.length; i++) {
+        const id = touches[i].identifier;
+        if (id === this._camPrimaryId) {
+          this._camPrimaryId = this._camSecondaryId;
+          this._camPrevX = this._camSecX;
+          this._camPrevY = this._camSecY;
+          this._camSecondaryId = null;
+          this._prevPinchDist = 0;
+        } else if (id === this._camSecondaryId) {
+          this._camSecondaryId = null;
+          this._prevPinchDist = 0;
+        }
+      }
+    }
+    getMoveVector(outVec2) {
+      if (outVec2 && outVec2.set) {
+        outVec2.set(this._moveX, this._moveY);
+      } else if (outVec2) {
+        outVec2.x = this._moveX;
+        outVec2.y = this._moveY;
+      }
+      return outVec2;
+    }
+    isRunning() {
+      return this._runToggle || this._runByStick;
+    }
+    isVisible() {
+      return this._visible;
+    }
+    setVisible(v) {
+      this._visible = !!v;
+      if (this.appState) {
+        this.appState.isTouchVisible = this._visible;
+      }
+      if (this._overlay) {
+        this._overlay.classList.toggle("hidden", !this._visible);
+      }
+      if (!this._visible) {
+        this._resetJoystick();
+        this._runToggle = false;
+      }
+    }
+    dispose() {
+      this._ac.abort();
+      this._resetJoystick();
+    }
+  };
+
+  // public/js/main.js
+  var CAMERA_MODES = ["follow", "diagonal", "orbit", "drone", "eye", "free"];
+  var ROBOT_ORDER = ["Sparky", "Bolt", "Pixel", "Luna", "Rusty"];
+  var TELEMETRY_INTERVAL = 0.25;
+  var MINIMAP_INTERVAL = 0.066;
+  var App = class {
+    constructor() {
+      this.container = document.getElementById("canvas-container") || document.body;
+      this.timer = new Timer();
+      this.timers = new TimerRegistry();
+      this.disposed = false;
+      this._rafId = null;
+      this.elapsedTime = 0;
+      this._telemetryTimer = 0;
+      this._telemetryFrames = 0;
+      this._minimapTimer = 0;
+      this._freeWillTimer = 3;
+      this._jumpQueued = false;
+      this.keys = /* @__PURE__ */ Object.create(null);
+      this._moveInput = { x: 0, y: 0, z: 0, isRunning: false };
+      this._touchVec = new Vector2();
+      this._telemetry = {
+        fps: 60,
+        frameMs: 16.6,
+        drawCalls: 0,
+        triangles: 0,
+        geometries: 0,
+        textures: 0,
+        heapMB: null
+      };
+      this._robotStats = {
+        name: "Sparky",
+        emotion: null,
+        energy: 100,
+        curiosity: 85,
+        affection: 88,
+        hydration: 90,
+        location: "Prado Esmeralda"
+      };
+      this._raycaster = new Raycaster();
+      this._pointerNDC = new Vector2();
+      this._pointerHits = [];
+      this._planeIntersect = new Vector3();
+      this._dogsList = [];
+      this._dogsGroups = [];
+      this._unsubs = [];
+      this.grabbedRobot = null;
+      this._candidateRobot = null;
+      this._pointerDownTime = 0;
+      this._pointerDownX = 0;
+      this._pointerDownY = 0;
+      this._lastDragTime = 0;
+      this._wasNavigating = false;
+      this._pipPanel = document.getElementById("pip-panel");
+      this._pipCanvas = document.getElementById("pip-canvas");
+      this._minimapPanel = document.getElementById("minimap-panel");
+      this._initSubsystems();
+      this._initWaypointBeacon();
+      this._bindEvents();
+      this._animate = this._animate.bind(this);
+      this._rafId = requestAnimationFrame(this._animate);
+    }
+    _initSubsystems() {
+      this.gfx = new GfxPipeline(this.container, assetCache, eventBus);
+      const aspect2 = window.innerWidth / Math.max(1, window.innerHeight);
+      this.camera = new PerspectiveCamera(50, aspect2, 0.25, 1e3);
+      this.camera.position.set(16, 15, 16);
+      this.world = new WorldManager(this.gfx.scene, assetCache, eventBus);
+      this.cameraController = new CameraController(
+        this.camera,
+        this.gfx.renderer.domElement,
+        this.world,
+        eventBus
+      );
+      this.cameraController.setMode(appState.cameraMode || "diagonal");
+      this.particles = new EmotionParticleSystem(this.gfx.scene, assetCache);
+      this.packManager = new RobotPackManager(this.gfx.scene, this.world, assetCache, eventBus);
+      this._rebuildDogCaches();
+      this.playerRobot = this.packManager.playerDog || this.packManager.getDog(appState.activeRobotName) || this._dogsList[0];
+      if (this.playerRobot) {
+        appState.activeRobotName = this.playerRobot.name;
+      }
+      this.vision = new RobotVisionSystem(this.world, eventBus);
+      if (this.playerRobot) {
+        this.vision.attachToRobot(this.playerRobot);
+      }
+      this.brain = new RobotBrain(this.packManager, this.world, this.particles, this.vision, eventBus);
+      this.multiplayer = new MultiplayerClient(eventBus, appState);
+      this.touchControls = new TouchControls(
+        this.gfx.renderer.domElement,
+        this.cameraController,
+        eventBus,
+        appState
+      );
+      this.uiHud = new UiHud(
+        eventBus,
+        appState,
+        this.world,
+        this.packManager,
+        this.brain,
+        this.vision,
+        this.multiplayer
+      );
+    }
+    _rebuildDogCaches() {
+      this._dogsList.length = 0;
+      this._dogsGroups.length = 0;
+      const dogs = this.packManager ? this.packManager.dogs : null;
+      if (!dogs) return;
+      if (Array.isArray(dogs)) {
+        for (let i = 0; i < dogs.length; i++) {
+          if (dogs[i]) {
+            this._dogsList.push(dogs[i]);
+            this._dogsGroups.push(dogs[i].group);
+          }
+        }
+      } else if (dogs instanceof Map) {
+        for (const dog of dogs.values()) {
+          if (dog) {
+            this._dogsList.push(dog);
+            this._dogsGroups.push(dog.group);
+          }
+        }
+      } else {
+        for (const key in dogs) {
+          if (Object.prototype.hasOwnProperty.call(dogs, key) && dogs[key]) {
+            this._dogsList.push(dogs[key]);
+            this._dogsGroups.push(dogs[key].group);
+          }
+        }
+      }
+    }
+    _initWaypointBeacon() {
+      const ringGeo = assetCache.getGeometry("waypoint_ring", () => {
+        const g = new RingGeometry(0.9, 1.25, 24);
+        g.rotateX(-Math.PI / 2);
+        return g;
+      });
+      const ringMat = assetCache.getMaterial("waypoint_ring_mat", () => new MeshBasicMaterial({
+        color: 2293640,
+        side: DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      }));
+      const beamGeo = assetCache.getGeometry("waypoint_beam", () => new CylinderGeometry(0.85, 0.85, 4.2, 16, 1, true));
+      const beamMat = assetCache.getMaterial("waypoint_beam_mat", () => new MeshBasicMaterial({
+        color: 2293640,
+        transparent: true,
+        opacity: 0.25,
+        side: DoubleSide
+      }));
+      this.waypointBeacon = new Group();
+      this.waypointBeacon.visible = false;
+      const ring = new Mesh(ringGeo, ringMat);
+      ring.position.y = 0.12;
+      const beam = new Mesh(beamGeo, beamMat);
+      beam.position.y = 2.1;
+      this.waypointBeacon.add(ring, beam);
+      this.gfx.scene.add(this.waypointBeacon);
+    }
+    _bindEvents() {
+      this._onResize = () => {
+        const w = Math.max(1, window.innerWidth);
+        const h = Math.max(1, window.innerHeight);
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.gfx.resize(w, h);
+      };
+      window.addEventListener("resize", this._onResize);
+      this._onKeyDown = (e) => {
+        const tag = e.target && e.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        const key = e.key.toLowerCase();
+        this.keys[key] = true;
+        roboAudio.init();
+        if (e.key === " ") {
+          e.preventDefault();
+          this._jumpQueued = true;
+        } else if (key === "p") {
+          this._petActiveRobot();
+        } else if (key === "b") {
+          this._barkActiveRobot();
+        } else if (key === "f") {
+          if (this.playerRobot && this.playerRobot.animController) {
+            this.playerRobot.animController.play("backflip", 1.6);
+            eventBus.emit("camera:trauma", { amount: 0.15 });
+          }
+        } else if (key === "g") {
+          this.throwFetchBall();
+        } else if (key === "t") {
+          if (this.playerRobot && this.playerRobot.animController) {
+            this.playerRobot.animController.play("headTilt", 2);
+          }
+        } else if (key === "l") {
+          const nextMode = this.cameraController.mode === "free" ? "diagonal" : "free";
+          this.setCameraMode(nextMode);
+        } else if (key === "c") {
+          this.cycleCameraMode();
+        } else if (key === "h") {
+          this.toggleZenMode();
+        } else if (key === "tab") {
+          e.preventDefault();
+          const curIdx = ROBOT_ORDER.indexOf(appState.activeRobotName);
+          const nextName = ROBOT_ORDER[(curIdx + 1) % ROBOT_ORDER.length];
+          this.switchToRobot(nextName);
+        }
+      };
+      window.addEventListener("keydown", this._onKeyDown);
+      this._onKeyUp = (e) => {
+        this.keys[e.key.toLowerCase()] = false;
+      };
+      window.addEventListener("keyup", this._onKeyUp);
+      this._onBlur = () => {
+        for (const k in this.keys) {
+          this.keys[k] = false;
+        }
+        this._jumpQueued = false;
+      };
+      window.addEventListener("blur", this._onBlur);
+      const dom = this.gfx.renderer.domElement;
+      this._onPointerDown = (e) => {
+        if (e.button !== 0 && e.pointerType === "mouse") return;
+        const rect = dom.getBoundingClientRect();
+        this._pointerNDC.x = (e.clientX - rect.left) / Math.max(1, rect.width) * 2 - 1;
+        this._pointerNDC.y = -((e.clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
+        this._raycaster.setFromCamera(this._pointerNDC, this.camera);
+        this._pointerDownTime = performance.now();
+        this._pointerDownX = e.clientX;
+        this._pointerDownY = e.clientY;
+        this._candidateRobot = null;
+        this._pointerHits.length = 0;
+        this._raycaster.intersectObjects(this._dogsGroups, true, this._pointerHits);
+        if (this._pointerHits.length > 0) {
+          let obj = this._pointerHits[0].object;
+          while (obj && obj.parent && !obj.name.startsWith("ChibiRobot_")) {
+            obj = obj.parent;
+          }
+          if (obj && obj.name.startsWith("ChibiRobot_")) {
+            const botName = obj.name.slice("ChibiRobot_".length);
+            this._candidateRobot = this.packManager.getDog(botName);
+            if (appState.isHandToolActive && this._candidateRobot) {
+              this._grabRobot(this._candidateRobot);
+            }
+          }
+        }
+      };
+      this._onPointerMove = (e) => {
+        if (!this._candidateRobot && !this.grabbedRobot) return;
+        if (this._candidateRobot && !this.grabbedRobot) {
+          const dtMs = performance.now() - this._pointerDownTime;
+          const distPx = Math.hypot(e.clientX - this._pointerDownX, e.clientY - this._pointerDownY);
+          if (dtMs > 130 && distPx > 6) {
+            this._grabRobot(this._candidateRobot);
           }
         }
         if (this.grabbedRobot) {
-          const MAP_LIMIT = 110;
-          const groundY = this.world.getHeightAt(this.grabbedRobot.group.position.x, this.grabbedRobot.group.position.z);
+          const rect = dom.getBoundingClientRect();
+          this._pointerNDC.x = (e.clientX - rect.left) / Math.max(1, rect.width) * 2 - 1;
+          this._pointerNDC.y = -((e.clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
+          this._raycaster.setFromCamera(this._pointerNDC, this.camera);
+          const pos = this.grabbedRobot.group.position;
+          const groundY = this.world.getHeightAt(pos.x, pos.z);
           const targetH = groundY + 2.4;
-          groundPlane.constant = -targetH;
-          if (raycaster.ray.intersectPlane(groundPlane, planeIntersect)) {
-            const clampedX = MathUtils.clamp(planeIntersect.x, -MAP_LIMIT, MAP_LIMIT);
-            const clampedZ = MathUtils.clamp(planeIntersect.z, -MAP_LIMIT, MAP_LIMIT);
-            this.grabbedRobot.group.position.x = MathUtils.lerp(this.grabbedRobot.group.position.x, clampedX, 0.45);
-            this.grabbedRobot.group.position.z = MathUtils.lerp(this.grabbedRobot.group.position.z, clampedZ, 0.45);
-            this.grabbedRobot.group.position.y = targetH;
+          TMP.plane.set(TMP.v1.set(0, 1, 0), -targetH);
+          if (this._raycaster.ray.intersectPlane(TMP.plane, this._planeIntersect)) {
+            const maxR = WORLD_RADIUS2 - 4;
+            const distSq = this._planeIntersect.x * this._planeIntersect.x + this._planeIntersect.z * this._planeIntersect.z;
+            if (distSq > maxR * maxR) {
+              const s = maxR / Math.sqrt(distSq);
+              this._planeIntersect.x *= s;
+              this._planeIntersect.z *= s;
+            }
+            const now = performance.now();
+            const dragDt = this._lastDragTime > 0 ? Math.min(0.05, Math.max(1e-3, (now - this._lastDragTime) * 1e-3)) : 0.016;
+            this._lastDragTime = now;
+            pos.x = damp2(pos.x, this._planeIntersect.x, 18, dragDt);
+            pos.z = damp2(pos.z, this._planeIntersect.z, 18, dragDt);
+            pos.y = targetH;
           }
         }
-      });
-      this.renderer.domElement.addEventListener("pointerup", () => {
+      };
+      this._onPointerUp = () => {
         if (this.grabbedRobot) {
-          this.releaseGrabbedRobot();
-          candidateRobot = null;
+          this._releaseGrabbedRobot();
+          this._candidateRobot = null;
           return;
         }
-        if (candidateRobot && Date.now() - pointerDownTime < 260) {
-          if (candidateRobot === this.playerRobot) {
-            this.playerRobot.petRobot();
-            this.particleSystem.spawnBurst(this.playerRobot.group.position, "LOVING");
-            this.pushActivity(`\u{1F496} \xA1Mimos para ${this.playerRobot.name}!`);
+        if (this._candidateRobot && performance.now() - this._pointerDownTime < 260) {
+          if (this._candidateRobot === this.playerRobot) {
+            this._petActiveRobot();
           } else {
-            this.switchToRobot(candidateRobot.name);
+            this.switchToRobot(this._candidateRobot.name);
           }
         }
-        candidateRobot = null;
-      });
+        this._candidateRobot = null;
+      };
+      dom.addEventListener("pointerdown", this._onPointerDown);
+      window.addEventListener("pointermove", this._onPointerMove);
+      window.addEventListener("pointerup", this._onPointerUp);
+      window.addEventListener("pointercancel", this._onPointerUp);
+      this._unsubs.push(
+        eventBus.on("input:action", (payload) => this._handleInputAction(payload)),
+        eventBus.on("world:timeChanged", ({ timeOfDay }) => {
+          if (timeOfDay) {
+            appState.timeOfDay = timeOfDay;
+            this.gfx.setTimeOfDay(timeOfDay);
+          }
+        }),
+        eventBus.on("world:weatherChanged", ({ mode }) => {
+          if (mode !== void 0) {
+            appState.weatherMode = mode;
+            this.gfx.setWeatherMode(mode);
+          }
+        }),
+        eventBus.on("world:visionChanged", ({ mode }) => {
+          if (mode !== void 0) {
+            appState.visionMode = mode;
+            this.gfx.setVisionMode(mode);
+          }
+        }),
+        eventBus.on("app:dispose", () => this.dispose())
+      );
     }
-    grabRobot(robot) {
+    _handleInputAction(payload) {
+      if (!payload) return;
+      const { action, payload: data } = payload;
+      switch (action) {
+        case "jump":
+          this._jumpQueued = true;
+          break;
+        case "bark":
+          this._barkActiveRobot();
+          break;
+        case "pet":
+          this._petActiveRobot();
+          break;
+        case "praise":
+          if (this.playerRobot && this.playerRobot.praise) {
+            this.playerRobot.praise();
+            this.particles.spawnBurst(this.playerRobot.group.position, "LOVING");
+          }
+          break;
+        case "throwBall":
+          this.throwFetchBall();
+          break;
+        case "spawnSnack":
+          this._spawnSnackAhead();
+          break;
+        case "disco":
+          this.world.triggerDiscoParty();
+          break;
+        case "switchRobot":
+          if (data && data.name) this.switchToRobot(data.name);
+          break;
+        case "setCamera":
+          if (data && data.mode) this.setCameraMode(data.mode);
+          break;
+        case "cycleCamera":
+          this.cycleCameraMode();
+          break;
+        case "toggleHandTool":
+          appState.isHandToolActive = !appState.isHandToolActive;
+          eventBus.emit("ui:toast", {
+            message: appState.isHandToolActive ? "\u270B Modo Mano Activo: Arrastra a cualquier robot" : "\u270B Modo Mano Desactivado",
+            durationMs: 2200
+          });
+          break;
+        case "toggleZen":
+          this.toggleZenMode();
+          break;
+        case "toggleFreeWill":
+          appState.isFreeWill = !appState.isFreeWill;
+          break;
+        case "setTimeOfDay":
+          if (data && data.timeOfDay) {
+            appState.timeOfDay = data.timeOfDay;
+            this.gfx.setTimeOfDay(data.timeOfDay);
+            eventBus.emit("world:timeChanged", { timeOfDay: data.timeOfDay });
+          }
+          break;
+        case "setWeatherMode":
+          if (data && data.mode !== void 0) {
+            appState.weatherMode = data.mode;
+            this.gfx.setWeatherMode(data.mode);
+            eventBus.emit("world:weatherChanged", { mode: data.mode });
+          }
+          break;
+        case "setVisionMode":
+          if (data && data.mode !== void 0) {
+            appState.visionMode = data.mode;
+            this.gfx.setVisionMode(data.mode);
+            eventBus.emit("world:visionChanged", { mode: data.mode });
+          }
+          break;
+        case "setEmotion":
+          if (data && data.emotionKey && EMOTIONS[data.emotionKey] && this.playerRobot) {
+            this.playerRobot.setEmotion(EMOTIONS[data.emotionKey]);
+            this.particles.spawnBurst(this.playerRobot.group.position, data.emotionKey);
+          }
+          break;
+        case "playAnim":
+          if (data && data.anim && this.playerRobot && this.playerRobot.animController) {
+            if (data.anim === "jump") {
+              this._jumpQueued = true;
+            } else {
+              this.playerRobot.animController.play(data.anim, data.duration || 2.2);
+            }
+          }
+          break;
+        case "navigateTo":
+          if (data && typeof data.x === "number" && typeof data.z === "number") {
+            const y = this.world.getHeightAt(data.x, data.z);
+            appState.navigation.active = true;
+            appState.navigation.target = { x: data.x, y, z: data.z };
+            appState.navigation.mode = "waypoint";
+            if (this.waypointBeacon) {
+              this.waypointBeacon.position.set(data.x, y, data.z);
+              this.waypointBeacon.visible = true;
+            }
+            if (this.brain && this.brain.handleUserCommand) {
+              this.brain.handleUserCommand(`ve a (${Math.round(data.x)}, ${Math.round(data.z)})`, appState.activeRobotName);
+            }
+          }
+          break;
+        case "cancelNavigation":
+          appState.navigation.active = false;
+          appState.navigation.target = null;
+          if (this.waypointBeacon) this.waypointBeacon.visible = false;
+          break;
+        default:
+          break;
+      }
+    }
+    _petActiveRobot() {
+      if (!this.playerRobot) return;
+      if (this.playerRobot.setEmotion) this.playerRobot.setEmotion(EMOTIONS.LOVING);
+      if (this.playerRobot.praise) this.playerRobot.praise();
+      this.particles.spawnBurst(this.playerRobot.group.position, "LOVING");
+      eventBus.emit("haptic:pulse", { pattern: 15 });
+      eventBus.emit("world:activity", { text: `\u{1F496} \xA1Acariciaste a ${this.playerRobot.name}!`, level: "info" });
+    }
+    _barkActiveRobot() {
+      if (!this.playerRobot) return;
+      if (this.playerRobot.bark) this.playerRobot.bark();
+      else if (this.playerRobot.animController) this.playerRobot.animController.play("bark", 1);
+      const pitch = this.playerRobot.profile ? this.playerRobot.profile.voicePitch : 1;
+      roboAudio.playBark(pitch);
+      eventBus.emit("haptic:pulse", { pattern: 10 });
+    }
+    _spawnSnackAhead() {
+      if (!this.playerRobot) return;
+      const rotY = this.playerRobot.group.rotation.y;
+      TMP.v1.copy(this.playerRobot.group.position);
+      TMP.v1.x += Math.sin(rotY) * 2;
+      TMP.v1.z += Math.cos(rotY) * 2;
+      this.world.spawnCyberSnack(TMP.v1);
+    }
+    throwFetchBall() {
+      if (!this.playerRobot) return;
+      const balls = this.world.balls;
+      if (!balls || balls.length === 0) return;
+      const rPos = this.playerRobot.group.position;
+      const rotY = this.playerRobot.group.rotation.y;
+      TMP.v1.set(Math.sin(rotY), 0.25, Math.cos(rotY)).normalize();
+      const ball = balls[0];
+      if (ball && ball.mesh) {
+        ball.mesh.position.set(rPos.x + TMP.v1.x * 1.4, rPos.y + 0.7, rPos.z + TMP.v1.z * 1.4);
+        this.world.kickBall(ball, TMP.v1, 22);
+        eventBus.emit("camera:trauma", { amount: 0.14 });
+        eventBus.emit("haptic:pulse", { pattern: 15 });
+      }
+      this.timers.setTimeout(() => {
+        if (!this.disposed && this.brain && this.brain.handleUserCommand) {
+          this.brain.handleUserCommand("busca la pelota", this.playerRobot.name);
+        }
+      }, 400);
+    }
+    switchToRobot(name) {
+      const prevName = appState.activeRobotName;
+      if (this.packManager && this.packManager.setPlayerDog) {
+        this.packManager.setPlayerDog(name);
+      }
+      const nextDog = this.packManager.getDog(name) || this.packManager.playerDog;
+      if (!nextDog) return;
+      this.playerRobot = nextDog;
+      appState.activeRobotName = nextDog.name;
+      appState.navigation.active = false;
+      appState.navigation.target = null;
+      if (this.waypointBeacon) this.waypointBeacon.visible = false;
+      this.vision.attachToRobot(nextDog);
+      eventBus.emit("robot:switched", {
+        robot: nextDog,
+        name: nextDog.name,
+        previousName: prevName
+      });
+      eventBus.emit("haptic:pulse", { pattern: 15 });
+    }
+    setCameraMode(mode) {
+      appState.cameraMode = mode;
+      this.cameraController.setMode(mode);
+    }
+    cycleCameraMode() {
+      const idx = CAMERA_MODES.indexOf(this.cameraController.mode);
+      const next = CAMERA_MODES[(idx + 1) % CAMERA_MODES.length];
+      this.setCameraMode(next);
+    }
+    toggleZenMode() {
+      appState.isZenMode = !appState.isZenMode;
+      const hud = document.getElementById("hud-overlay");
+      if (hud) hud.classList.toggle("zen-mode", appState.isZenMode);
+      const exitBtn = document.getElementById("btn-exit-zen");
+      if (exitBtn) exitBtn.classList.toggle("hidden", !appState.isZenMode);
+    }
+    _grabRobot(robot) {
       if (!robot || this.grabbedRobot) return;
       this.grabbedRobot = robot;
       robot.isPickedUp = true;
-      robot.velocityY = 0;
-      if (robot === this.playerRobot && this.brain) {
-        this.brain.cancelNavigation();
+      if (robot.physics) {
+        robot.physics.velocity.set(0, 0, 0);
+        robot.physics.isGrounded = false;
       }
+      this.cameraController.setPointerDragEnabled(false);
       if (robot.animController) robot.animController.play("pickedUp");
       document.body.classList.add("is-grabbing");
-      roboAudio.playBoop(1.5);
-      if (this.particleSystem) this.particleSystem.spawnBurst(robot.group.position, "EXCITED");
-      this.pushActivity(`\u270B \xA1Levantaste a ${robot.name} en el aire con la mano!`);
+      roboAudio.init();
+      this.particles.spawnBurst(robot.group.position, "EXCITED");
+      eventBus.emit("haptic:pulse", { pattern: 18 });
     }
-    releaseGrabbedRobot() {
+    _releaseGrabbedRobot() {
       if (!this.grabbedRobot) return;
       const released = this.grabbedRobot;
       this.grabbedRobot = null;
       released.isPickedUp = false;
-      released.velocityY = -2.5;
-      const MAP_LIMIT = 110;
-      released.group.position.x = MathUtils.clamp(released.group.position.x, -MAP_LIMIT, MAP_LIMIT);
-      released.group.position.z = MathUtils.clamp(released.group.position.z, -MAP_LIMIT, MAP_LIMIT);
+      if (released.physics) {
+        released.physics.velocity.set(0, -2.5, 0);
+        released.physics.isGrounded = false;
+      }
+      this.cameraController.setPointerDragEnabled(true);
       document.body.classList.remove("is-grabbing");
-      this.pushActivity(`\u{1F43E} \xA1Soltaste a ${released.name}! Cayendo suavemente al terreno.`);
     }
-    addChatMessage(author, message, role = "robot", targetDog = null) {
-      const cleanMsg = role === "robot" && this.brain ? this.brain.cleanThought(message) : message;
-      const dog = targetDog || (role === "robot" ? author : this.playerRobot ? this.playerRobot.name : null);
-      const entry = {
-        author,
-        message: cleanMsg,
-        role,
-        targetDog: dog,
-        time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      };
-      this.allChatHistory.push(entry);
-      if (this.allChatHistory.length > 80) this.allChatHistory.shift();
-      if (dog && this.packManager && this.packManager.allRobots[dog]) {
-        this.packManager.allRobots[dog].addDialogue(role, author, cleanMsg);
-      }
-      this.renderChatFeed();
-    }
-    renderChatFeed() {
-      const feed = document.getElementById("chat-history-feed");
-      if (!feed) return;
-      feed.innerHTML = "";
-      const filter = this.chatFilterDog || "ALL";
-      const filtered = this.allChatHistory.filter((entry) => {
-        if (filter === "ALL") return true;
-        if (entry.role === "system") return true;
-        return entry.author === filter || entry.targetDog === filter;
-      });
-      filtered.forEach((entry) => {
-        const bubble = document.createElement("div");
-        bubble.className = `chat-bubble chat-${entry.role}`;
-        const icon = entry.role === "user" ? "\u{1F464}" : entry.role === "system" ? "\u{1F916}" : "\u{1F43E}";
-        bubble.innerHTML = `<span class="chat-author">${icon} ${entry.author}:</span> ${entry.message}`;
-        feed.appendChild(bubble);
-      });
-      feed.scrollTop = feed.scrollHeight;
-    }
-    initLoginAndMultiplayer() {
-      let savedUser = null;
-      try {
-        savedUser = JSON.parse(localStorage.getItem("robochibi_user"));
-      } catch (e) {
-      }
-      let selectedAvatar = savedUser && savedUser.avatar || "\u{1F43E}";
-      const loginModal = document.getElementById("modal-login");
-      const usernameInput = document.getElementById("login-username-input");
-      const submitBtn = document.getElementById("btn-login-submit");
-      const avatarBtns = document.querySelectorAll(".avatar-opt");
-      avatarBtns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          avatarBtns.forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          selectedAvatar = btn.getAttribute("data-avatar") || "\u{1F43E}";
-        });
-      });
-      const updateUserProfileUI = () => {
-        const headerAvatar = document.getElementById("header-user-avatar");
-        const headerName = document.getElementById("header-user-name");
-        if (headerAvatar) headerAvatar.textContent = this.currentUser.avatar || "\u{1F43E}";
-        if (headerName) headerName.textContent = this.currentUser.username || "Humano";
-      };
-      const confirmLogin = () => {
-        let username = usernameInput ? usernameInput.value.trim() : "";
-        if (!username) username = `Explorador_${Math.floor(100 + Math.random() * 900)}`;
-        this.currentUser = {
-          username,
-          avatar: selectedAvatar
-        };
-        localStorage.setItem("robochibi_user", JSON.stringify(this.currentUser));
-        updateUserProfileUI();
-        if (loginModal) loginModal.classList.add("hidden");
-        if (!this.multiplayer) {
-          this.setupMultiplayer();
-        } else {
-          this.multiplayer.updateUser(this.currentUser);
-        }
-        this.pushActivity(`\u{1F389} \xA1Bienvenido, ${this.currentUser.username}! Puedes darle \xF3rdenes a los perritos.`);
-      };
-      submitBtn?.addEventListener("click", confirmLogin);
-      usernameInput?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") confirmLogin();
-      });
-      document.getElementById("user-profile-badge")?.addEventListener("click", () => {
-        if (usernameInput) usernameInput.value = this.currentUser ? this.currentUser.username : "";
-        if (loginModal) loginModal.classList.remove("hidden");
-        if (usernameInput) usernameInput.focus();
-      });
-      if (savedUser && savedUser.username) {
-        this.currentUser = savedUser;
-        updateUserProfileUI();
-        this.setupMultiplayer();
-      } else {
-        if (loginModal) loginModal.classList.remove("hidden");
-        setTimeout(() => {
-          if (usernameInput) usernameInput.focus();
-        }, 100);
-      }
-    }
-    setupMultiplayer() {
-      this.multiplayer = new MultiplayerClient({
-        onStatusChange: (connected) => {
-          const dot = document.querySelector(".online-indicator-dot");
-          if (dot) dot.style.background = connected ? "#22c55e" : "#ef4444";
-        },
-        onUsersListUpdated: (users) => {
-          const countEl = document.getElementById("online-users-count");
-          if (countEl) countEl.textContent = users.length;
-          const listEl = document.getElementById("online-users-list");
-          if (!listEl) return;
-          listEl.innerHTML = users.map((u) => {
-            const isMe = this.currentUser && u.username === this.currentUser.username;
-            return `
-            <div class="user-pill-item ${isMe ? "current-user" : ""}">
-              <span class="user-pill-avatar">${u.avatar || "\u{1F43E}"}</span>
-              <span class="user-pill-name">${u.username}</span>
-              ${isMe ? '<span class="user-pill-tag">T\xFA</span>' : ""}
-            </div>
-          `;
-          }).join("");
-        },
-        onUserJoined: (user) => {
-          roboAudio.playHappyJingle();
-          this.addChatMessage("Sistema", `\u{1F44B} ${user.avatar || "\u{1F43E}"} <strong>${user.username}</strong> se ha unido al mundo virtual.`, "system");
-          this.pushActivity(`\u{1F44B} ${user.username} se uni\xF3 a la sesi\xF3n.`);
-        },
-        onUserLeft: (user) => {
-          this.addChatMessage("Sistema", `\u{1F6AA} ${user.avatar || "\u{1F43E}"} <strong>${user.username}</strong> sali\xF3 de la sesi\xF3n.`, "system");
-          this.pushActivity(`\u{1F6AA} ${user.username} sali\xF3 del mundo.`);
-        },
-        onCommandReceived: (sender, text) => {
-          if (this.currentUser && sender.username === this.currentUser.username) return;
-          this.addChatMessage(`${sender.avatar || "\u{1F464}"} ${sender.username}`, text, "user");
-          this.pushActivity(`\u{1F4AC} ${sender.username} orden\xF3: "${text}"`);
-          this.brain.think(text);
-        },
-        onRobotActionReceived: () => {
-        }
-      });
-      if (this.currentUser) {
-        this.multiplayer.init(this.currentUser);
-      }
-    }
-    initShareModal() {
-      const shareModal = document.getElementById("modal-share");
-      const openBtns = [document.getElementById("btn-open-share"), document.getElementById("btn-share-server")];
-      const closeBtns = [document.getElementById("btn-close-share"), document.getElementById("btn-close-share-bottom")];
-      openBtns.forEach((btn) => {
-        btn?.addEventListener("click", async () => {
-          if (shareModal) shareModal.classList.remove("hidden");
-          try {
-            const fetchNetwork = async () => {
-              const res = await fetch("/api/network-info");
-              if (res.ok) {
-                const data = await res.json();
-                const tunInput = document.getElementById("share-tunnel-url");
-                const lanInput = document.getElementById("share-lan-url");
-                if (tunInput && data.tunnelUrl) tunInput.value = data.tunnelUrl;
-                if (lanInput && data.lanUrl) lanInput.value = data.lanUrl;
-                return data.tunnelUrl && !data.tunnelUrl.includes("Generando");
-              }
-              return false;
-            };
-            const ready = await fetchNetwork();
-            if (!ready) {
-              let attempts = 0;
-              const poller = setInterval(async () => {
-                attempts++;
-                const isReady = await fetchNetwork();
-                if (isReady || attempts >= 8) clearInterval(poller);
-              }, 2e3);
-            }
-          } catch (e) {
-            if (!window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1")) {
-              const tunInput = document.getElementById("share-tunnel-url");
-              if (tunInput) tunInput.value = window.location.origin;
-            }
-          }
-        });
-      });
-      closeBtns.forEach((btn) => {
-        btn?.addEventListener("click", () => {
-          if (shareModal) shareModal.classList.add("hidden");
-        });
-      });
-      document.querySelectorAll(".copy-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const targetId = btn.getAttribute("data-target");
-          const input = document.getElementById(targetId);
-          if (!input) return;
-          navigator.clipboard.writeText(input.value).then(() => {
-            const original = btn.textContent;
-            btn.textContent = "\u2705 \xA1Copiado!";
-            btn.style.background = "#22c55e";
-            setTimeout(() => {
-              btn.textContent = original;
-              btn.style.background = "";
-            }, 2e3);
-          });
-        });
-      });
-    }
-    throwFetchBall() {
-      const fwd = new Vector3(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.playerRobot.group.rotation.y);
-      this.world.throwBall(this.playerRobot.group.position, fwd, 24);
-      setTimeout(() => {
-        this.brain.executeAction("fetch_ball");
-      }, 450);
-    }
-    handleManualMovement(delta) {
-      if (this.cameraMode === "free" || this.playerRobot.isPickedUp || this.playerRobot.isSliding) return;
-      let moveX = 0;
-      let moveZ = 0;
+    _gatherInput(dt) {
+      let rawX = 0;
+      let rawZ = 0;
+      let rawY = 0;
       let isRunning = !!this.keys["shift"];
-      if (this.joystickInput) {
-        moveX = this.joystickInput.x;
-        moveZ = this.joystickInput.z;
-        if (this.joystickInput.isRunning) isRunning = true;
-      } else {
-        if (this.keys["w"] || this.keys["arrowup"]) moveZ -= 1;
-        if (this.keys["s"] || this.keys["arrowdown"]) moveZ += 1;
-        if (this.keys["a"] || this.keys["arrowleft"]) moveX -= 1;
-        if (this.keys["d"] || this.keys["arrowright"]) moveX += 1;
-      }
-      if ((moveX !== 0 || moveZ !== 0) && this.brain && this.brain.isNavigating) {
-        this.brain.cancelNavigation();
-        this.targetWaypoint = null;
-        if (this.waypointBeaconGroup) this.waypointBeaconGroup.visible = false;
-      }
-      if (this.brain && this.brain.isNavigating) return;
-      const rPos = this.playerRobot.group.position;
-      if (moveX !== 0 || moveZ !== 0) {
-        this.freeWillTimer = 3;
-        const camYaw = Math.atan2(
-          this.camera.position.x - rPos.x,
-          this.camera.position.z - rPos.z
-        );
-        const inputAngle = Math.atan2(moveX, -moveZ);
-        const targetAngle = camYaw + inputAngle;
-        const shortestDiff = Math.atan2(
-          Math.sin(targetAngle - this.playerRobot.group.rotation.y),
-          Math.cos(targetAngle - this.playerRobot.group.rotation.y)
-        );
-        this.playerRobot.bankAngle = MathUtils.clamp(-shortestDiff * 0.35, -0.22, 0.22);
-        this.playerRobot.group.rotation.y = lerpAngle3(
-          this.playerRobot.group.rotation.y,
-          targetAngle,
-          delta * 12
-        );
-        const baseSpeed = isRunning ? 9.5 : 4.8;
-        const speed = baseSpeed * (this.playerRobot.profile ? this.playerRobot.profile.speedMultiplier : 1);
-        const anim = isRunning ? "run" : "walk";
-        const forward = new Vector3(0, 0, 1).applyAxisAngle(new Vector3(0, 1, 0), this.playerRobot.group.rotation.y);
-        rPos.addScaledVector(forward, speed * delta);
-        if (this.world && this.world.resolveObstacleCollisions) {
-          this.world.resolveObstacleCollisions(rPos, 0.75, 1.2);
+      if (this.touchControls) {
+        this.touchControls.getMoveVector(this._touchVec);
+        if (Math.abs(this._touchVec.x) > 0.01 || Math.abs(this._touchVec.y) > 0.01) {
+          rawX = this._touchVec.x;
+          rawZ = this._touchVec.y;
         }
-        if (this.packManager && this.packManager.pack) {
-          this.packManager.pack.forEach((bot) => {
-            if (Math.abs(rPos.y - bot.group.position.y) >= 1.2) return;
-            const dx = rPos.x - bot.group.position.x;
-            const dz = rPos.z - bot.group.position.z;
-            const dist = Math.hypot(dx, dz);
-            if (dist < 1.4 && dist > 1e-3) {
-              const overlap = (1.4 - dist) * 0.5;
-              const nx = dx / dist;
-              const nz = dz / dist;
-              rPos.x += nx * overlap;
-              rPos.z += nz * overlap;
-              bot.group.position.x -= nx * overlap;
-              bot.group.position.z -= nz * overlap;
-            }
-          });
-        }
-        const MAP_LIMIT = 110;
-        rPos.x = MathUtils.clamp(rPos.x, -MAP_LIMIT, MAP_LIMIT);
-        rPos.z = MathUtils.clamp(rPos.z, -MAP_LIMIT, MAP_LIMIT);
-        if (!this.playerRobot.isInWater && this.playerRobot.animController.currentAnim !== "jump" && this.playerRobot.animController.currentAnim !== "backflip") {
-          this.playerRobot.animController.play(anim);
-        }
-      } else {
-        this.playerRobot.bankAngle = MathUtils.lerp(this.playerRobot.bankAngle || 0, 0, delta * 10);
-        if (this.isFreeWillActive) {
-          this.freeWillTimer -= delta;
-          if (this.freeWillTimer <= 0) {
-            this.freeWillTimer = 4 + Math.random() * 5;
-            if (Math.random() < 0.6) {
-              const targets = ["go_ball", "go_trampoline", "go_lake", "go_carousel", "go_disco", "go_snack"];
-              const chosen = targets[Math.floor(Math.random() * targets.length)];
-              this.brain.executeAction(chosen);
-            } else {
-              const idleTricks = ["wagTail", "sniff", "spin", "wave", "dance", "roll", "howl"];
-              const trick = idleTricks[Math.floor(Math.random() * idleTricks.length)];
-              this.playerRobot.animController.play(trick, 2.5);
-            }
-          }
-        } else {
-          if (["walk", "run"].includes(this.playerRobot.animController.currentAnim)) {
-            this.playerRobot.animController.play("idle");
-          }
-        }
+        if (this.touchControls.isRunning()) isRunning = true;
       }
-      const groundY = this.world.getHeightAt(rPos.x, rPos.z);
-      if (!this.playerRobot.isInWater) {
-        if (rPos.y > groundY + 0.04 || this.playerRobot.velocityY && this.playerRobot.velocityY !== 0) {
-          this.playerRobot.velocityY = (this.playerRobot.velocityY || 0) - 18.5 * delta;
-          rPos.y += this.playerRobot.velocityY * delta;
-          if (rPos.y <= groundY) {
-            rPos.y = groundY;
-            if (this.playerRobot.velocityY < -10) {
-              if (this.particleSystem) this.particleSystem.spawnBurst(rPos, "HAPPY");
-            }
-            this.playerRobot.velocityY = 0;
-          }
-        } else {
-          rPos.y = groundY;
-          this.playerRobot.velocityY = 0;
-        }
+      if (rawX === 0 && rawZ === 0) {
+        if (this.keys["w"] || this.keys["arrowup"]) rawZ -= 1;
+        if (this.keys["s"] || this.keys["arrowdown"]) rawZ += 1;
+        if (this.keys["a"] || this.keys["arrowleft"]) rawX -= 1;
+        if (this.keys["d"] || this.keys["arrowright"]) rawX += 1;
       }
-      const prevY = rPos.y;
-      this.world.handleRobotInteractions(this.playerRobot);
-      if (rPos.y > prevY + 0.5 && !this.playerRobot.isInWater) {
-        this.playerRobot.velocityY = (rPos.y - prevY) * 3.2;
-        rPos.y = prevY + 0.15;
-      }
-    }
-    updateHUDStats() {
-      const locEl = document.getElementById("stat-location");
-      const emoEl = document.getElementById("stat-emotion");
-      const nrgEl = document.getElementById("stat-energy");
-      const curEl = document.getElementById("stat-curiosity");
-      const nrgBar = document.getElementById("bar-energy");
-      const curBar = document.getElementById("bar-curiosity");
-      if (locEl && this.vision) locEl.textContent = this.vision.getCurrentLocationName(this.playerRobot.group.position);
-      if (emoEl && this.playerRobot.currentEmotion) {
-        emoEl.textContent = `${this.playerRobot.currentEmotion.icon} ${this.playerRobot.currentEmotion.name}`;
-        emoEl.style.color = this.playerRobot.currentEmotion.cssColor;
-      }
-      const nrg = Math.round(this.playerRobot.energy || 100);
-      const cur = Math.round(this.playerRobot.curiosity || 80);
-      const aff = Math.round(this.playerRobot.affection || 88);
-      const hyd = Math.round(this.playerRobot.hydration || 90);
-      if (nrgEl) nrgEl.textContent = `${nrg}%`;
-      if (curEl) curEl.textContent = `${cur}%`;
-      if (nrgBar) nrgBar.style.width = `${nrg}%`;
-      if (curBar) curBar.style.width = `${cur}%`;
-      const affEl = document.getElementById("stat-affection");
-      const hydEl = document.getElementById("stat-hydration");
-      const affBar = document.getElementById("bar-affection");
-      const hydBar = document.getElementById("bar-hydration");
-      if (affEl) affEl.textContent = `${aff}%`;
-      if (hydEl) hydEl.textContent = `${hyd}%`;
-      if (affBar) affBar.style.width = `${aff}%`;
-      if (hydBar) hydBar.style.width = `${hyd}%`;
-    }
-    updateCamera(delta) {
-      const target = this.playerRobot.group.position;
-      if (this.cameraMode === "diagonal") {
-        this.controls.enabled = true;
-        const offset = 14;
-        const height = 15;
-        const desiredPos = new Vector3(target.x + offset, target.y + height, target.z + offset);
-        this.camera.position.lerp(desiredPos, delta * 5);
-        this.controls.target.lerp(new Vector3(target.x, target.y + 1.2, target.z), delta * 7);
-        this.controls.update();
-      } else if (this.cameraMode === "follow") {
-        this.controls.enabled = true;
-        const rotY = this.playerRobot.group.rotation.y;
-        const dist = 7.5;
-        const height = 3.6;
-        const camX = target.x - Math.sin(rotY) * dist;
-        const camZ = target.z - Math.cos(rotY) * dist;
-        const camY = target.y + height;
-        this.camera.position.lerp(new Vector3(camX, camY, camZ), delta * 6);
-        this.controls.target.lerp(new Vector3(target.x, target.y + 1.2, target.z), delta * 8);
-        this.controls.update();
-      } else if (this.cameraMode === "orbit") {
-        this.controls.enabled = true;
-        this.controls.target.lerp(new Vector3(target.x, target.y + 1.2, target.z), delta * 4);
-        this.controls.update();
-      } else if (this.cameraMode === "free") {
-        this.controls.enabled = true;
-        const flySpeed = (this.keys["shift"] ? 48 : 24) * delta;
-        const forward = new Vector3();
-        this.camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-        const side = new Vector3();
-        side.crossVectors(forward, new Vector3(0, 1, 0)).normalize();
-        if (this.keys["w"] || this.keys["arrowup"]) {
-          this.controls.target.addScaledVector(forward, flySpeed);
-          this.camera.position.addScaledVector(forward, flySpeed);
-        }
-        if (this.keys["s"] || this.keys["arrowdown"]) {
-          this.controls.target.addScaledVector(forward, -flySpeed);
-          this.camera.position.addScaledVector(forward, -flySpeed);
-        }
-        if (this.keys["a"] || this.keys["arrowleft"]) {
-          this.controls.target.addScaledVector(side, -flySpeed);
-          this.camera.position.addScaledVector(side, -flySpeed);
-        }
-        if (this.keys["d"] || this.keys["arrowright"]) {
-          this.controls.target.addScaledVector(side, flySpeed);
-          this.camera.position.addScaledVector(side, flySpeed);
-        }
-        if (this.keys["q"] || this.keys["pageup"]) {
-          this.controls.target.y += flySpeed;
-          this.camera.position.y += flySpeed;
-        }
-        if (this.keys["e"] || this.keys["pagedown"]) {
-          this.controls.target.y = Math.max(1, this.controls.target.y - flySpeed);
-          this.camera.position.y = Math.max(1.8, this.camera.position.y - flySpeed);
-        }
-        this.controls.update();
-      } else if (this.cameraMode === "eye") {
-        this.controls.enabled = false;
-        this.vision.eyeCamera.updateWorldMatrix(true, false);
-        this.vision.eyeCamera.getWorldPosition(this.camera.position);
-        this.vision.eyeCamera.getWorldQuaternion(this.camera.quaternion);
-      } else if (this.cameraMode === "drone") {
-        this.controls.enabled = false;
-        this.droneAngle += delta * 0.35;
-        const radius = 18;
-        const height = 10;
-        const dx = target.x + Math.sin(this.droneAngle) * radius;
-        const dz = target.z + Math.cos(this.droneAngle) * radius;
-        this.camera.position.set(dx, target.y + height, dz);
-        this.camera.lookAt(target.x, target.y + 1.2, target.z);
-      }
-    }
-    renderMinimap(delta = 0.016) {
-      if (!this.minimapCtx || !this.minimapCanvas) return;
-      const ctx = this.minimapCtx;
-      const w = this.minimapCanvas.width;
-      const h = this.minimapCanvas.height;
-      const centerX = w / 2;
-      const centerY = h / 2;
-      const scale = this.minimapScale || 0.55;
-      const pPos = this.playerRobot.group.position;
-      this.radarAngle = (this.radarAngle || 0) + delta * 2.2;
-      this.pingRadius = ((this.pingRadius || 0) + delta * 28) % 45;
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#060a14";
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(0, 229, 255, 0.07)";
-      ctx.lineWidth = 1;
-      const gridSize = 25;
-      for (let x = 0; x < w; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
-      }
-      for (let y = 0; y < h; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-      [25, 50, 75].forEach((r) => {
-        ctx.strokeStyle = "rgba(0, 229, 255, 0.12)";
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, r * scale, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = "rgba(0, 229, 255, 0.35)";
-        ctx.font = "8px monospace";
-        ctx.fillText(`${r}m`, centerX + 4, centerY - r * scale + 9);
-      });
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, 95);
-      grad.addColorStop(0, "rgba(0, 229, 255, 0.3)");
-      grad.addColorStop(1, "rgba(0, 229, 255, 0)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, 95, this.radarAngle, this.radarAngle + 0.45);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-      const lakeMapX = centerX + (-80 - pPos.x) * scale;
-      const lakeMapY = centerY + (-80 - pPos.z) * scale;
-      const lakeRadius = 65 * scale;
-      ctx.fillStyle = "rgba(14, 165, 233, 0.18)";
-      ctx.beginPath();
-      ctx.arc(lakeMapX, lakeMapY, lakeRadius + 6, 0, Math.PI * 2);
-      ctx.fill();
-      const lakeGrad = ctx.createRadialGradient(lakeMapX, lakeMapY, 4, lakeMapX, lakeMapY, lakeRadius);
-      lakeGrad.addColorStop(0, "rgba(2, 132, 199, 0.65)");
-      lakeGrad.addColorStop(1, "rgba(3, 105, 161, 0.85)");
-      ctx.fillStyle = lakeGrad;
-      ctx.beginPath();
-      ctx.arc(lakeMapX, lakeMapY, lakeRadius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#38bdf8";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      const pierX = centerX + (-44 - pPos.x) * scale;
-      const pierY = centerY + (-80 - pPos.z) * scale;
-      ctx.fillStyle = "#b45309";
-      ctx.fillRect(pierX - 6, pierY - 3, 14, 6);
-      const boatX = centerX + (-80 - pPos.x) * scale;
-      const boatY = centerY + (-65 - pPos.z) * scale;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "11px sans-serif";
-      ctx.fillText("\u26F5", boatX - 5, boatY + 4);
-      const playMapX = centerX + (50 - pPos.x) * scale;
-      const playMapY = centerY + (40 - pPos.z) * scale;
-      const playRadius = 36 * scale;
-      ctx.fillStyle = "rgba(234, 88, 12, 0.14)";
-      ctx.beginPath();
-      ctx.arc(playMapX, playMapY, playRadius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(249, 115, 22, 0.35)";
-      ctx.stroke();
-      const goalX = centerX + (25 - pPos.x) * scale;
-      const goalY = centerY + (40 - pPos.z) * scale;
-      ctx.fillStyle = "rgba(22, 101, 52, 0.55)";
-      ctx.fillRect(goalX - 4, goalY - 14, 30, 28);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(goalX - 4, goalY - 14, 30, 28);
-      ctx.beginPath();
-      ctx.arc(goalX + 11, goalY, 6, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "10px sans-serif";
-      ctx.fillText("\u{1F945}", goalX - 10, goalY + 4);
-      const drawIcon = (wx, wz, emoji) => {
-        const ix = centerX + (wx - pPos.x) * scale;
-        const iy = centerY + (wz - pPos.z) * scale;
-        ctx.font = "10px sans-serif";
-        ctx.fillText(emoji, ix - 5, iy + 4);
-      };
-      drawIcon(38, 22, "\u{1F3AA}");
-      drawIcon(62, 26, "\u{1F3A0}");
-      drawIcon(52, 56, "\u{1FAA9}");
-      drawIcon(72, 52, "\u{1F3E0}");
-      drawIcon(12, 10, "\u{1F4A7}");
-      drawIcon(-46, -48, "\u{1F309}");
-      drawIcon(-32, 48, "\u{1F7E3}");
-      drawIcon(-18, -32, "\u{1F3A2}");
-      drawIcon(22, -50, "\u{1F300}");
-      drawIcon(76, 18, "\u{1F3AF}");
-      drawIcon(-42, 14, "\u{1FA85}");
-      if (this.world && this.world.soccerBall) {
-        const sbPos = this.world.soccerBall.mesh.position;
-        const bx = centerX + (sbPos.x - pPos.x) * scale;
-        const by = centerY + (sbPos.z - pPos.z) * scale;
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "10px sans-serif";
-        ctx.fillText("\u26BD", bx - 5, by + 4);
-      }
-      if (this.world && this.world.balls) {
-        this.world.balls.forEach((b) => {
-          if (b === this.world.soccerBall) return;
-          const bx = centerX + (b.mesh.position.x - pPos.x) * scale;
-          const by = centerY + (b.mesh.position.z - pPos.z) * scale;
-          ctx.fillStyle = "#00e5ff";
-          ctx.beginPath();
-          ctx.arc(bx, by, 3, 0, Math.PI * 2);
-          ctx.fill();
-        });
-      }
-      if (this.world && this.world.snacks) {
-        this.world.snacks.forEach((s) => {
-          const sx = centerX + (s.group.position.x - pPos.x) * scale;
-          const sy = centerY + (s.group.position.z - pPos.z) * scale;
-          ctx.fillStyle = "#facc15";
-          ctx.font = "9px sans-serif";
-          ctx.fillText("\u{1F36A}", sx - 4, sy + 3);
-        });
-      }
-      if (this.targetWaypoint) {
-        const wx = centerX + (this.targetWaypoint.x - pPos.x) * scale;
-        const wy = centerY + (this.targetWaypoint.z - pPos.z) * scale;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = "#22c55e";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(wx, wy);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.strokeStyle = "#22c55e";
-        ctx.beginPath();
-        ctx.arc(wx, wy, 8 + Math.sin(this.radarAngle * 4) * 3, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillText("\u{1F3AF}", wx - 6, wy + 4);
-      }
-      if (this.packManager && this.packManager.allRobots) {
-        Object.values(this.packManager.allRobots).forEach((bot) => {
-          if (bot === this.playerRobot) return;
-          const bx = centerX + (bot.group.position.x - pPos.x) * scale;
-          const by = centerY + (bot.group.position.z - pPos.z) * scale;
-          ctx.save();
-          ctx.translate(bx, by);
-          ctx.rotate(bot.group.rotation.y);
-          ctx.fillStyle = "rgba(0, 229, 255, 0.08)";
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.arc(0, 0, 16, -0.4, 0.4);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-          const color = bot.currentEmotion ? bot.currentEmotion.cssColor : "#00e5ff";
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(bx, by, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#f8fafc";
-          ctx.font = "bold 9px Outfit, sans-serif";
-          const icon = bot.profile.avatarIcon || "\u{1F43E}";
-          ctx.fillText(`${icon} ${bot.name}`, bx + 7, by + 3);
-        });
-      }
-      ctx.strokeStyle = `rgba(34, 255, 136, ${Math.max(0, 1 - this.pingRadius / 45)})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, this.pingRadius, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(this.playerRobot.group.rotation.y);
-      ctx.fillStyle = "rgba(34, 255, 136, 0.15)";
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, 22, -0.45, 0.45);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#22ff88";
-      ctx.shadowColor = "#22ff88";
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.moveTo(0, 9);
-      ctx.lineTo(7, -7);
-      ctx.lineTo(0, -3);
-      ctx.lineTo(-7, -7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-      ctx.fillStyle = "#22ff88";
-      ctx.font = "bold 10px Outfit, sans-serif";
-      ctx.fillText(`\u2605 ${this.playerRobot.name}`, centerX - 18, centerY + 18);
-      ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 9px monospace";
-      ctx.fillText("\u25B2 N", centerX - 8, 12);
-      ctx.fillText("S", centerX - 4, h - 5);
-      ctx.fillText("W", 5, centerY + 4);
-      ctx.fillText("E", w - 12, centerY + 4);
-    }
-    // Prevents inverted projection when robot is behind camera frustum (screenPos.z > 1)
-    updateSpeechBubblePos() {
-      const bubble = document.getElementById("world-speech-bubble");
-      if (!bubble || bubble.classList.contains("hidden") || !this.playerRobot.nodes.overheadAnchor) return;
-      const screenPos = new Vector3();
-      this.playerRobot.nodes.overheadAnchor.getWorldPosition(screenPos);
-      screenPos.project(this.camera);
-      if (screenPos.z > 1) {
-        bubble.style.opacity = "0";
+      if (this.keys["q"] || this.keys["pageup"]) rawY += 1;
+      if (this.keys["e"] || this.keys["pagedown"]) rawY -= 1;
+      this._moveInput.x = rawX;
+      this._moveInput.y = rawY;
+      this._moveInput.z = rawZ;
+      this._moveInput.isRunning = isRunning;
+      if (this.cameraController.mode === "free") {
+        this._jumpQueued = false;
         return;
       }
-      bubble.style.opacity = "1";
-      const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
-      const y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
-      bubble.style.left = `${x}px`;
-      bubble.style.top = `${y}px`;
-    }
-    animate() {
-      requestAnimationFrame(this.animate);
-      const delta = Math.min(this.clock.getDelta(), 0.1);
-      try {
-        this.handleManualMovement(delta);
-        if (this.brain) this.brain.updateNavigation(delta);
-        this.playerRobot.update(delta);
-        this.playerRobot.animController.update(delta);
-        if (this.waypointBeaconGroup && this.waypointBeaconGroup.visible) {
-          this.waypointBeaconGroup.rotation.y += delta * 2;
-        }
-        if (this.starField && this.starField.visible) {
-          this.starField.rotation.y += delta * 5e-3;
-        }
-        if (this.packManager) this.packManager.update(delta, this.playerRobot);
-        if (this.world) this.world.update(delta);
-        if (this.particleSystem) this.particleSystem.update(delta);
-        if (this.brain) this.brain.update(delta);
-        this.updateCamera(delta);
-        this.renderer.render(this.scene, this.camera);
-        const pipPanel = document.getElementById("pip-panel");
-        if (this.vision && pipPanel && !pipPanel.classList.contains("hidden") && !pipPanel.classList.contains("minimized")) {
-          this.vision.renderPIP();
-        }
-        this.updateHUDStats();
-        const minimapPanel = document.getElementById("minimap-panel");
-        if (minimapPanel && !minimapPanel.classList.contains("hidden") && !minimapPanel.classList.contains("minimized")) {
-          this.renderMinimap(delta);
-        }
-        this.updateSpeechBubblePos();
-      } catch (err) {
-        console.error("Render loop notice:", err);
+      if (!this.playerRobot) return;
+      const hasInput = Math.abs(rawX) > 0.02 || Math.abs(rawZ) > 0.02;
+      if (hasInput && this.brain && this.brain.isNavigating) {
+        this._handleInputAction({ action: "cancelNavigation" });
       }
+      let worldMoveX = 0;
+      let worldMoveZ = 0;
+      if (hasInput) {
+        this.cameraController.getGroundForwardRight(TMP.v1, TMP.v2);
+        const fwdAmt = -rawZ;
+        const rightAmt = rawX;
+        worldMoveX = TMP.v1.x * fwdAmt + TMP.v2.x * rightAmt;
+        worldMoveZ = TMP.v1.z * fwdAmt + TMP.v2.z * rightAmt;
+      }
+      const jumpNow = this._jumpQueued;
+      this._jumpQueued = false;
+      if (jumpNow) {
+        roboAudio.playJump();
+      }
+      if (!this.brain || !this.brain.isNavigating) {
+        stepRobotPhysics(
+          this.playerRobot,
+          worldMoveX,
+          worldMoveZ,
+          isRunning,
+          jumpNow,
+          this.world,
+          dt,
+          eventBus
+        );
+        if (this.playerRobot.animController && this.playerRobot.animController.syncLocomotion) {
+          const spd = this.playerRobot.physics ? this.playerRobot.physics.speedScalar : 0;
+          this.playerRobot.animController.syncLocomotion(spd, hasInput);
+        }
+      }
+      if (hasInput) {
+        this._freeWillTimer = 3;
+      } else if (appState.isFreeWill && (!this.brain || !this.brain.isNavigating)) {
+        this._freeWillTimer -= dt;
+        if (this._freeWillTimer <= 0) {
+          this._freeWillTimer = 4.5 + Math.random() * 4.5;
+          if (this.brain && this.brain.triggerFreeWillThought) {
+            this.brain.triggerFreeWillThought();
+          }
+        }
+      }
+      this.world.handleRobotInteractions(this.playerRobot, this.playerRobot.animController, dt);
+    }
+    _animate() {
+      if (this.disposed) return;
+      this._rafId = requestAnimationFrame(this._animate);
+      this.timer.update();
+      const dt = Math.min(this.timer.getDelta(), 0.05);
+      this.elapsedTime += dt;
+      try {
+        this._gatherInput(dt);
+        if (this.brain) {
+          this.brain.updateNavigation(dt);
+          if (this._wasNavigating && !this.brain.isNavigating) {
+            appState.navigation.active = false;
+            appState.navigation.target = null;
+            if (this.waypointBeacon) this.waypointBeacon.visible = false;
+          }
+          this._wasNavigating = !!this.brain.isNavigating;
+        }
+        if (this.playerRobot) {
+          this.playerRobot.update(dt);
+          if (this.playerRobot.animController) {
+            this.playerRobot.animController.update(dt);
+          }
+        }
+        if (this.packManager) {
+          this.packManager.update(dt);
+        }
+        resolvePackPushout(this._dogsList, this.world);
+        if (this.world) {
+          this.world.update(dt, this.elapsedTime);
+        }
+        if (this.particles) {
+          this.particles.update(dt);
+        }
+        if (this.vision && this.playerRobot) {
+          this.vision.update(dt, this.playerRobot);
+        }
+        if (this.gfx && this.playerRobot) {
+          this.gfx.update(dt, this.playerRobot.group.position, this.elapsedTime);
+        }
+        if (this.waypointBeacon && this.waypointBeacon.visible) {
+          this.waypointBeacon.rotation.y += dt * 2;
+          if (!appState.navigation.active) {
+            this.waypointBeacon.visible = false;
+          }
+        }
+        this.cameraController.update(
+          dt,
+          this.playerRobot,
+          this._moveInput,
+          this.vision ? this.vision.eyeCamera : null
+        );
+        this.gfx.render(this.camera);
+        if (this.vision && this._pipPanel && this._pipCanvas && !this._pipPanel.classList.contains("hidden") && !this._pipPanel.classList.contains("minimized")) {
+          this.vision.renderPIP(this.gfx, this._pipCanvas);
+        }
+        if (this.uiHud && this.playerRobot) {
+          this.uiHud.updateSpeechBubble(this.playerRobot, this.camera);
+        }
+        this._minimapTimer += dt;
+        if (this._minimapTimer >= MINIMAP_INTERVAL) {
+          this._minimapTimer = 0;
+          if (this.uiHud && this._minimapPanel && !this._minimapPanel.classList.contains("hidden") && !this._minimapPanel.classList.contains("minimized")) {
+            this.uiHud.updateMinimap(this.playerRobot, this._dogsList);
+          }
+        }
+        this._telemetryTimer += dt;
+        this._telemetryFrames++;
+        if (this._telemetryTimer >= TELEMETRY_INTERVAL) {
+          const windowSec = this._telemetryTimer;
+          const fps = Math.round(this._telemetryFrames / windowSec);
+          const frameMs = Number((windowSec / Math.max(1, this._telemetryFrames) * 1e3).toFixed(1));
+          this._telemetry.fps = fps;
+          this._telemetry.frameMs = frameMs;
+          this.gfx.getTelemetry(this._telemetry);
+          this._telemetry.heapMB = performance && performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null;
+          appState.telemetry.fps = fps;
+          appState.telemetry.frameMs = frameMs;
+          appState.telemetry.drawCalls = this._telemetry.drawCalls;
+          appState.telemetry.triangles = this._telemetry.triangles;
+          appState.telemetry.geometries = this._telemetry.geometries;
+          appState.telemetry.textures = this._telemetry.textures;
+          eventBus.emit("telemetry:frame", this._telemetry);
+          if (this.uiHud) {
+            this.uiHud.updateTelemetry(this._telemetry);
+          }
+          if (this.playerRobot) {
+            this._robotStats.name = this.playerRobot.name;
+            this._robotStats.emotion = this.playerRobot.currentEmotion || null;
+            this._robotStats.energy = this.playerRobot.energy ?? 100;
+            this._robotStats.curiosity = this.playerRobot.curiosity ?? 85;
+            this._robotStats.affection = this.playerRobot.affection ?? 88;
+            this._robotStats.hydration = this.playerRobot.hydration ?? 90;
+            this._robotStats.location = this.vision ? this.vision.getCurrentLocationName(this.playerRobot.group.position) : "Prado Esmeralda";
+            eventBus.emit("robot:stats", this._robotStats);
+          }
+          this._telemetryTimer = 0;
+          this._telemetryFrames = 0;
+        }
+      } catch (err) {
+        console.error("[App] RAF error:", err);
+      }
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      if (this._rafId !== null) {
+        cancelAnimationFrame(this._rafId);
+        this._rafId = null;
+      }
+      this.timers.clearAll();
+      this.timer?.dispose?.();
+      for (let i = 0; i < this._unsubs.length; i++) {
+        this._unsubs[i]();
+      }
+      this._unsubs.length = 0;
+      window.removeEventListener("resize", this._onResize);
+      window.removeEventListener("keydown", this._onKeyDown);
+      window.removeEventListener("keyup", this._onKeyUp);
+      window.removeEventListener("blur", this._onBlur);
+      window.removeEventListener("pointermove", this._onPointerMove);
+      window.removeEventListener("pointerup", this._onPointerUp);
+      window.removeEventListener("pointercancel", this._onPointerUp);
+      if (this.gfx && this.gfx.renderer && this.gfx.renderer.domElement) {
+        this.gfx.renderer.domElement.removeEventListener("pointerdown", this._onPointerDown);
+      }
+      this.cameraController?.dispose();
+      this.uiHud?.dispose();
+      this.touchControls?.dispose();
+      this.brain?.dispose();
+      this.vision?.dispose();
+      this.packManager?.dispose();
+      this.particles?.dispose();
+      this.world?.dispose();
+      this.multiplayer?.dispose();
+      roboAudio?.dispose?.();
+      this.gfx?.dispose();
+      assetCache.disposeAll();
+      eventBus.clear();
     }
   };
   window.addEventListener("DOMContentLoaded", () => {
-    new App();
+    window.__roboApp = new App();
   });
 })();
 /*! Bundled license information:

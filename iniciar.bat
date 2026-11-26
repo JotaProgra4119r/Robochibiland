@@ -1,9 +1,9 @@
 @echo off
-title RoboChibi 3D - Servidor Rust
+title RoboChibi 3D - Servidor WebGL 60 FPS
 cd /d "%~dp0"
 
 echo =========================================================
-echo    ROBO CHIBI 3D - CYBERPUP WORLD (RUST + WEBGL2/WEBGPU)
+echo    ROBO CHIBI 3D - WEBGL 60 FPS (THREE.JS + SERVIDOR)
 echo =========================================================
 
 echo [1/3] Verificando puerto 3000 y procesos previos...
@@ -13,20 +13,31 @@ for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":3000" ^| findstr "LI
 )
 taskkill /F /IM cloudflared.exe >nul 2>&1
 
-echo [2/3] Verificando compilacion WebAssembly (public\pkg)...
+echo [2/3] Verificando bundle WebGL (public\bundle.js)...
+if not exist "public\bundle.js" (
+    where npm >nul 2>&1
+    if not errorlevel 1 (
+        if not exist "node_modules\three" (
+            echo   Instalando dependencias de Node.js...
+            call npm install
+        )
+        echo   Compilando bundle WebGL...
+        call npm run build
+    ) else (
+        echo [AVISO] npm no encontrado y falta public\bundle.js.
+    )
+)
+
+echo [3/3] Iniciando Servidor...
 where cargo >nul 2>&1
 if not errorlevel 1 (
-    if not exist "public\pkg\robochibi_web.js" (
-        echo   Generando WASM (WebGL2 + WebGPU)...
-        powershell -ExecutionPolicy Bypass -File ".\build_web.ps1"
-    )
-    echo [3/3] Iniciando Servidor Rust (robochibi-server)...
+    echo   Usando servidor Rust (robochibi-server)...
     start http://localhost:3000
     cargo run --release -p robochibi-server
     goto :end
 )
 
-echo [AVISO] Cargo no encontrado en PATH; usando servidor Node.js de respaldo...
+echo [AVISO] Cargo no encontrado en PATH; usando servidor Node.js...
 where node >nul 2>&1
 if errorlevel 1 (
     echo [ERROR CRITICO] Ni Rust (cargo) ni Node.js estan instalados en PATH.
@@ -34,6 +45,7 @@ if errorlevel 1 (
     exit /b 1
 )
 if not exist "node_modules\express" (
+    echo   Instalando dependencias de Node.js...
     call npm install
 )
 start http://localhost:3000
